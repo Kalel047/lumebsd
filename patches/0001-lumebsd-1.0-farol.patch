@@ -1,0 +1,667 @@
+From 403d4045b63105944c6d3963102bd3623b002474 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 1 Nov 2026 23:43:51 -0300
+Subject: [PATCH] LumeBSD 1.0 'Farol': identidade, emblema do loader, lume(1),
+ rc.d/lume_farol, kernel LUME
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ libexec/rc/rc.d/Makefile    |   1 +
+ libexec/rc/rc.d/lume_farol  |  33 +++++
+ libexec/rc/rc.d/os-release  |  13 +-
+ stand/lua/Makefile          |   2 +
+ stand/lua/drawer.lua        |   8 +-
+ stand/lua/gfx-lume.lua      |  43 ++++++
+ stand/lua/gfx-lumebw.lua    |  42 ++++++
+ sys/amd64/conf/LUME         |  15 +++
+ sys/conf/newvers.sh         |   6 +-
+ sys/sys/copyright.h         |   2 +-
+ usr.bin/Makefile            |   1 +
+ usr.bin/login/motd.template |  26 ++--
+ usr.bin/lume/Makefile       |   4 +
+ usr.bin/lume/lume.1         |  39 ++++++
+ usr.bin/lume/lume.c         | 258 ++++++++++++++++++++++++++++++++++++
+ 15 files changed, 463 insertions(+), 30 deletions(-)
+ create mode 100644 libexec/rc/rc.d/lume_farol
+ create mode 100644 stand/lua/gfx-lume.lua
+ create mode 100644 stand/lua/gfx-lumebw.lua
+ create mode 100644 sys/amd64/conf/LUME
+ create mode 100644 usr.bin/lume/Makefile
+ create mode 100644 usr.bin/lume/lume.1
+ create mode 100644 usr.bin/lume/lume.c
+
+diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
+index 3b7f45e8f..65e6bc38f 100644
+--- a/libexec/rc/rc.d/Makefile
++++ b/libexec/rc/rc.d/Makefile
+@@ -37,6 +37,7 @@ CONFS=	DAEMON \
+ 	local \
+ 	localpkg \
+ 	mixer \
++	lume_farol \
+ 	motd \
+ 	mountcritlocal \
+ 	mountcritremote \
+diff --git a/libexec/rc/rc.d/lume_farol b/libexec/rc/rc.d/lume_farol
+new file mode 100644
+index 000000000..fe327798e
+--- /dev/null
++++ b/libexec/rc/rc.d/lume_farol
+@@ -0,0 +1,33 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: acende o farol ao final do boot - imprime o emblema e um
++# resumo curto do sistema no console.
++#
++
++# PROVIDE: lume_farol
++# REQUIRE: LOGIN
++# KEYWORD: nojail
++
++. /etc/rc.subr
++
++name="lume_farol"
++desc="Exibe o emblema do LumeBSD ao final do boot"
++rcvar="lume_farol_enable"
++start_cmd="lume_farol_start"
++stop_cmd=":"
++
++lume_farol_start()
++{
++	if [ -x /usr/bin/lume ]; then
++		echo
++		/usr/bin/lume farol
++		/usr/bin/lume
++		echo
++	fi
++}
++
++load_rc_config $name
++: ${lume_farol_enable:="YES"}
++run_rc_command "$1"
+diff --git a/libexec/rc/rc.d/os-release b/libexec/rc/rc.d/os-release
+index 0f8ee71e0..5f05e152e 100755
+--- a/libexec/rc/rc.d/os-release
++++ b/libexec/rc/rc.d/os-release
+@@ -25,15 +25,14 @@ osrelease_start()
+ 	_version_id=${_version%%[^0-9.]*}
+ 	t=$(mktemp -t os-release)
+ 	cat > "$t" <<-__EOF__
+-		NAME=FreeBSD
++		NAME=LumeBSD
+ 		VERSION="$_version"
+ 		VERSION_ID="$_version_id"
+-		ID=freebsd
+-		ANSI_COLOR="0;31"
+-		PRETTY_NAME="FreeBSD $_version"
+-		CPE_NAME="cpe:/o:freebsd:freebsd:$_version_id"
+-		HOME_URL="https://FreeBSD.org/"
+-		BUG_REPORT_URL="https://bugs.FreeBSD.org/"
++		VERSION_CODENAME=farol
++		ID=lumebsd
++		ID_LIKE=freebsd
++		ANSI_COLOR="0;33"
++		PRETTY_NAME="LumeBSD $_version (Farol)"
+ __EOF__
+ 	install -C -o root -g wheel -m ${osrelease_perms} "$t" "${osrelease_file}"
+ 	rm -f "$t"
+diff --git a/stand/lua/Makefile b/stand/lua/Makefile
+index d319261e1..f9144e558 100644
+--- a/stand/lua/Makefile
++++ b/stand/lua/Makefile
+@@ -25,6 +25,8 @@ FILES=	cli.lua \
+ 	gfx-beastiebw.lua \
+ 	gfx-fbsdbw.lua \
+ 	gfx-install.lua \
++	gfx-lume.lua \
++	gfx-lumebw.lua \
+ 	gfx-orb.lua \
+ 	gfx-orbbw.lua \
+ 	menu.lua \
+diff --git a/stand/lua/drawer.lua b/stand/lua/drawer.lua
+index 1c03ed93f..e4b27aba9 100644
+--- a/stand/lua/drawer.lua
++++ b/stand/lua/drawer.lua
+@@ -320,7 +320,7 @@ local function drawbox()
+ 	local y = menu_position.y - 1
+ 	local w = frame_size.w
+ 	local menu_header = loader.getenv("loader_menu_title") or
+-	    "Welcome to FreeBSD"
++	    "Bem-vindo ao LumeBSD"
+ 	local menu_header_align = loader.getenv("loader_menu_title_align")
+ 	local menu_header_x
+ 
+@@ -541,9 +541,9 @@ default_shift = {x = 0, y = 0}
+ shift = default_shift
+ 
+ -- Module exports
+-drawer.default_brand = 'fbsd'
+-drawer.default_color_logodef = 'orb'
+-drawer.default_bw_logodef = 'orbbw'
++drawer.default_brand = 'lumebw'
++drawer.default_color_logodef = 'lume'
++drawer.default_bw_logodef = 'lumebw'
+ -- For when things go terribly wrong; this def should be present here in the
+ -- drawer module in case it's a filesystem issue.
+ drawer.default_fallback_logodef = 'none'
+diff --git a/stand/lua/gfx-lume.lua b/stand/lua/gfx-lume.lua
+new file mode 100644
+index 000000000..900da6f61
+--- /dev/null
++++ b/stand/lua/gfx-lume.lua
+@@ -0,0 +1,43 @@
++--
++-- SPDX-License-Identifier: BSD-2-Clause
++--
++-- LumeBSD: the lighthouse ("farol") emblem, in color.
++-- Amber light, white tower, blue sea.
++--
++
++return {
++	brand = {
++		ascii = {
++			image = {
++			    "\027[33;1m  _                          \027[37m____   _____ _____  ",
++			    "\027[33;1m | |                        \027[37m|  _ \\ / ____|  __ \\ ",
++			    "\027[33;1m | |    _   _ _ __ ___   ___\027[37m| |_) | (___ | |  | |",
++			    "\027[33;1m | |   | | | | '_ ` _ \\ / _ \\\027[37m  _ < \\___ \\| |  | |",
++			    "\027[33;1m | |___| |_| | | | | | |  __/\027[37m |_) |____) | |__| |",
++			    "\027[33;1m |______\\__,_|_| |_| |_|\\___|\027[37m____/|_____/|_____/ \027[m",
++			},
++			requires_color = true,
++		},
++	},
++	logo = {
++		ascii = {
++			image = {
++			    "\027[33;1m     \\    |    /\027[m",
++			    "\027[33;1m   ---  (( ))  ---\027[m",
++			    "\027[33;1m     /   \027[37m_|_\027[33;1m   \\\027[m",
++			    "\027[37;1m        /___\\\027[m",
++			    "\027[37;1m        |[\027[33m_\027[37m]|\027[m",
++			    "\027[37;1m        |\027[31m===\027[37m|\027[m",
++			    "\027[37;1m        |   |\027[m",
++			    "\027[37;1m        |\027[31m===\027[37m|\027[m",
++			    "\027[37;1m       /|   |\\\027[m",
++			    "\027[37;1m        |\027[31m===\027[37m|\027[m",
++			    "\027[37;1m       _|___|_\027[m",
++			    "\027[34;1m  ~~~~\027[37m/_______\\\027[34;1m~~~~\027[m",
++			    "\027[34m   ~~   ~~~~   ~~\027[m",
++			},
++			requires_color = true,
++			shift = {x = 3, y = 0},
++		},
++	},
++}
+diff --git a/stand/lua/gfx-lumebw.lua b/stand/lua/gfx-lumebw.lua
+new file mode 100644
+index 000000000..b737b9c65
+--- /dev/null
++++ b/stand/lua/gfx-lumebw.lua
+@@ -0,0 +1,42 @@
++--
++-- SPDX-License-Identifier: BSD-2-Clause
++--
++-- LumeBSD: the lighthouse ("farol") emblem, monochrome.
++--
++
++return {
++	brand = {
++		ascii = {
++			image = {
++			    "  _                          ____   _____ _____  ",
++			    " | |                        |  _ \\ / ____|  __ \\ ",
++			    " | |    _   _ _ __ ___   ___| |_) | (___ | |  | |",
++			    " | |   | | | | '_ ` _ \\ / _ \\  _ < \\___ \\| |  | |",
++			    " | |___| |_| | | | | | |  __/ |_) |____) | |__| |",
++			    " |______\\__,_|_| |_| |_|\\___|____/|_____/|_____/ ",
++			},
++			requires_color = false,
++		},
++	},
++	logo = {
++		ascii = {
++			image = {
++			    "     \\    |    /",
++			    "   ---  (( ))  ---",
++			    "     /   _|_   \\",
++			    "        /___\\",
++			    "        |[_]|",
++			    "        |===|",
++			    "        |   |",
++			    "        |===|",
++			    "       /|   |\\",
++			    "        |===|",
++			    "       _|___|_",
++			    "  ~~~~/_______\\~~~~",
++			    "   ~~   ~~~~   ~~",
++			},
++			requires_color = false,
++			shift = {x = 3, y = 0},
++		},
++	},
++}
+diff --git a/sys/amd64/conf/LUME b/sys/amd64/conf/LUME
+new file mode 100644
+index 000000000..07001b56c
+--- /dev/null
++++ b/sys/amd64/conf/LUME
+@@ -0,0 +1,15 @@
++#
++# LUME -- kernel do LumeBSD 1.0 "Farol" para amd64.
++# Parte do GENERIC e ajusta para um sistema mais enxuto e de boot rápido.
++#
++include		GENERIC
++
++ident		LUME
++
++nomakeoptions	DEBUG
++nomakeoptions	WITH_CTF
++
++# Sem símbolos de depuração/rastreio pesados no kernel de release.
++nooptions	KDTRACE_FRAME
++nooptions	KDTRACE_HOOKS
++nooptions	DDB_CTF
+diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
+index 9a259c13b..d12701e81 100644
+--- a/sys/conf/newvers.sh
++++ b/sys/conf/newvers.sh
+@@ -49,9 +49,9 @@
+ #		like the -V command
+ #
+ 
+-TYPE="FreeBSD"
+-REVISION="15.0"
+-BRANCH="RELEASE-p14"
++TYPE="LumeBSD"
++REVISION="1.0"
++BRANCH="FAROL"
+ if [ -n "${BRANCH_OVERRIDE}" ]; then
+ 	BRANCH=${BRANCH_OVERRIDE}
+ fi
+diff --git a/sys/sys/copyright.h b/sys/sys/copyright.h
+index 8c89adf7f..2ea12d09c 100644
+--- a/sys/sys/copyright.h
++++ b/sys/sys/copyright.h
+@@ -30,7 +30,7 @@
+ /* Add a FreeBSD vendor copyright here - or via CFLAGS */
+ #ifndef COPYRIGHT_Vendor
+ #define	COPYRIGHT_Vendor \
+-	""
++	"LumeBSD 1.0 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
+ #endif
+ 
+ /* FreeBSD */
+diff --git a/usr.bin/Makefile b/usr.bin/Makefile
+index da1a9b3a6..b752ab411 100644
+--- a/usr.bin/Makefile
++++ b/usr.bin/Makefile
+@@ -74,6 +74,7 @@ SUBDIR=	alias \
+ 	locale \
+ 	localedef \
+ 	lock \
++	lume \
+ 	lockf \
+ 	logger \
+ 	login \
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index e743370ca..b0849e703 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -1,20 +1,16 @@
+ 
+-Welcome to FreeBSD!
++   LumeBSD 1.0 "Farol"  -  luz firme sobre fundação BSD
+ 
+-Release Notes, Errata: https://www.FreeBSD.org/releases/
+-Security Advisories:   https://www.FreeBSD.org/security/
+-FreeBSD Handbook:      https://www.FreeBSD.org/handbook/
+-FreeBSD FAQ:           https://www.FreeBSD.org/faq/
+-Questions List:        https://www.FreeBSD.org/lists/questions/
+-FreeBSD Forums:        https://forums.FreeBSD.org/
++   Este é o LumeBSD, uma distribuição BSD independente construída
++   a partir do código-fonte do FreeBSD.
+ 
+-Documents installed with the system are in the /usr/local/share/doc/freebsd/
+-directory, or can be installed later with:  pkg install en-freebsd-doc
+-For other languages, replace "en" with a language code like de or fr.
++   Comandos para começar:
++     lume            painel do sistema (versão, CPU, memória, disco, uptime)
++     lume farol      o emblema da distribuição
++     lume dica       uma dica aleatória do sistema
++     man lume        manual do utilitário
+ 
+-Show the version of FreeBSD installed:  freebsd-version ; uname -a
+-Please include that output and any error messages when posting questions.
+-Introduction to manual pages:  man man
+-FreeBSD directory layout:      man hier
++   Documentação da base (FreeBSD Handbook): man hier ; man rc.conf
++
++   Para alterar esta mensagem, veja motd(5).
+ 
+-To change this login announcement, see motd(5).
+diff --git a/usr.bin/lume/Makefile b/usr.bin/lume/Makefile
+new file mode 100644
+index 000000000..1d0f92b9c
+--- /dev/null
++++ b/usr.bin/lume/Makefile
+@@ -0,0 +1,4 @@
++PROG=	lume
++MAN=	lume.1
++
++.include <bsd.prog.mk>
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+new file mode 100644
+index 000000000..e8138f748
+--- /dev/null
++++ b/usr.bin/lume/lume.1
+@@ -0,0 +1,39 @@
++.\"
++.\" SPDX-License-Identifier: BSD-2-Clause
++.\"
++.Dd November 1, 2026
++.Dt LUME 1
++.Os
++.Sh NAME
++.Nm lume
++.Nd painel do sistema e identidade do LumeBSD
++.Sh SYNOPSIS
++.Nm
++.Op Cm farol | dica | versao
++.Sh DESCRIPTION
++Sem argumentos,
++.Nm
++mostra um painel com o nome da distribuição, kernel, CPU, uso de memória,
++uso do disco raiz, carga média e tempo ligado.
++.Bl -tag -width "versao"
++.It Cm farol
++Desenha o emblema da distribuição.
++.It Cm dica
++Mostra uma dica aleatória sobre o sistema.
++.It Cm versao
++Imprime a versão do LumeBSD.
++.El
++.Sh ENVIRONMENT
++.Bl -tag -width "NO_COLOR"
++.It Ev NO_COLOR
++Se definida, desativa as cores.
++.El
++.Sh SEE ALSO
++.Xr freebsd-version 1 ,
++.Xr sysctl 8 ,
++.Xr rc.conf 5
++.Sh HISTORY
++O utilitário
++.Nm
++surgiu no LumeBSD 1.0
++.Dq Farol .
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+new file mode 100644
+index 000000000..0ef2e5d35
+--- /dev/null
++++ b/usr.bin/lume/lume.c
+@@ -0,0 +1,258 @@
++/*-
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * lume(1) - painel do sistema e utilitário de identidade do LumeBSD.
++ *
++ *   lume            painel: sistema, kernel, CPU, memória, disco, carga, uptime
++ *   lume farol      desenha o emblema (farol) da distribuição
++ *   lume dica       mostra uma dica aleatória
++ *   lume versao     imprime a versão da distribuição
++ */
++
++#include <sys/param.h>
++#include <sys/mount.h>
++#include <sys/sysctl.h>
++#include <sys/time.h>
++
++#include <err.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include <unistd.h>
++
++#define	LUME_NAME	"LumeBSD"
++#define	LUME_VERSION	"1.0"
++#define	LUME_CODENAME	"Farol"
++
++static int use_color;
++
++#define	C(code)	(use_color ? "\033[" code "m" : "")
++#define	AMBER	C("33;1")
++#define	WHITE	C("37;1")
++#define	BLUE	C("34;1")
++#define	RED	C("31")
++#define	DIM	C("2")
++#define	RESET	C("0")
++
++static const char *tips[] = {
++	"lume sem argumentos mostra o painel do sistema.",
++	"jail(8) isola serviços inteiros com custo quase zero.",
++	"service -e lista todos os serviços habilitados no boot.",
++	"sysrc(8) edita o rc.conf sem abrir um editor: sysrc hostname=farol",
++	"top -SH mostra também as threads do kernel.",
++	"sysctl -a | less: o kernel inteiro, exposto como uma árvore.",
++	"pciconf -lv lista o hardware PCI com nomes legíveis.",
++	"Desative o emblema do boot com: sysrc lume_farol_enable=NO",
++	"freebsd-version -ku mostra as versões do kernel e da userland.",
++	"man hier explica a organização de diretórios do sistema.",
++};
++
++static void
++init_color(void)
++{
++	const char *term = getenv("TERM");
++
++	use_color = isatty(STDOUT_FILENO) && getenv("NO_COLOR") == NULL &&
++	    (term == NULL || strcmp(term, "dumb") != 0);
++}
++
++static int
++sysctl_str(const char *name, char *buf, size_t len)
++{
++	size_t l = len;
++
++	if (sysctlbyname(name, buf, &l, NULL, 0) != 0) {
++		strlcpy(buf, "?", len);
++		return (-1);
++	}
++	buf[len - 1] = '\0';
++	return (0);
++}
++
++static uint64_t
++sysctl_u64(const char *name)
++{
++	union {
++		uint32_t u32;
++		uint64_t u64;
++	} v;
++	size_t l = sizeof(v);
++
++	memset(&v, 0, sizeof(v));
++	if (sysctlbyname(name, &v, &l, NULL, 0) != 0)
++		return (0);
++	return (l == sizeof(uint32_t) ? v.u32 : v.u64);
++}
++
++static void
++human(uint64_t bytes, char *out, size_t len)
++{
++	const char *units[] = { "B", "KiB", "MiB", "GiB", "TiB" };
++	double v = (double)bytes;
++	int i = 0;
++
++	while (v >= 1024.0 && i < 4) {
++		v /= 1024.0;
++		i++;
++	}
++	snprintf(out, len, i == 0 ? "%.0f %s" : "%.1f %s", v, units[i]);
++}
++
++static void
++bar(double frac, char *out, size_t len)
++{
++	const int width = 20;
++	int n, i;
++	size_t p = 0;
++
++	if (frac < 0)
++		frac = 0;
++	if (frac > 1)
++		frac = 1;
++	n = (int)(frac * width + 0.5);
++	p += snprintf(out + p, len - p, "[%s", frac > 0.85 ? RED : AMBER);
++	for (i = 0; i < width && p < len; i++)
++		p += snprintf(out + p, len - p, "%s", i < n ? "#" : ".");
++	snprintf(out + p, len - p, "%s]", RESET);
++}
++
++static void
++row(const char *label, const char *value)
++{
++	printf("  %s%-10s%s %s\n", AMBER, label, RESET, value);
++}
++
++static void
++farol(void)
++{
++	printf("%s     \\    |    /%s\n", AMBER, RESET);
++	printf("%s   ---  (( ))  ---%s\n", AMBER, RESET);
++	printf("%s     /   %s_|_%s   \\%s\n", AMBER, WHITE, AMBER, RESET);
++	printf("%s        /___\\%s\n", WHITE, RESET);
++	printf("%s        |[%s_%s]|%s\n", WHITE, AMBER, WHITE, RESET);
++	printf("%s        |%s===%s|%s      %sLumeBSD %s%s\n", WHITE, RED, WHITE,
++	    RESET, WHITE, LUME_VERSION, RESET);
++	printf("%s        |   |%s      %s\"%s\"%s\n", WHITE, RESET, AMBER,
++	    LUME_CODENAME, RESET);
++	printf("%s        |%s===%s|%s\n", WHITE, RED, WHITE, RESET);
++	printf("%s       /|   |\\%s     %sluz firme sobre fundação BSD%s\n",
++	    WHITE, RESET, DIM, RESET);
++	printf("%s        |%s===%s|%s\n", WHITE, RED, WHITE, RESET);
++	printf("%s       _|___|_%s\n", WHITE, RESET);
++	printf("%s  ~~~~%s/_______\\%s~~~~%s\n", BLUE, WHITE, BLUE, RESET);
++	printf("%s   ~~   ~~~~   ~~%s\n", BLUE, RESET);
++}
++
++static void
++painel(void)
++{
++	char host[256], ostype[64], osrel[64], model[128], buf[256];
++	char a[32], b[32], g[64];
++	struct timeval boot;
++	struct statfs sfs;
++	size_t l;
++	double load[3];
++	uint64_t physmem, pagesize, freepg, inact, ncpu;
++	time_t up;
++
++	sysctl_str("kern.hostname", host, sizeof(host));
++	sysctl_str("kern.ostype", ostype, sizeof(ostype));
++	sysctl_str("kern.osrelease", osrel, sizeof(osrel));
++	sysctl_str("hw.model", model, sizeof(model));
++	ncpu = sysctl_u64("hw.ncpu");
++	physmem = sysctl_u64("hw.physmem");
++	pagesize = sysctl_u64("hw.pagesize");
++	freepg = sysctl_u64("vm.stats.vm.v_free_count");
++	inact = sysctl_u64("vm.stats.vm.v_inactive_count");
++
++	printf("\n  %s%s %s%s %s\"%s\"%s  %s@ %s%s\n", WHITE, LUME_NAME,
++	    LUME_VERSION, RESET, AMBER, LUME_CODENAME, RESET, DIM, host, RESET);
++	printf("  %s----------------------------------------------%s\n",
++	    DIM, RESET);
++
++	snprintf(buf, sizeof(buf), "%s %s (base FreeBSD 15.0)", ostype, osrel);
++	row("kernel", buf);
++
++	snprintf(buf, sizeof(buf), "%s (%ju núcleos)", model, (uintmax_t)ncpu);
++	row("cpu", buf);
++
++	if (physmem > 0 && pagesize > 0) {
++		uint64_t avail = (freepg + inact) * pagesize;
++		uint64_t used = physmem > avail ? physmem - avail : 0;
++
++		human(used, a, sizeof(a));
++		human(physmem, b, sizeof(b));
++		bar((double)used / (double)physmem, g, sizeof(g));
++		snprintf(buf, sizeof(buf), "%s %s / %s", g, a, b);
++		row("memória", buf);
++	}
++
++	if (statfs("/", &sfs) == 0) {
++		uint64_t total = (uint64_t)sfs.f_blocks * sfs.f_bsize;
++		uint64_t freeb = (uint64_t)sfs.f_bavail * sfs.f_bsize;
++		uint64_t used = total > freeb ? total - freeb : 0;
++
++		human(used, a, sizeof(a));
++		human(total, b, sizeof(b));
++		bar(total ? (double)used / (double)total : 0, g, sizeof(g));
++		snprintf(buf, sizeof(buf), "%s %s / %s (%s)", g, a, b,
++		    sfs.f_fstypename);
++		row("disco /", buf);
++	}
++
++	if (getloadavg(load, 3) == 3) {
++		snprintf(buf, sizeof(buf), "%.2f  %.2f  %.2f", load[0],
++		    load[1], load[2]);
++		row("carga", buf);
++	}
++
++	l = sizeof(boot);
++	if (sysctlbyname("kern.boottime", &boot, &l, NULL, 0) == 0) {
++		up = time(NULL) - boot.tv_sec;
++		if (up >= 86400)
++			snprintf(buf, sizeof(buf), "%jd d %jd h %jd min",
++			    (intmax_t)(up / 86400), (intmax_t)(up % 86400 / 3600),
++			    (intmax_t)(up % 3600 / 60));
++		else
++			snprintf(buf, sizeof(buf), "%jd h %jd min %jd s",
++			    (intmax_t)(up / 3600), (intmax_t)(up % 3600 / 60),
++			    (intmax_t)(up % 60));
++		row("ligado há", buf);
++	}
++	printf("\n");
++}
++
++static void
++usage(void)
++{
++	fprintf(stderr, "uso: lume [farol | dica | versao]\n");
++	exit(1);
++}
++
++int
++main(int argc, char *argv[])
++{
++	init_color();
++
++	if (argc == 1) {
++		painel();
++		return (0);
++	}
++	if (argc != 2)
++		usage();
++
++	if (strcmp(argv[1], "farol") == 0)
++		farol();
++	else if (strcmp(argv[1], "dica") == 0)
++		printf("%sdica:%s %s\n", AMBER, RESET,
++		    tips[arc4random_uniform(nitems(tips))]);
++	else if (strcmp(argv[1], "versao") == 0 ||
++	    strcmp(argv[1], "-v") == 0)
++		printf("%s %s \"%s\"\n", LUME_NAME, LUME_VERSION,
++		    LUME_CODENAME);
++	else
++		usage();
++	return (0);
++}
+-- 
+2.43.0
+

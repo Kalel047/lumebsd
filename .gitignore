@@ -1,0 +1,7 @@
+*.img
+*.ufs
+*.fat
+src/
+obj/
+stage/
+efi/

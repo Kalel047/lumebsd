@@ -1,0 +1,15 @@
+#
+# LUME -- kernel do LumeBSD 1.0 "Farol" para amd64.
+# Parte do GENERIC e ajusta para um sistema mais enxuto e de boot rápido.
+#
+include		GENERIC
+
+ident		LUME
+
+nomakeoptions	DEBUG
+nomakeoptions	WITH_CTF
+
+# Sem símbolos de depuração/rastreio pesados no kernel de release.
+nooptions	KDTRACE_FRAME
+nooptions	KDTRACE_HOOKS
+nooptions	DDB_CTF
