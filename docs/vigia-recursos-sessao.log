@@ -1,0 +1,168 @@
+root@lumebox:~ # sysctl kern.racct.enable
+kern.racct.enable: 1
+root@lumebox:~ # cp /usr/share/examples/vigia/*.conf /etc/vigia/servicos/ && vig ia recarregar
+  5 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID      MEMÓRIA    HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● desativado   -        -          5 s        0          Serviço instável (demonstração)
+  ntpd          ● ativo        1115     5.9 MiB    11 s       0          Relógio sincronizado pela internet (NTP)
+  pesado        ● desativado   -        -          5 s        0          Consome CPU sem parar (demonstração de limite)
+  relogio       ● ativo        1209     5.2 MiB    4 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● ouvindo      -        0 KiB      4 s        -          Página "Olá" na porta 8080 (sob demanda)
+    └ tcp 0.0.0.0:8080; sobe a cada conexão
+
+  3 ativo(s) de 5.
+
+root@lumebox:~ # ps -ax -o pid,class,user,command | grep -E 'CLASS|v-' | grep -v  grep
+ PID CLASS     USER   COMMAND
+1115 v-ntpd    root   /usr/sbin/ntpd -n -g -c /etc/ntp.conf -f /var/db/ntpd.drift
+1209 v-relogio nobody sh -c while true; do date; sleep 10; done
+1211 v-relogio nobody sleep 10
+root@lumebox:~ # for i in 1 2 3; do fetch -qo - http://127.0.0.1:8080/; done
+Olá, 127.0.0.1! Atendido pelo vigia no LumeBSD.
+Olá, 127.0.0.1! Atendido pelo vigia no LumeBSD.
+Olá, 127.0.0.1! Atendido pelo vigia no LumeBSD.
+root@lumebox:~ # vigia info web
+
+  serviço         web
+  descrição       Página "Olá" na porta 8080 (sob demanda)
+  estado          ● ouvindo
+  motivo          tcp 0.0.0.0:8080; sobe a cada conexão
+  há              6 s
+  escuta          tcp 0.0.0.0:8080 (até 10 conexões simultâneas)
+  conexões        0 agora, 3 atendidas
+  memória         0 KiB (limite 64.0 MiB)
+  cpu             0%
+  processos       0 (limite 20)
+  no boot         sobe sozinho
+  comando         sh -c 'cr=$(printf "\r"); while read -r l && [ "$l" != "$cr" ]; do :; done; printf "HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOlá, %s! Atendido pelo vigia no LumeBSD.\n" "${VIGIA_CLIENTE%%:*}"'
+  usuário         nobody
+  depende de      relogio
+  arquivo         /etc/vigia/servicos/web.conf
+  log             /var/log/vigia/web.log
+
+root@lumebox:~ # for i in 1 2 3 4 5; do (sleep 20 | nc 127.0.0.1 8080 > /dev/nul l &); done; sleep 2; vigia
+
+  SERVIÇO       ESTADO         PID      MEMÓRIA    HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● desativado   -        -          10 s       0          Serviço instável (demonstração)
+  ntpd          ● ativo        1115     5.9 MiB    16 s       0          Relógio sincronizado pela internet (NTP)
+  pesado        ● desativado   -        -          10 s       0          Consome CPU sem parar (demonstração de limite)
+  relogio       ● ativo        1209     5.2 MiB    9 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● ouvindo      5 con.   14.7 MiB   9 s        -          Página "Olá" na porta 8080 (sob demanda)
+    └ tcp 0.0.0.0:8080; sobe a cada conexão
+
+  3 ativo(s) de 5.
+
+root@lumebox:~ # rctl | grep v-
+loginclass:v-web:maxproc:deny=20
+loginclass:v-web:memoryuse:deny=67108864
+root@lumebox:~ # pkill -f 'nc 127.0.0.1 8080'; sleep 2; vigia info web | grep -E  'conex|estado'
+  estado          ● ouvindo
+  motivo          tcp 0.0.0.0:8080; sobe a cada conexão
+  escuta          tcp 0.0.0.0:8080 (até 10 conexões simultâneas)
+  conexões        0 agora, 8 atendidas
+root@lumebox:~ # vigia parar relogio
+  relogio: ● parado
+  parando também: web
+root@lumebox:~ # fetch -qo - http://127.0.0.1:8080/
+fetch: http://127.0.0.1:8080/: Connection refused
+root@lumebox:~ # vigia iniciar web
+  web: ● ouvindo
+    └ tcp 0.0.0.0:8080; sobe a cada conexão
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID      MEMÓRIA    HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● desativado   -        -          17 s       0          Serviço instável (demonstração)
+  ntpd          ● ativo        1115     5.9 MiB    23 s       0          Relógio sincronizado pela internet (NTP)
+  pesado        ● desativado   -        -          17 s       0          Consome CPU sem parar (demonstração de limite)
+  relogio       ● ativo        1256     5.2 MiB    2 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● ouvindo      -        0 KiB      2 s        -          Página "Olá" na porta 8080 (sob demanda)
+    └ tcp 0.0.0.0:8080; sobe a cada conexão
+
+  3 ativo(s) de 5.
+
+root@lumebox:~ # vigia reiniciar relogio
+  relogio: ● ativo (pid 1261)
+  reiniciando também: web
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID      MEMÓRIA    HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● desativado   -        -          22 s       0          Serviço instável (demonstração)
+  ntpd          ● ativo        1115     5.9 MiB    28 s       0          Relógio sincronizado pela internet (NTP)
+  pesado        ● desativado   -        -          22 s       0          Consome CPU sem parar (demonstração de limite)
+  relogio       ● ativo        1261     5.2 MiB    3 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● ouvindo      -        0 KiB      3 s        -          Página "Olá" na porta 8080 (sob demanda)
+    └ tcp 0.0.0.0:8080; sobe a cada conexão
+
+  3 ativo(s) de 5.
+
+root@lumebox:~ # vigia ativar pesado
+  pesado: ● ativo (pid 1266)
+  pesado sobe sozinho nos próximos boots.
+root@lumebox:~ # vigia info pesado | grep -E 'estado|cpu|memória'
+  estado          ● ativo
+  memória         2.9 MiB (limite 32.0 MiB)
+  cpu             35% (limite 50%)
+root@lumebox:~ # top -b -d 2 -o cpu 4 | tail -5
+ 1266 nobody        1  59    0    14M  2996K racct    1   0:10  62,50% sh
+ 1274 root          1  11    0    14M  2644K piperd   1   0:00   1,72% tail
+ 1273 root          1   3    0    16M  3612K CPU1     1   0:00   1,65% top
+ 1115 root          2   0    0    26M  5992K select   0   0:00   0,06% ntpd
+
+root@lumebox:~ # vigia desativar pesado
+  pesado: ● desativado
+  pesado não sobe mais no boot.
+root@lumebox:~ # printf 'descricao = Tenta criar 6 processos com limite de 3\nco mando = sh -c "for i in 1 2 3 4 5 6; do sleep 300 & done; wait"\nlimite_processo s = 3\n' > /etc/vigia/servicos/garfos.conf && vigia recarregar
+  6 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # vigia log garfos -n 4
+[vigia 2026-11-02 15:10:01] reiniciando: saiu com código 2; nova tentativa em 2 s
+[vigia 2026-11-02 15:10:04] aguardando
+[vigia 2026-11-02 15:10:04] executando: sh -c "for i in 1 2 3 4 5 6; do sleep 300 & done; wait"
+[vigia 2026-11-02 15:10:04] iniciando: pid 1289
+root@lumebox:~ # vigia info garfos | grep -E 'estado|processos'
+  descrição       Tenta criar 6 processos com limite de 3
+  estado          ● iniciando
+  processos       3 (limite 3)
+root@lumebox:~ # vigia parar garfos; sleep 1; pgrep -f 'sleep 300' | wc -l
+  garfos: ● parado
+       0
+root@lumebox:~ # printf 'descricao = Eco por socket unix\nescutar = unix:/var/ru n/eco.sock\ncomando = sh -c "read -r x; echo eco: \\$x"\nusuario = nobody\n' > / etc/vigia/servicos/eco.conf; printf 'descricao = Porta 79 atendida por nobody\ne scutar = tcp:79\ncomando = sh -c "echo Ola, \\$VIGIA_CLIENTE; id -un"\nusuario =  nobody\n' > /etc/vigia/servicos/finger.conf; vigia recarregar
+  8 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # echo oi | nc -U -N /var/run/eco.sock
+eco: oi
+root@lumebox:~ # nc -N 127.0.0.1 79 < /dev/null
+Ola, 127.0.0.1:40133
+nobody
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID      MEMÓRIA    HÁ         REINÍCIOS  DESCRIÇÃO
+  eco           ● ouvindo      -        0 KiB      4 s        -          Eco por socket unix
+    └ unix /var/run/eco.sock; sobe a cada conexão
+  finger        ● ouvindo      -        0 KiB      4 s        -          Porta 79 atendida por nobody
+    └ tcp 0.0.0.0:79; sobe a cada conexão
+  garfos        ● parado       -        -          6 s        3          Tenta criar 6 processos com limite de 3
+  instavel      ● desativado   -        -          55 s       0          Serviço instável (demonstração)
+  ntpd          ● ativo        1115     5.9 MiB    1 min      0          Relógio sincronizado pela internet (NTP)
+  pesado        ● desativado   -        -          12 s       0          Consome CPU sem parar (demonstração de limite)
+  relogio       ● ativo        1261     5.2 MiB    36 s       0          Relógio de exemplo (escreve a hora no log)
+  web           ● ouvindo      -        0 KiB      36 s       -          Página "Olá" na porta 8080 (sob demanda)
+    └ tcp 0.0.0.0:8080; sobe a cada conexão
+
+  5 ativo(s) de 8.
+
+root@lumebox:~ # rm /etc/vigia/servicos/garfos.conf /etc/vigia/servicos/eco.conf  /etc/vigia/servicos/finger.conf; vigia recarregar
+  5 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # lume
+
+  LumeBSD 1.0 "Farol"  @ lumebox
+  ----------------------------------------------
+  kernel     LumeBSD 1.0-FAROL (base FreeBSD 15.0)
+  cpu        QEMU Virtual CPU version 2.5+ (2 núcleos)
+  memória    [##..................] 88.3 MiB / 989.5 MiB
+  disco /    [###.................] 739.4 MiB / 4.8 GiB (ufs)
+  carga      0.82  0.35  0.14
+  ligado há  0 h 1 min 51 s
+  serviços   3 de 5 ativos (vigia)
+
+root@lumebox:~ # shutdown -p now

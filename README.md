@@ -97,6 +97,58 @@ root@lumebox:~ # vigia
 | `vigia log X [-n N] [-f]` | saída do serviço |
 | `vigia recarregar` | relê os arquivos: novos sobem, apagados param |
 
+#### Limites por serviço
+
+Cada serviço roda numa classe de login própria (`v-<nome>`), herdada por
+tudo o que ele criar. Isso dá ao vigia uma visão do serviço inteiro, não
+só do processo principal:
+
+- a tabela mostra a **memória** do serviço todo, e `vigia info` mostra
+  também CPU e número de processos;
+- **limites** no arquivo valem para a soma (aplicados pelo RCTL do kernel,
+  que o LumeBSD já traz ligado):
+
+  ```ini
+  limite_memoria   = 64M
+  limite_cpu       = 50%
+  limite_processos = 20
+  ```
+
+- quando o processo principal morre, os filhos que ele deixou para trás
+  são encerrados, em vez de ficarem órfãos.
+
+Medido numa VM: com `limite_cpu = 50%`, um laço infinito usou 30,1 s de
+CPU em 60 s (50,2%). O kernel freia em passos de 1 segundo, então abaixo
+de ~35% um serviço que usa CPU sem parar fica em 33–40% (com 20%, deu
+40%). Isso está documentado em `man vigia.conf`.
+
+#### Sob demanda
+
+Com `escutar`, o vigia segura o socket e cria um processo por conexão,
+como o `inetd`. Sem visitas, o serviço não ocupa nada:
+
+```ini
+descricao = Diz a hora para quem conectar
+escutar   = tcp:7777          # ou tcp:127.0.0.1:7777, ou unix:/var/run/x.sock
+comando   = date
+usuario   = nobody            # portas < 1024 funcionam: quem abre é o vigia
+```
+
+A conexão vira a entrada e a saída padrão do comando, então qualquer
+script vira um serviço de rede. `VIGIA_CLIENTE` traz o endereço de quem
+conectou, e `max_conexoes` controla quantas são atendidas ao mesmo tempo.
+
+#### Dependências em cascata
+
+Iniciar um serviço inicia as dependências; parar ou reiniciar um serviço
+faz o mesmo com quem depende dele:
+
+```
+root@lumebox:~ # vigia parar relogio
+  relogio: ● parado
+  parando também: web
+```
+
 Qualquer usuário consulta; só o root muda estados. O `ntpd` já vem
 gerenciado pelo vigia, e há exemplos em `/usr/share/examples/vigia`.
 O painel `lume` mostra o resumo (`serviços   3 de 4 ativos, 1 com problema`).
@@ -117,7 +169,7 @@ Também vem com 512 MB de swap já configurados.
 |---|---|
 | Identidade | `uname -s` → `LumeBSD`, versão `1.0-FAROL`, `/etc/os-release` com `ID=lumebsd`, `ID_LIKE=freebsd` |
 | Boot | Menu do loader "Bem-vindo ao LumeBSD", marca LumeBSD em ASCII e emblema do farol colorido (luz âmbar, torre branca, mar azul) |
-| Kernel | Configuração própria `LUME`: parte do `GENERIC`, sem símbolos de debug, CTF e hooks de DTrace |
+| Kernel | Configuração própria `LUME`: parte do `GENERIC`, sem símbolos de debug, CTF e hooks de DTrace, e com a contabilidade de recursos (RACCT) ligada |
 | `lume(1)` | Utilitário nativo em C: painel do sistema (kernel, CPU, memória e disco com barras, carga, uptime), `lume farol`, `lume dica`, `lume versao`, `lume configurar` |
 | `rc.d/lume_farol` | Serviço que acende o farol e o painel ao final do boot (`lume_farol_enable`) |
 | `vigia(8)` | Gerenciador de serviços com supervisão, dependências, logs e proteção contra loop de falhas (`rc.d/vigia`) |
@@ -131,6 +183,7 @@ Também vem com 512 MB de swap já configurados.
 patches/0001-...patch   identidade, loader, lume(1), kernel LUME
 patches/0002-...patch   assistente de primeiro boot (lume-configurar)
 patches/0003-...patch   vigia, o gerenciador de serviços
+patches/0004-...patch   vigia: limites, sob demanda, cascata; kernel com RACCT
 conf/src.conf          seleção da userland
 conf/LUME              configuração do kernel
 build-lumebsd.sh       do clone até a imagem bootável
@@ -176,6 +229,8 @@ python3 tests/teste-console.py teste.img primeiro.log primeiro   # assistente
 python3 tests/teste-console.py teste.img segundo.log segundo     # não reaparece
 python3 tests/teste-console.py teste.img vigia.log servicos      # gerenciador
 python3 tests/teste-console.py teste.img boot3.log persistencia  # após reboot
+python3 tests/teste-console.py teste.img rec.log recursos         # limites, socket
+ALVO_CPU=50 python3 tests/teste-console.py teste.img cpu.log cpu2 # mede limite de CPU
 ```
 
 ## Status
@@ -190,9 +245,15 @@ python3 tests/teste-console.py teste.img boot3.log persistencia  # após reboot
 - [x] vigia testado: dependências, `kill -9` com reinício automático,
   loop de falhas indo para manutenção, permissões, arquivos inválidos,
   desligamento limpo e escolhas que sobrevivem ao reboot
+- [x] Limites e contabilidade por serviço: memória e processos medidos;
+  `limite_processos` barrando o 4º `fork`; sobras encerradas; CPU medida
+  contra um serviço idêntico sem limite (50% → 50,2%)
+- [x] Sob demanda: TCP, socket Unix, porta 79 atendida por `nobody`,
+  5 conexões simultâneas; cascata ao parar e reiniciar
 
-Sessões reais: [assistente](docs/primeiro-boot-assistente.log) e
-[vigia](docs/vigia-sessao.log).
+Sessões reais: [assistente](docs/primeiro-boot-assistente.log),
+[vigia](docs/vigia-sessao.log) e
+[limites e sob demanda](docs/vigia-recursos-sessao.log).
 
 Primeiro boot real, no console serial:
 

@@ -13,3 +13,7 @@ nomakeoptions	WITH_CTF
 nooptions	KDTRACE_FRAME
 nooptions	KDTRACE_HOOKS
 nooptions	DDB_CTF
+
+# Contabilidade de recursos ligada: o vigia(8) mede memória, CPU e
+# processos de cada serviço e aplica os limites com o RCTL.
+nooptions	RACCT_DEFAULT_TO_DISABLED

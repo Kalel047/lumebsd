@@ -1,0 +1,1709 @@
+From 8aefc7aa855ba1f2e64d81141808dfaf4224a76b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 14:32:57 -0300
+Subject: [PATCH 4/4] =?UTF-8?q?vigia:=20limites=20por=20servi=C3=A7o=20(RA?=
+ =?UTF-8?q?CCT/RCTL),=20modo=20sob=20demanda=20e=20parada=20em=20cascata?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ sys/amd64/conf/LUME         |   4 +
+ usr.sbin/vigia/Makefile     |   2 +-
+ usr.sbin/vigia/cliente.c    |  47 ++-
+ usr.sbin/vigia/manifesto.c  | 134 +++++++
+ usr.sbin/vigia/pesado.conf  |   8 +
+ usr.sbin/vigia/servidor.c   | 739 ++++++++++++++++++++++++++++++++----
+ usr.sbin/vigia/vigia.8      |  24 ++
+ usr.sbin/vigia/vigia.conf.5 |  72 +++-
+ usr.sbin/vigia/vigia.h      |  20 +
+ usr.sbin/vigia/web.conf     |  12 +-
+ 10 files changed, 961 insertions(+), 101 deletions(-)
+ create mode 100644 usr.sbin/vigia/pesado.conf
+
+diff --git a/sys/amd64/conf/LUME b/sys/amd64/conf/LUME
+index 07001b56c..fb42bd8d5 100644
+--- a/sys/amd64/conf/LUME
++++ b/sys/amd64/conf/LUME
+@@ -13,3 +13,7 @@ nomakeoptions	WITH_CTF
+ nooptions	KDTRACE_FRAME
+ nooptions	KDTRACE_HOOKS
+ nooptions	DDB_CTF
++
++# Contabilidade de recursos ligada: o vigia(8) mede memória, CPU e
++# processos de cada serviço e aplica os limites com o RCTL.
++nooptions	RACCT_DEFAULT_TO_DISABLED
+diff --git a/usr.sbin/vigia/Makefile b/usr.sbin/vigia/Makefile
+index f09c999d4..eccba36c1 100644
+--- a/usr.sbin/vigia/Makefile
++++ b/usr.sbin/vigia/Makefile
+@@ -5,7 +5,7 @@ LINKS=	${BINDIR}/vigia ${BINDIR}/vigiad
+ MLINKS=	vigia.8 vigiad.8
+ 
+ FILESGROUPS=	EXEMPLOS SERVICOS
+-EXEMPLOS=	relogio.conf web.conf instavel.conf
++EXEMPLOS=	relogio.conf web.conf instavel.conf pesado.conf
+ EXEMPLOSDIR=	${SHAREDIR}/examples/vigia
+ SERVICOS=	ntpd.conf
+ SERVICOSDIR=	/etc/vigia/servicos
+diff --git a/usr.sbin/vigia/cliente.c b/usr.sbin/vigia/cliente.c
+index f8264bf8c..28cad6a84 100644
+--- a/usr.sbin/vigia/cliente.c
++++ b/usr.sbin/vigia/cliente.c
+@@ -119,7 +119,7 @@ coluna(const char *s, int w)
+ static const char *
+ cor_estado(const char *e)
+ {
+-	if (strcmp(e, "ativo") == 0)
++	if (strcmp(e, "ativo") == 0 || strcmp(e, "ouvindo") == 0)
+ 		return (VERDE);
+ 	if (strcmp(e, "manutenção") == 0 || strcmp(e, "erro") == 0)
+ 		return (VERMELHO);
+@@ -132,7 +132,7 @@ static int
+ problema(const char *e)
+ {
+ 	return (strcmp(e, "ativo") != 0 && strcmp(e, "parado") != 0 &&
+-	    strcmp(e, "desativado") != 0);
++	    strcmp(e, "desativado") != 0 && strcmp(e, "ouvindo") != 0);
+ }
+ 
+ /* Divide uma linha em campos separados por tab. */
+@@ -153,36 +153,50 @@ campos(char *linha, char **f, int max)
+ static int
+ cmd_estado(void)
+ {
+-	char *corpo, *linha, *ctx, *f[7], dur[32], num[16];
+-	int n, total = 0, ativos = 0;
++	char *corpo, *linha, *ctx, *f[10], dur[32], num[32], mem[32];
++	long long m;
++	int n, total = 0, ativos = 0, sob_demanda;
+ 
+ 	corpo = pedir("estado");
+ 	printf("\n  %s", NEGRITO);
+ 	coluna("SERVIÇO", 14);
+ 	coluna("ESTADO", 15);
+-	coluna("PID", 8);
++	coluna("PID", 9);
++	coluna("MEMÓRIA", 11);
+ 	coluna("HÁ", 11);
+ 	coluna("REINÍCIOS", 11);
+ 	printf("DESCRIÇÃO%s\n", FIM);
+ 
+ 	for (linha = strtok_r(corpo, "\n", &ctx); linha != NULL;
+ 	    linha = strtok_r(NULL, "\n", &ctx)) {
+-		if ((n = campos(linha, f, 7)) < 6)
++		if ((n = campos(linha, f, 10)) < 10)
+ 			continue;
+ 		total++;
+-		if (strcmp(f[1], "ativo") == 0)
++		if (strcmp(f[1], "ativo") == 0 || strcmp(f[1], "ouvindo") == 0)
+ 			ativos++;
++		sob_demanda = atoi(f[8]);
+ 		printf("  ");
+ 		coluna(f[0], 14);
+ 		printf("%s●%s ", cor_estado(f[1]), FIM);
+ 		coluna(f[1], 13);
+-		coluna(strcmp(f[2], "0") == 0 ? "-" : f[2], 8);
++		if (sob_demanda && atoi(f[9]) > 0)
++			snprintf(num, sizeof(num), "%s con.", f[9]);
++		else
++			snprintf(num, sizeof(num), "%s",
++			    strcmp(f[2], "0") == 0 ? "-" : f[2]);
++		coluna(num, 9);
++		m = strtoll(f[7], NULL, 10);
++		if (m >= 0)
++			tamanho((uint64_t)m, mem, sizeof(mem));
++		else
++			strlcpy(mem, "-", sizeof(mem));
++		coluna(mem, 11);
+ 		duracao(strtoll(f[3], NULL, 10), dur, sizeof(dur));
+ 		coluna(dur, 11);
+-		snprintf(num, sizeof(num), "%s", f[4]);
+-		coluna(num, 11);
++		coluna(sob_demanda ? "-" : f[4], 11);
+ 		printf("%s\n", f[5]);
+-		if (n == 7 && f[6][0] != '\0' && problema(f[1]))
++		if (f[6][0] != '\0' && (problema(f[1]) ||
++		    strcmp(f[1], "ouvindo") == 0))
+ 			printf("  %s  └ %s%s\n", FRACO, f[6], FIM);
+ 	}
+ 	if (total == 0)
+@@ -248,6 +262,7 @@ terminal(const char *est, int subindo)
+ 		return (1);
+ 	if (subindo)
+ 		return (strcmp(est, "ativo") == 0 ||
++		    strcmp(est, "ouvindo") == 0 ||
+ 		    strcmp(est, "parado") == 0);
+ 	return (strcmp(est, "parado") == 0 || strcmp(est, "desativado") == 0);
+ }
+@@ -255,13 +270,14 @@ terminal(const char *est, int subindo)
+ static int
+ cmd_acao(const char *verbo, const char *nome)
+ {
+-	char pedido[128], est[32], pid[16], motivo[256];
++	char pedido[128], est[32], pid[16], motivo[256], *corpo, *extra;
+ 	int subindo, i, espera;
+ 
+ 	subindo = strcmp(verbo, "parar") != 0 &&
+ 	    strcmp(verbo, "desativar") != 0;
+ 	snprintf(pedido, sizeof(pedido), "%s %s", verbo, nome);
+-	(void)pedir(pedido);
++	corpo = pedir(pedido);
++	extra = corpo[0] != '\0' ? strdup(corpo) : NULL;
+ 
+ 	/* Acompanha a mudança por até 8 s (subindo) ou 15 s (parando). */
+ 	espera = subindo ? 32 : 60;
+@@ -277,8 +293,11 @@ cmd_acao(const char *verbo, const char *nome)
+ 	if (pid[0] != '\0')
+ 		printf(" (pid %s)", pid);
+ 	printf("\n");
+-	if (motivo[0] != '\0' && problema(est))
++	if (motivo[0] != '\0' && (problema(est) ||
++	    strcmp(est, "ouvindo") == 0))
+ 		printf("  %s  └ %s%s\n", FRACO, motivo, FIM);
++	if (extra != NULL)
++		printf("  %s", extra);
+ 	if (strcmp(verbo, "ativar") == 0)
+ 		printf("  %s sobe sozinho nos próximos boots.\n", nome);
+ 	else if (strcmp(verbo, "desativar") == 0)
+diff --git a/usr.sbin/vigia/manifesto.c b/usr.sbin/vigia/manifesto.c
+index 35229a51a..cd1494942 100644
+--- a/usr.sbin/vigia/manifesto.c
++++ b/usr.sbin/vigia/manifesto.c
+@@ -5,6 +5,10 @@
+  * comentários com '#'. Veja vigia.conf(5).
+  */
+ 
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++
+ #include <ctype.h>
+ #include <errno.h>
+ #include <stdio.h>
+@@ -59,6 +63,108 @@ duracao(time_t t, char *buf, size_t len)
+ 		    (int)(t % 86400 / 3600));
+ }
+ 
++void
++tamanho(uint64_t b, char *buf, size_t len)
++{
++	if (b >= 1024ULL * 1024 * 1024)
++		snprintf(buf, len, "%.1f GiB", (double)b / (1024.0 * 1024 * 1024));
++	else if (b >= 1024 * 1024)
++		snprintf(buf, len, "%.1f MiB", (double)b / (1024.0 * 1024));
++	else
++		snprintf(buf, len, "%ju KiB", (uintmax_t)(b / 1024));
++}
++
++void
++escuta_texto(const struct manifesto *m, char *buf, size_t len)
++{
++	if (m->escuta == ESCUTA_TCP)
++		snprintf(buf, len, "tcp %s:%d", m->escuta_endereco[0] ?
++		    m->escuta_endereco : "0.0.0.0", m->escuta_porta);
++	else if (m->escuta == ESCUTA_UNIX)
++		snprintf(buf, len, "unix %s", m->escuta_caminho);
++	else
++		snprintf(buf, len, "-");
++}
++
++/* "256M", "1G", "512K" ou bytes. */
++static int
++ler_tamanho(const char *v, uint64_t *out)
++{
++	char *fim;
++	unsigned long long n;
++
++	errno = 0;
++	n = strtoull(v, &fim, 10);
++	if (errno != 0 || fim == v)
++		return (-1);
++	switch (*fim) {
++	case 'K': case 'k':
++		n *= 1024ULL; fim++;
++		break;
++	case 'M': case 'm':
++		n *= 1024ULL * 1024; fim++;
++		break;
++	case 'G': case 'g':
++		n *= 1024ULL * 1024 * 1024; fim++;
++		break;
++	}
++	if (*fim == 'B' || *fim == 'b')
++		fim++;
++	if (*fim != '\0')
++		return (-1);
++	*out = n;
++	return (0);
++}
++
++static int
++ler_inteiro(const char *v, int min, int max, int *out)
++{
++	char *fim;
++	long n;
++
++	errno = 0;
++	n = strtol(v, &fim, 10);
++	if (*fim == '%')
++		fim++;
++	if (errno != 0 || fim == v || *fim != '\0' || n < min || n > max)
++		return (-1);
++	*out = (int)n;
++	return (0);
++}
++
++static int
++ler_escuta(const char *v, struct manifesto *m)
++{
++	struct in_addr a;
++	const char *p, *dp;
++	int porta;
++
++	if (strncmp(v, "unix:", 5) == 0) {
++		if (v[5] != '/' || strlcpy(m->escuta_caminho, v + 5,
++		    sizeof(m->escuta_caminho)) >= sizeof(m->escuta_caminho))
++			return (-1);
++		m->escuta = ESCUTA_UNIX;
++		return (0);
++	}
++	if (strncmp(v, "tcp:", 4) != 0)
++		return (-1);
++	p = v + 4;
++	if ((dp = strrchr(p, ':')) != NULL) {
++		if ((size_t)(dp - p) >= sizeof(m->escuta_endereco))
++			return (-1);
++		memcpy(m->escuta_endereco, p, (size_t)(dp - p));
++		m->escuta_endereco[dp - p] = '\0';
++		if (inet_pton(AF_INET, m->escuta_endereco, &a) != 1)
++			return (-1);
++		p = dp + 1;
++	}
++	if (ler_inteiro(p, 1, 65535, &porta) == -1 || strchr(p, '%'))
++		return (-1);
++	m->escuta_porta = porta;
++	m->escuta = ESCUTA_TCP;
++	return (0);
++}
++
+ static char *
+ aparar(char *s)
+ {
+@@ -101,6 +207,7 @@ manifesto_ler(const char *caminho, const char *nome, struct manifesto *m)
+ 	memset(m, 0, sizeof(*m));
+ 	m->reiniciar = R_FALHA;
+ 	m->ativo = 1;
++	m->max_conexoes = 16;
+ 	if (!copiar(m->nome, sizeof(m->nome), nome) || !nome_valido(nome)) {
+ 		erro(m, 0, "nome de serviço inválido (use a-z, 0-9, - e _):",
+ 		    nome);
+@@ -190,6 +297,29 @@ manifesto_ler(const char *caminho, const char *nome, struct manifesto *m)
+ 			else if (!copiar(m->ambiente[m->nambiente++], 256,
+ 			    valor))
+ 				erro(m, n, "variável longa demais", NULL);
++		} else if (strcmp(chave, "limite_memoria") == 0) {
++			if (ler_tamanho(valor, &m->limite_memoria) == -1 ||
++			    m->limite_memoria < 1024 * 1024)
++				erro(m, n, "limite_memoria deve ser algo como "
++				    "64M ou 1G (mínimo 1M), não", valor);
++		} else if (strcmp(chave, "limite_cpu") == 0) {
++			if (ler_inteiro(valor, 1, 25600, &m->limite_cpu) == -1)
++				erro(m, n, "limite_cpu é a porcentagem de um "
++				    "núcleo (ex.: 50%), não", valor);
++		} else if (strcmp(chave, "limite_processos") == 0) {
++			if (ler_inteiro(valor, 1, 100000,
++			    &m->limite_processos) == -1 || strchr(valor, '%'))
++				erro(m, n, "limite_processos deve ser um número "
++				    "positivo, não", valor);
++		} else if (strcmp(chave, "escutar") == 0) {
++			if (ler_escuta(valor, m) == -1)
++				erro(m, n, "escutar deve ser tcp:PORTA, "
++				    "tcp:IP:PORTA ou unix:/caminho, não", valor);
++		} else if (strcmp(chave, "max_conexoes") == 0) {
++			if (ler_inteiro(valor, 1, MAX_CONEXOES,
++			    &m->max_conexoes) == -1 || strchr(valor, '%'))
++				erro(m, n, "max_conexoes deve ir de 1 a 256, não",
++				    valor);
+ 		} else {
+ 			erro(m, n, "chave desconhecida:", chave);
+ 		}
+@@ -198,5 +328,9 @@ manifesto_ler(const char *caminho, const char *nome, struct manifesto *m)
+ 
+ 	if (m->comando[0] == '\0')
+ 		erro(m, 0, "falta a chave 'comando'", NULL);
++	if ((m->limite_memoria || m->limite_cpu || m->limite_processos) &&
++	    strlen(m->nome) > CLASSE_NOME_MAX)
++		erro(m, 0, "para usar limites, o nome do serviço precisa ter "
++		    "até 30 caracteres", NULL);
+ 	return (m->erro[0] == '\0' ? 0 : -1);
+ }
+diff --git a/usr.sbin/vigia/pesado.conf b/usr.sbin/vigia/pesado.conf
+new file mode 100644
+index 000000000..c18d9b898
+--- /dev/null
++++ b/usr.sbin/vigia/pesado.conf
+@@ -0,0 +1,8 @@
++# Mostra os limites: este serviço tenta usar 100% de um núcleo, mas o
++# kernel o segura em 50%. Veja com: vigia info pesado
++descricao = Consome CPU sem parar (demonstração de limite)
++comando = sh -c 'while :; do :; done'
++usuario = nobody
++limite_cpu = 50%
++limite_memoria = 32M
++ativo = nao
+diff --git a/usr.sbin/vigia/servidor.c b/usr.sbin/vigia/servidor.c
+index 928329d49..eadf3b803 100644
+--- a/usr.sbin/vigia/servidor.c
++++ b/usr.sbin/vigia/servidor.c
+@@ -4,23 +4,36 @@
+  * vigiad - o daemon do gerenciador de serviços do LumeBSD.
+  *
+  * Um único laço kqueue(2) cuida de tudo: pedidos do vigia(8) pelo socket
+- * Unix, SIGCHLD (processos que terminaram), SIGTERM/SIGINT (desligar),
+- * SIGHUP (recarregar) e um temporizador de 500 ms que leva cada serviço do
+- * estado atual ao estado desejado (reconciliação).
++ * Unix, sockets de escuta dos serviços sob demanda, SIGCHLD (processos que
++ * terminaram), SIGTERM/SIGINT (desligar), SIGHUP (recarregar) e um
++ * temporizador de 500 ms que leva cada serviço do estado atual ao estado
++ * desejado (reconciliação).
++ *
++ * Cada serviço roda numa classe de login própria ("v-<nome>"), herdada por
++ * todos os processos que ele criar. Pela classe o vigia mede memória, CPU e
++ * processos do serviço inteiro, encerra processos que sobraram quando o
++ * principal termina, e o RCTL aplica os limites do arquivo ao total.
+  *
+  * Estados: parado, desativado, aguardando (dependências), iniciando,
+- * ativo, parando, reiniciando (espera crescente), manutencao (caiu
+- * MAX_FALHAS vezes seguidas, ou não pôde iniciar) e erro (arquivo inválido).
++ * ativo, ouvindo (sob demanda: um processo por conexão), parando,
++ * reiniciando (espera crescente), manutencao (caiu MAX_FALHAS vezes
++ * seguidas, ou não pôde iniciar) e erro (arquivo inválido).
+  */
+ 
+-#include <sys/types.h>
++#include <sys/param.h>
+ #include <sys/event.h>
++#include <sys/rctl.h>
+ #include <sys/socket.h>
+ #include <sys/stat.h>
++#include <sys/sysctl.h>
+ #include <sys/time.h>
+ #include <sys/un.h>
++#include <sys/user.h>
+ #include <sys/wait.h>
+ 
++#include <netinet/in.h>
++#include <arpa/inet.h>
++
+ #include <ctype.h>
+ #include <dirent.h>
+ #include <err.h>
+@@ -52,7 +65,7 @@ struct servico {
+ 	int	 habilitado;	/* sobe no boot */
+ 	int	 removido;	/* arquivo apagado; sai da lista ao parar */
+ 	enum estado est;
+-	pid_t	 pid;
++	pid_t	 pid;		/* processo principal (modo normal) */
+ 	time_t	 desde;		/* entrada no estado atual (monotônico) */
+ 	time_t	 inicio;	/* início do processo atual */
+ 	int	 reinicios;	/* reinícios automáticos */
+@@ -62,12 +75,24 @@ struct servico {
+ 	int	 quer_rodar;	/* estado desejado */
+ 	int	 reiniciar_depois;
+ 	char	 motivo[256];
++	/* Modo sob demanda */
++	int	 lfd;		/* socket de escuta ou -1 */
++	char	 lcaminho[104];	/* socket unix aberto (para apagar) */
++	int	 pausado;	/* escuta suspensa: conexões no máximo */
++	pid_t	 conexoes[MAX_CONEXOES];
++	int	 nconexoes;
++	unsigned long atendidas;
++	/* Uso medido pela classe de login (medir()) */
++	uint64_t uso_mem;
++	int	 uso_cpu;
++	int	 uso_procs;
+ 	struct servico *prox;
+ };
+ 
+ static struct servico *servicos;
+ static int desligando;
+ static time_t desligar_ate;
++static int kq = -1;
+ 
+ static const char *
+ estado_texto(enum estado e)
+@@ -82,6 +107,7 @@ estado_texto(enum estado e)
+ 	case E_REINICIANDO:	return ("reiniciando");
+ 	case E_MANUTENCAO:	return ("manutenção");
+ 	case E_ERRO:		return ("erro");
++	case E_OUVINDO:		return ("ouvindo");
+ 	}
+ 	return ("?");
+ }
+@@ -106,6 +132,19 @@ achar(const char *nome)
+ 	return (NULL);
+ }
+ 
++static int
++tem_processos(const struct servico *s)
++{
++	return (s->pid > 0 || s->nconexoes > 0);
++}
++
++/* Ativo para quem depende dele: rodando ou pronto para atender. */
++static int
++de_pe(const struct servico *s)
++{
++	return (s->est == E_ATIVO || s->est == E_OUVINDO);
++}
++
+ /* Anota um evento no log do próprio serviço. */
+ static void
+ registrar(const struct servico *s, const char *fmt, ...)
+@@ -154,7 +193,177 @@ mudar(struct servico *s, enum estado e, const char *fmt, ...)
+ 	}
+ }
+ 
+-/* Escolha persistente de "vigia ativar/desativar": -1 se não houver. */
++/* --- classe de login, contabilidade e limites (RACCT/RCTL) ------------ */
++
++static int
++classe(const struct servico *s, char *buf, size_t len)
++{
++	if (strlen(s->m.nome) > CLASSE_NOME_MAX)
++		return (-1);
++	snprintf(buf, len, "v-%s", s->m.nome);
++	return (0);
++}
++
++static int
++regra(const char *texto, int adicionar)
++{
++	if (adicionar)
++		return (rctl_add_rule(texto, strlen(texto) + 1, NULL, 0));
++	return (rctl_remove_rule(texto, strlen(texto) + 1, NULL, 0));
++}
++
++/*
++ * Troca as regras da classe do serviço pelas do arquivo atual. Devolve 0 ou
++ * um errno (ENOSYS: o kernel está com o RACCT desligado).
++ */
++static int
++aplicar_limites(const struct servico *s)
++{
++	char cls[MAXLOGNAME], r[160];
++
++	if (classe(s, cls, sizeof(cls)) == -1)
++		return (0);
++	snprintf(r, sizeof(r), "loginclass:%s", cls);
++	(void)regra(r, 0);
++	if (s->m.limite_memoria > 0) {
++		snprintf(r, sizeof(r), "loginclass:%s:memoryuse:deny=%ju", cls,
++		    (uintmax_t)s->m.limite_memoria);
++		if (regra(r, 1) == -1)
++			return (errno);
++	}
++	if (s->m.limite_cpu > 0) {
++		snprintf(r, sizeof(r), "loginclass:%s:pcpu:deny=%d", cls,
++		    s->m.limite_cpu);
++		if (regra(r, 1) == -1)
++			return (errno);
++	}
++	if (s->m.limite_processos > 0) {
++		snprintf(r, sizeof(r), "loginclass:%s:maxproc:deny=%d", cls,
++		    s->m.limite_processos);
++		if (regra(r, 1) == -1)
++			return (errno);
++	}
++	return (0);
++}
++
++static void
++remover_limites(const struct servico *s)
++{
++	char cls[MAXLOGNAME], r[64];
++
++	if (classe(s, cls, sizeof(cls)) == 0) {
++		snprintf(r, sizeof(r), "loginclass:%s", cls);
++		(void)regra(r, 0);
++	}
++}
++
++static int
++tem_limites(const struct servico *s)
++{
++	return (s->m.limite_memoria > 0 || s->m.limite_cpu > 0 ||
++	    s->m.limite_processos > 0);
++}
++
++/* Tabela de processos do sistema; o chamador libera. */
++static struct kinfo_proc *
++processos(size_t *n)
++{
++	int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PROC, 0 };
++	struct kinfo_proc *kp = NULL;
++	size_t len;
++	int i;
++
++	for (i = 0; i < 5; i++) {
++		if (sysctl(mib, 4, NULL, &len, NULL, 0) == -1)
++			break;
++		len += len / 4;
++		free(kp);
++		if ((kp = malloc(len)) == NULL)
++			break;
++		if (sysctl(mib, 4, kp, &len, NULL, 0) == 0) {
++			*n = len / sizeof(*kp);
++			return (kp);
++		}
++		if (errno != ENOMEM)
++			break;
++	}
++	free(kp);
++	*n = 0;
++	return (NULL);
++}
++
++static struct servico *
++dono(const struct kinfo_proc *kp)
++{
++	if (strncmp(kp->ki_loginclass, "v-", 2) != 0)
++		return (NULL);
++	return (achar(kp->ki_loginclass + 2));
++}
++
++/* Atualiza uso_mem, uso_cpu e uso_procs de todos os serviços. */
++static void
++medir(void)
++{
++	struct kinfo_proc *kp;
++	struct servico *s;
++	size_t n, i;
++	long pagina = sysconf(_SC_PAGESIZE);
++
++	for (s = servicos; s != NULL; s = s->prox) {
++		s->uso_mem = 0;
++		s->uso_cpu = s->uso_procs = 0;
++	}
++	if ((kp = processos(&n)) == NULL)
++		return;
++	for (i = 0; i < n; i++) {
++		if ((s = dono(&kp[i])) == NULL)
++			continue;
++		s->uso_procs++;
++		s->uso_mem += (uint64_t)kp[i].ki_rssize * (uint64_t)pagina;
++		s->uso_cpu += (int)(100.0 * kp[i].ki_pctcpu / FSCALE + 0.5);
++	}
++	free(kp);
++}
++
++/* Manda sig a todo processo da classe do serviço. Devolve quantos. */
++static int
++sinalizar_classe(const struct servico *s, int sig)
++{
++	struct kinfo_proc *kp;
++	size_t n, i;
++	int total = 0;
++
++	if (strlen(s->m.nome) > CLASSE_NOME_MAX || (kp = processos(&n)) == NULL)
++		return (0);
++	for (i = 0; i < n; i++) {
++		if (dono(&kp[i]) == s && kp[i].ki_pid != getpid() &&
++		    kill(kp[i].ki_pid, sig) == 0)
++			total++;
++	}
++	free(kp);
++	return (total);
++}
++
++static int
++racct_ligado(void)
++{
++	int v = 0;
++	size_t len = sizeof(v);
++
++	if (sysctlbyname("kern.racct.enable", &v, &len, NULL, 0) == -1)
++		return (0);
++	return (v != 0);
++}
++
++static const char *
++erro_limites(int e)
++{
++	return (e == ENOSYS ? "o kernel está com o RACCT desligado "
++	    "(kern.racct.enable=0)" : strerror(e));
++}
++
++/* --- escolha persistente de ativar/desativar -------------------------- */
++
+ static int
+ escolha_salva(const char *nome)
+ {
+@@ -200,6 +409,8 @@ calcular_habilitado(const struct servico *s)
+ 	return (e == -1 ? s->m.ativo : e);
+ }
+ 
++/* --- leitura dos arquivos de serviço ---------------------------------- */
++
+ static void
+ inserir(struct servico *novo)
+ {
+@@ -247,6 +458,7 @@ carregar(void)
+ 					syslog(LOG_ERR, "sem memória");
+ 					break;
+ 				}
++				s->lfd = -1;
+ 				s->m = m;
+ 				s->valido = ok;
+ 				s->habilitado = calcular_habilitado(s);
+@@ -266,19 +478,19 @@ carregar(void)
+ 			s->valido = ok;
+ 			s->habilitado = calcular_habilitado(s);
+ 			if (!ok) {
+-				if (s->pid == 0)
++				if (!tem_processos(s) && s->lfd == -1)
+ 					mudar(s, E_ERRO, "%s", m.erro);
+ 				else
+ 					syslog(LOG_WARNING, "%s: arquivo "
+-					    "inválido, mantendo o processo "
+-					    "atual: %s", nome, m.erro);
++					    "inválido, mantendo o que está "
++					    "rodando: %s", nome, m.erro);
+ 			} else if (s->est == E_ERRO) {
+ 				s->quer_rodar = s->habilitado;
+ 				mudar(s, s->habilitado ? E_PARADO :
+ 				    E_DESATIVADO, NULL);
+ 			} else if (!era && s->habilitado) {
+ 				s->quer_rodar = 1;
+-			} else if (s->pid == 0 && s->est == E_PARADO &&
++			} else if (!tem_processos(s) && s->est == E_PARADO &&
+ 			    !s->habilitado) {
+ 				mudar(s, E_DESATIVADO, NULL);
+ 			}
+@@ -301,8 +513,9 @@ limpar_removidos(void)
+ 	struct servico **pp, *s;
+ 
+ 	for (pp = &servicos; (s = *pp) != NULL;) {
+-		if (s->removido && s->pid == 0) {
++		if (s->removido && !tem_processos(s) && s->lfd == -1) {
+ 			syslog(LOG_INFO, "%s: removido", s->m.nome);
++			remover_limites(s);
+ 			*pp = s->prox;
+ 			free(s);
+ 		} else {
+@@ -311,22 +524,36 @@ limpar_removidos(void)
+ 	}
+ }
+ 
++/* --- criação de processos --------------------------------------------- */
++
+ struct falha_filho {
+ 	int	etapa;
+ 	int	erro;
+ };
+ 
+ #define	ETAPA_DIRETORIO	1
+-#define	ETAPA_USUARIO	2
+-#define	ETAPA_EXEC	3
++#define	ETAPA_CLASSE	2
++#define	ETAPA_USUARIO	3
++#define	ETAPA_EXEC	4
++
++static const char *
++etapa_texto(int e)
++{
++	switch (e) {
++	case ETAPA_DIRETORIO:	return ("diretório");
++	case ETAPA_CLASSE:	return ("classe de login");
++	case ETAPA_USUARIO:	return ("trocar de usuário");
++	default:		return ("exec");
++	}
++}
+ 
+ static void __dead2
+ filho(const struct servico *s, const struct passwd *pw, int aviso, int logfd,
+-    int nulo)
++    int nulo, int conexao, const char *cliente)
+ {
+ 	static char envbuf[MAX_AMBIENTE + 8][PATH_MAX + 32];
+ 	char *env[MAX_AMBIENTE + 9], cmd[sizeof(s->m.comando) + 8];
+-	char *argv[4];
++	char *argv[4], cls[MAXLOGNAME];
+ 	struct falha_filho ff;
+ 	sigset_t vazio;
+ 	int i, ne = 0;
+@@ -338,14 +565,23 @@ filho(const struct servico *s, const struct passwd *pw, int aviso, int logfd,
+ 	signal(SIGHUP, SIG_DFL);
+ 	signal(SIGPIPE, SIG_DFL);
+ 	setsid();
+-	dup2(nulo, STDIN_FILENO);
+-	dup2(logfd, STDOUT_FILENO);
++	if (conexao >= 0) {
++		dup2(conexao, STDIN_FILENO);
++		dup2(conexao, STDOUT_FILENO);
++	} else {
++		dup2(nulo, STDIN_FILENO);
++		dup2(logfd, STDOUT_FILENO);
++	}
+ 	dup2(logfd, STDERR_FILENO);
+ 
+ 	ff.etapa = ETAPA_DIRETORIO;
+ 	if (chdir(s->m.diretorio[0] != '\0' ? s->m.diretorio : "/") == -1)
+ 		goto falhou;
+ 
++	ff.etapa = ETAPA_CLASSE;
++	if (classe(s, cls, sizeof(cls)) == 0 && setloginclass(cls) == -1)
++		goto falhou;
++
+ 	ff.etapa = ETAPA_USUARIO;
+ 	if (s->m.usuario[0] != '\0') {
+ 		if (setgid(pw->pw_gid) == -1 ||
+@@ -368,6 +604,11 @@ filho(const struct servico *s, const struct passwd *pw, int aviso, int logfd,
+ 	snprintf(envbuf[ne], sizeof(envbuf[0]), "VIGIA_SERVICO=%s",
+ 	    s->m.nome);
+ 	env[ne] = envbuf[ne]; ne++;
++	if (cliente != NULL) {
++		snprintf(envbuf[ne], sizeof(envbuf[0]), "VIGIA_CLIENTE=%s",
++		    cliente);
++		env[ne] = envbuf[ne]; ne++;
++	}
+ 	for (i = 0; i < s->m.nambiente; i++) {
+ 		strlcpy(envbuf[ne], s->m.ambiente[i], sizeof(envbuf[0]));
+ 		env[ne] = envbuf[ne]; ne++;
+@@ -387,13 +628,17 @@ filho(const struct servico *s, const struct passwd *pw, int aviso, int logfd,
+ 	_exit(127);
+ }
+ 
+-static void
+-iniciar_processo(struct servico *s)
++/*
++ * Cria um processo do serviço: o principal (conexao == -1) ou o que atende
++ * uma conexão. Devolve o pid, ou -1 com a explicação em motivo.
++ */
++static pid_t
++lancar(struct servico *s, int conexao, const char *cliente, char *motivo,
++    size_t mlen)
+ {
+ 	struct falha_filho ff;
+ 	struct passwd *pw;
+ 	char logpath[PATH_MAX];
+-	const char *etapa;
+ 	int aviso[2], logfd, nulo;
+ 	ssize_t n;
+ 	pid_t pid;
+@@ -403,9 +648,9 @@ iniciar_processo(struct servico *s)
+ 	else
+ 		pw = getpwuid(0);
+ 	if (pw == NULL) {
+-		mudar(s, E_MANUTENCAO, "usuário '%s' não existe",
++		snprintf(motivo, mlen, "usuário '%s' não existe",
+ 		    s->m.usuario);
+-		return;
++		return (-1);
+ 	}
+ 
+ 	snprintf(logpath, sizeof(logpath), "%s/%s.log", VIGIA_LOGDIR,
+@@ -415,29 +660,25 @@ iniciar_processo(struct servico *s)
+ 		logfd = open("/dev/null", O_WRONLY | O_CLOEXEC);
+ 	nulo = open("/dev/null", O_RDONLY | O_CLOEXEC);
+ 	if (logfd == -1 || nulo == -1 || pipe2(aviso, O_CLOEXEC) == -1) {
+-		mudar(s, E_MANUTENCAO, "não foi possível preparar: %s",
++		snprintf(motivo, mlen, "não foi possível preparar: %s",
+ 		    strerror(errno));
+ 		if (logfd != -1)
+ 			close(logfd);
+ 		if (nulo != -1)
+ 			close(nulo);
+-		return;
++		return (-1);
+ 	}
+ 
+-	registrar(s, "executando: %s", s->m.comando);
+ 	pid = fork();
+ 	if (pid == 0)
+-		filho(s, pw, aviso[1], logfd, nulo);
++		filho(s, pw, aviso[1], logfd, nulo, conexao, cliente);
+ 	close(aviso[1]);
+ 	close(logfd);
+ 	close(nulo);
+ 	if (pid == -1) {
++		snprintf(motivo, mlen, "fork falhou: %s", strerror(errno));
+ 		close(aviso[0]);
+-		s->falhas++;
+-		s->proxima = agora() + 5;
+-		mudar(s, E_REINICIANDO, "fork falhou: %s; nova tentativa em "
+-		    "5 s", strerror(errno));
+-		return;
++		return (-1);
+ 	}
+ 
+ 	do {
+@@ -445,27 +686,237 @@ iniciar_processo(struct servico *s)
+ 	} while (n == -1 && errno == EINTR);
+ 	close(aviso[0]);
+ 	if (n == (ssize_t)sizeof(ff)) {
+-		/* O filho não chegou ao exec: não adianta tentar de novo. */
+ 		waitpid(pid, NULL, 0);
+-		etapa = ff.etapa == ETAPA_DIRETORIO ? "diretório" :
+-		    ff.etapa == ETAPA_USUARIO ? "trocar de usuário" : "exec";
+-		mudar(s, E_MANUTENCAO, "não foi possível iniciar (%s: %s)",
+-		    etapa, strerror(ff.erro));
+-		return;
++		snprintf(motivo, mlen, "não foi possível iniciar (%s: %s)",
++		    etapa_texto(ff.etapa), strerror(ff.erro));
++		return (-1);
+ 	}
++	return (pid);
++}
+ 
++static void
++iniciar_processo(struct servico *s)
++{
++	char motivo[256];
++	pid_t pid;
++	int e;
++
++	if ((e = aplicar_limites(s)) != 0 && tem_limites(s)) {
++		mudar(s, E_MANUTENCAO, "limites não aplicados: %s",
++		    erro_limites(e));
++		return;
++	}
++	registrar(s, "executando: %s", s->m.comando);
++	if ((pid = lancar(s, -1, NULL, motivo, sizeof(motivo))) == -1) {
++		mudar(s, E_MANUTENCAO, "%s", motivo);
++		return;
++	}
+ 	s->pid = pid;
+ 	s->inicio = agora();
+ 	mudar(s, E_INICIANDO, "pid %d", (int)pid);
+ }
+ 
++/* --- modo sob demanda (escutar = ...) --------------------------------- */
++
++static void
++escuta_ligada(struct servico *s, int ligar)
++{
++	struct kevent kev;
++
++	if (s->lfd == -1)
++		return;
++	EV_SET(&kev, s->lfd, EVFILT_READ, ligar ? EV_ENABLE : EV_DISABLE, 0,
++	    0, NULL);
++	(void)kevent(kq, &kev, 1, NULL, 0, NULL);
++	s->pausado = !ligar;
++}
++
++static int
++abrir_escuta(struct servico *s, char *motivo, size_t mlen)
++{
++	struct sockaddr_in sin;
++	struct sockaddr_un sun;
++	struct kevent kev;
++	char onde[160];
++	int fd, um = 1;
++
++	escuta_texto(&s->m, onde, sizeof(onde));
++	if (s->m.escuta == ESCUTA_TCP) {
++		fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC |
++		    SOCK_NONBLOCK, 0);
++		if (fd == -1)
++			goto falhou;
++		setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &um, sizeof(um));
++		memset(&sin, 0, sizeof(sin));
++		sin.sin_len = sizeof(sin);
++		sin.sin_family = AF_INET;
++		sin.sin_port = htons((uint16_t)s->m.escuta_porta);
++		if (s->m.escuta_endereco[0] != '\0')
++			inet_pton(AF_INET, s->m.escuta_endereco, &sin.sin_addr);
++		else
++			sin.sin_addr.s_addr = htonl(INADDR_ANY);
++		if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) == -1)
++			goto fechar;
++	} else {
++		fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC |
++		    SOCK_NONBLOCK, 0);
++		if (fd == -1)
++			goto falhou;
++		memset(&sun, 0, sizeof(sun));
++		sun.sun_family = AF_UNIX;
++		strlcpy(sun.sun_path, s->m.escuta_caminho,
++		    sizeof(sun.sun_path));
++		unlink(sun.sun_path);
++		if (bind(fd, (struct sockaddr *)&sun, SUN_LEN(&sun)) == -1 ||
++		    chmod(sun.sun_path, 0666) == -1)
++			goto fechar;
++		strlcpy(s->lcaminho, s->m.escuta_caminho, sizeof(s->lcaminho));
++	}
++	if (listen(fd, 64) == -1)
++		goto fechar;
++	EV_SET(&kev, fd, EVFILT_READ, EV_ADD, 0, 0, NULL);
++	if (kevent(kq, &kev, 1, NULL, 0, NULL) == -1)
++		goto fechar;
++	s->lfd = fd;
++	s->pausado = 0;
++	return (0);
++
++fechar:
++	{
++		int e = errno;
++
++		close(fd);
++		errno = e;
++	}
++falhou:
++	snprintf(motivo, mlen, "não foi possível escutar em %s: %s", onde,
++	    strerror(errno));
++	return (-1);
++}
++
++static void
++fechar_escuta(struct servico *s)
++{
++	if (s->lfd == -1)
++		return;
++	close(s->lfd);		/* o kqueue esquece o descritor sozinho */
++	s->lfd = -1;
++	s->pausado = 0;
++	if (s->lcaminho[0] != '\0') {
++		unlink(s->lcaminho);
++		s->lcaminho[0] = '\0';
++	}
++}
++
++static void
++comecar_a_ouvir(struct servico *s)
++{
++	char motivo[256], onde[160];
++	int e;
++
++	if ((e = aplicar_limites(s)) != 0 && tem_limites(s)) {
++		mudar(s, E_MANUTENCAO, "limites não aplicados: %s",
++		    erro_limites(e));
++		return;
++	}
++	if (abrir_escuta(s, motivo, sizeof(motivo)) == -1) {
++		mudar(s, E_MANUTENCAO, "%s", motivo);
++		return;
++	}
++	escuta_texto(&s->m, onde, sizeof(onde));
++	mudar(s, E_OUVINDO, "%s; sobe a cada conexão", onde);
++}
++
++/* Atende as conexões pendentes num socket de escuta. */
++static void
++aceitar(int lfd)
++{
++	struct sockaddr_storage ss;
++	struct sockaddr_in *sin;
++	struct servico *s;
++	socklen_t sl;
++	char cliente[64], motivo[256];
++	pid_t pid;
++	int c;
++
++	for (s = servicos; s != NULL; s = s->prox)
++		if (s->lfd == lfd)
++			break;
++	if (s == NULL || s->est != E_OUVINDO)
++		return;
++
++	while (s->nconexoes < s->m.max_conexoes) {
++		sl = sizeof(ss);
++		c = accept4(lfd, (struct sockaddr *)&ss, &sl, SOCK_CLOEXEC);
++		if (c == -1)
++			return;		/* EAGAIN: nada mais na fila */
++		if (ss.ss_family == AF_INET) {
++			sin = (struct sockaddr_in *)&ss;
++			snprintf(cliente, sizeof(cliente), "%s:%u",
++			    inet_ntoa(sin->sin_addr),
++			    (unsigned)ntohs(sin->sin_port));
++		} else {
++			strlcpy(cliente, "local", sizeof(cliente));
++		}
++		pid = lancar(s, c, cliente, motivo, sizeof(motivo));
++		close(c);
++		if (pid == -1) {
++			fechar_escuta(s);
++			mudar(s, E_MANUTENCAO, "%s", motivo);
++			return;
++		}
++		s->conexoes[s->nconexoes++] = pid;
++		s->atendidas++;
++	}
++	/* No máximo: a fila espera no kernel até alguma conexão terminar. */
++	escuta_ligada(s, 0);
++	registrar(s, "%d conexões simultâneas (máximo); novas aguardam na fila",
++	    s->nconexoes);
++}
++
++/* --- parada, reconciliação e processos que terminaram ----------------- */
++
++static void
++sinalizar(const struct servico *s, int sig)
++{
++	int i;
++
++	if (s->pid > 0 && killpg(s->pid, sig) == -1)
++		kill(s->pid, sig);
++	for (i = 0; i < s->nconexoes; i++)
++		if (killpg(s->conexoes[i], sig) == -1)
++			kill(s->conexoes[i], sig);
++	/* E quem tiver escapado do grupo de processos. */
++	(void)sinalizar_classe(s, sig);
++}
++
++static void
++parou(struct servico *s, const char *como)
++{
++	if (s->reiniciar_depois) {
++		s->reiniciar_depois = 0;
++		s->quer_rodar = 1;
++		s->falhas = 0;
++	}
++	mudar(s, s->habilitado || s->quer_rodar ? E_PARADO : E_DESATIVADO,
++	    "parou (%s)", como);
++}
++
+ static void
+-parar_processo(struct servico *s)
++parar_processos(struct servico *s)
+ {
+-	if (s->pid > 0 && killpg(s->pid, SIGTERM) == -1 && errno != ESRCH)
+-		kill(s->pid, SIGTERM);
++	fechar_escuta(s);
++	if (!tem_processos(s)) {
++		parou(s, "nenhum processo rodando");
++		return;
++	}
++	sinalizar(s, SIGTERM);
+ 	s->prazo = agora() + PRAZO_PARADA;
+-	mudar(s, E_PARANDO, "SIGTERM enviado ao pid %d", (int)s->pid);
++	if (s->pid > 0)
++		mudar(s, E_PARANDO, "SIGTERM enviado ao pid %d", (int)s->pid);
++	else
++		mudar(s, E_PARANDO, "SIGTERM enviado a %d conexão(ões)",
++		    s->nconexoes);
+ }
+ 
+ static void
+@@ -477,9 +928,8 @@ reconciliar(struct servico *s)
+ 	int i;
+ 
+ 	/* Prazo de parada vale mesmo se alguém pediu para iniciar de novo. */
+-	if (s->est == E_PARANDO && s->pid > 0 && t >= s->prazo) {
+-		killpg(s->pid, SIGKILL);
+-		kill(s->pid, SIGKILL);
++	if (s->est == E_PARANDO && tem_processos(s) && t >= s->prazo) {
++		sinalizar(s, SIGKILL);
+ 		registrar(s, "não parou em %d s: SIGKILL", PRAZO_PARADA);
+ 		s->prazo = t + 3600;
+ 	}
+@@ -492,7 +942,8 @@ reconciliar(struct servico *s)
+ 			break;
+ 		case E_INICIANDO:
+ 		case E_ATIVO:
+-			parar_processo(s);
++		case E_OUVINDO:
++			parar_processos(s);
+ 			break;
+ 		default:
+ 			break;
+@@ -525,7 +976,7 @@ reconciliar(struct servico *s)
+ 			}
+ 			if (!d->quer_rodar && !desligando)
+ 				d->quer_rodar = 1;
+-			if (d->est != E_ATIVO && falta == NULL)
++			if (!de_pe(d) && falta == NULL)
+ 				falta = d->m.nome;
+ 		}
+ 		if (falta != NULL) {
+@@ -533,7 +984,10 @@ reconciliar(struct servico *s)
+ 			    "esperando '%s' ficar ativo", falta);
+ 			return;
+ 		}
+-		iniciar_processo(s);
++		if (s->m.escuta != ESCUTA_NENHUMA)
++			comecar_a_ouvir(s);
++		else
++			iniciar_processo(s);
+ 	}
+ 
+ 	if (s->est == E_INICIANDO && t - s->inicio >= TEMPO_ATIVO)
+@@ -541,6 +995,9 @@ reconciliar(struct servico *s)
+ 	if (s->est == E_ATIVO && s->falhas > 0 &&
+ 	    t - s->inicio >= TEMPO_ESTAVEL)
+ 		s->falhas = 0;
++	if (s->est == E_OUVINDO && s->pausado &&
++	    s->nconexoes < s->m.max_conexoes)
++		escuta_ligada(s, 1);
+ }
+ 
+ static void
+@@ -585,19 +1042,18 @@ processo_terminou(struct servico *s, int st)
+ {
+ 	char como[96];
+ 	time_t rodou = agora() - s->inicio;
+-	int falhou, espera;
++	int falhou, espera, sobra;
+ 
+ 	como_terminou(st, como, sizeof(como), &falhou);
+ 	s->pid = 0;
+ 
++	/* Filhos que o processo principal deixou para trás não ficam soltos. */
++	if ((sobra = sinalizar_classe(s, SIGKILL)) > 0)
++		registrar(s, "%d processo(s) que sobraram foram encerrados",
++		    sobra);
++
+ 	if (s->est == E_PARANDO || !s->quer_rodar) {
+-		if (s->reiniciar_depois) {
+-			s->reiniciar_depois = 0;
+-			s->quer_rodar = 1;
+-			s->falhas = 0;
+-		}
+-		mudar(s, s->habilitado || s->quer_rodar ? E_PARADO :
+-		    E_DESATIVADO, "parou (%s)", como);
++		parou(s, como);
+ 		return;
+ 	}
+ 
+@@ -625,19 +1081,41 @@ processo_terminou(struct servico *s, int st)
+ 	mudar(s, E_REINICIANDO, "%s; nova tentativa em %d s", como, espera);
+ }
+ 
++static void
++conexao_terminou(struct servico *s, int i, int st)
++{
++	char como[96];
++	int falhou;
++
++	s->conexoes[i] = s->conexoes[--s->nconexoes];
++	como_terminou(st, como, sizeof(como), &falhou);
++	if (falhou)
++		registrar(s, "conexão: %s", como);
++	if (s->est == E_PARANDO && !tem_processos(s))
++		parou(s, "conexões encerradas");
++}
++
+ static void
+ colher(void)
+ {
+ 	struct servico *s;
+ 	pid_t pid;
+-	int st;
++	int st, i;
+ 
+ 	while ((pid = waitpid(-1, &st, WNOHANG)) > 0) {
+-		for (s = servicos; s != NULL; s = s->prox)
+-			if (s->pid == pid)
++		for (s = servicos; s != NULL; s = s->prox) {
++			if (s->pid == pid) {
++				processo_terminou(s, st);
++				break;
++			}
++			for (i = 0; i < s->nconexoes; i++)
++				if (s->conexoes[i] == pid)
++					break;
++			if (i < s->nconexoes) {
++				conexao_terminou(s, i, st);
+ 				break;
+-		if (s != NULL)
+-			processo_terminou(s, st);
++			}
++		}
+ 	}
+ }
+ 
+@@ -648,8 +1126,7 @@ rodando(void)
+ 	int n = 0;
+ 
+ 	for (s = servicos; s != NULL; s = s->prox)
+-		if (s->pid > 0)
+-			n++;
++		n += (s->pid > 0) + s->nconexoes;
+ 	return (n);
+ }
+ 
+@@ -660,7 +1137,7 @@ iniciar_desligamento(void)
+ 
+ 	if (desligando)
+ 		return;
+-	syslog(LOG_INFO, "desligando: parando %d serviço(s)", rodando());
++	syslog(LOG_INFO, "desligando: parando %d processo(s)", rodando());
+ 	desligando = 1;
+ 	desligar_ate = agora() + PRAZO_PARADA + 3;
+ 	for (s = servicos; s != NULL; s = s->prox) {
+@@ -669,12 +1146,62 @@ iniciar_desligamento(void)
+ 	}
+ }
+ 
++/* --- dependentes (parada em cascata) ---------------------------------- */
++
++/* t depende de alvo, direta ou indiretamente? */
++static int
++depende_de(const struct servico *t, const struct servico *alvo, int prof)
++{
++	const struct servico *d;
++	int i;
++
++	if (prof > 16)
++		return (0);
++	for (i = 0; i < t->m.ndepende; i++) {
++		if (strcmp(t->m.depende[i], alvo->m.nome) == 0)
++			return (1);
++		if ((d = achar(t->m.depende[i])) != NULL &&
++		    depende_de(d, alvo, prof + 1))
++			return (1);
++	}
++	return (0);
++}
++
++/*
++ * Para (ou, com reiniciar, reinicia) quem depende de s. Os nomes afetados
++ * vão para lista.
++ */
++static void
++cascata(const struct servico *s, int reiniciar, char *lista, size_t len)
++{
++	struct servico *t;
++
++	lista[0] = '\0';
++	for (t = servicos; t != NULL; t = t->prox) {
++		if (t == s || !depende_de(t, s, 0))
++			continue;
++		if (!t->quer_rodar && !tem_processos(t) && t->lfd == -1)
++			continue;
++		if (reiniciar) {
++			if (!tem_processos(t) && t->lfd == -1)
++				continue;
++			t->reiniciar_depois = 1;
++		} else {
++			t->reiniciar_depois = 0;
++		}
++		t->quer_rodar = 0;
++		if (lista[0] != '\0')
++			strlcat(lista, ", ", len);
++		strlcat(lista, t->m.nome, len);
++	}
++}
++
+ /* --- pedidos do vigia(8) ------------------------------------------------ */
+ 
+ static void
+ cmd_info(int fd, const struct servico *s)
+ {
+-	char dur[32], deps[MAX_DEPS * NOME_MAX];
++	char dur[32], deps[MAX_DEPS * NOME_MAX], a[32], b[32], onde[160];
+ 	int i;
+ 
+ 	duracao(agora() - s->desde, dur, sizeof(dur));
+@@ -684,6 +1211,8 @@ cmd_info(int fd, const struct servico *s)
+ 			strlcat(deps, " ", sizeof(deps));
+ 		strlcat(deps, s->m.depende[i], sizeof(deps));
+ 	}
++	medir();
++
+ 	dprintf(fd, "ok\n");
+ 	dprintf(fd, "serviço\t%s\n", s->m.nome);
+ 	dprintf(fd, "descrição\t%s\n", s->m.descricao);
+@@ -693,14 +1222,47 @@ cmd_info(int fd, const struct servico *s)
+ 	dprintf(fd, "há\t%s\n", dur);
+ 	if (s->pid > 0)
+ 		dprintf(fd, "pid\t%d\n", (int)s->pid);
+-	dprintf(fd, "reinícios\t%d\n", s->reinicios);
++	if (s->m.escuta != ESCUTA_NENHUMA) {
++		escuta_texto(&s->m, onde, sizeof(onde));
++		dprintf(fd, "escuta\t%s (até %d conexões simultâneas)\n", onde,
++		    s->m.max_conexoes);
++		dprintf(fd, "conexões\t%d agora, %lu atendidas\n",
++		    s->nconexoes, s->atendidas);
++	} else {
++		dprintf(fd, "reinícios\t%d\n", s->reinicios);
++	}
++
++	{
++		tamanho(s->uso_mem, a, sizeof(a));
++		if (s->m.limite_memoria > 0) {
++			tamanho(s->m.limite_memoria, b, sizeof(b));
++			dprintf(fd, "memória\t%s (limite %s)\n", a, b);
++		} else {
++			dprintf(fd, "memória\t%s\n", a);
++		}
++		if (s->m.limite_cpu > 0)
++			dprintf(fd, "cpu\t%d%% (limite %d%%)\n", s->uso_cpu,
++			    s->m.limite_cpu);
++		else
++			dprintf(fd, "cpu\t%d%%\n", s->uso_cpu);
++		if (s->m.limite_processos > 0)
++			dprintf(fd, "processos\t%d (limite %d)\n",
++			    s->uso_procs, s->m.limite_processos);
++		else
++			dprintf(fd, "processos\t%d\n", s->uso_procs);
++		if (tem_limites(s) && !racct_ligado())
++			dprintf(fd, "atenção\tlimites inativos: o kernel está "
++			    "com kern.racct.enable=0\n");
++	}
++
+ 	dprintf(fd, "no boot\t%s\n", s->habilitado ? "sobe sozinho" :
+ 	    "desativado");
+ 	dprintf(fd, "comando\t%s\n", s->m.comando);
+ 	dprintf(fd, "usuário\t%s\n", s->m.usuario[0] ? s->m.usuario : "root");
+ 	if (s->m.diretorio[0] != '\0')
+ 		dprintf(fd, "diretório\t%s\n", s->m.diretorio);
+-	dprintf(fd, "reiniciar\t%s\n", reiniciar_texto(s->m.reiniciar));
++	if (s->m.escuta == ESCUTA_NENHUMA)
++		dprintf(fd, "reiniciar\t%s\n", reiniciar_texto(s->m.reiniciar));
+ 	if (deps[0] != '\0')
+ 		dprintf(fd, "depende de\t%s\n", deps);
+ 	for (i = 0; i < s->m.nambiente; i++)
+@@ -715,8 +1277,9 @@ static void
+ comando(int fd, uid_t uid, char *linha)
+ {
+ 	struct servico *s;
+-	char *verbo, *arg, *ctx;
++	char *verbo, *arg, *ctx, lista[512];
+ 	int total, ativos, problemas;
++	long long memtxt;
+ 
+ 	verbo = strtok_r(linha, " \t\r\n", &ctx);
+ 	arg = verbo != NULL ? strtok_r(NULL, " \t\r\n", &ctx) : NULL;
+@@ -726,19 +1289,25 @@ comando(int fd, uid_t uid, char *linha)
+ 	}
+ 
+ 	if (strcmp(verbo, "estado") == 0) {
++		medir();
+ 		dprintf(fd, "ok\n");
+-		for (s = servicos; s != NULL; s = s->prox)
+-			dprintf(fd, "%s\t%s\t%d\t%lld\t%d\t%s\t%s\n", s->m.nome,
+-			    estado_texto(s->est), (int)s->pid,
++		for (s = servicos; s != NULL; s = s->prox) {
++			memtxt = -1;
++			if (tem_processos(s) || s->lfd != -1 || s->uso_procs > 0)
++				memtxt = (long long)s->uso_mem;
++			dprintf(fd, "%s\t%s\t%d\t%lld\t%d\t%s\t%s\t%lld\t%d\t%d\n",
++			    s->m.nome, estado_texto(s->est), (int)s->pid,
+ 			    (long long)(agora() - s->desde), s->reinicios,
+-			    s->m.descricao, s->motivo);
++			    s->m.descricao, s->motivo, memtxt,
++			    s->m.escuta != ESCUTA_NENHUMA, s->nconexoes);
++		}
+ 		return;
+ 	}
+ 	if (strcmp(verbo, "resumo") == 0) {
+ 		total = ativos = problemas = 0;
+ 		for (s = servicos; s != NULL; s = s->prox) {
+ 			total++;
+-			if (s->est == E_ATIVO)
++			if (de_pe(s))
+ 				ativos++;
+ 			else if (s->est == E_MANUTENCAO || s->est == E_ERRO)
+ 				problemas++;
+@@ -788,6 +1357,7 @@ comando(int fd, uid_t uid, char *linha)
+ 		return;
+ 	}
+ 
++	lista[0] = '\0';
+ 	if (strcmp(verbo, "iniciar") == 0) {
+ 		if (s->est == E_MANUTENCAO) {
+ 			s->falhas = 0;
+@@ -800,11 +1370,13 @@ comando(int fd, uid_t uid, char *linha)
+ 		if (s->est == E_MANUTENCAO)
+ 			mudar(s, s->habilitado ? E_PARADO : E_DESATIVADO,
+ 			    NULL);
++		cascata(s, 0, lista, sizeof(lista));
+ 	} else if (strcmp(verbo, "reiniciar") == 0) {
+ 		s->falhas = 0;
+-		if (s->pid > 0) {
++		if (tem_processos(s) || s->lfd != -1) {
+ 			s->reiniciar_depois = 1;
+ 			s->quer_rodar = 0;
++			cascata(s, 1, lista, sizeof(lista));
+ 		} else {
+ 			if (s->est == E_MANUTENCAO)
+ 				mudar(s, E_PARADO, "saindo da manutenção");
+@@ -825,12 +1397,16 @@ comando(int fd, uid_t uid, char *linha)
+ 		s->reiniciar_depois = 0;
+ 		if (s->est == E_PARADO || s->est == E_MANUTENCAO)
+ 			mudar(s, E_DESATIVADO, NULL);
++		cascata(s, 0, lista, sizeof(lista));
+ 	} else {
+ 		dprintf(fd, "erro: comando desconhecido '%s'\n", verbo);
+ 		return;
+ 	}
+ 	reconciliar_todos();
+ 	dprintf(fd, "ok\n");
++	if (lista[0] != '\0')
++		dprintf(fd, "%s também: %s\n", strcmp(verbo, "reiniciar") == 0 ?
++		    "reiniciando" : "parando", lista);
+ }
+ 
+ static void
+@@ -884,8 +1460,9 @@ int
+ servidor_main(int argc, char **argv)
+ {
+ 	struct sockaddr_un sun;
+-	struct kevent ev[8], mudancas[6];
+-	int ch, frente = 0, lfd, kq, n, i;
++	struct kevent ev[16], mudancas[6];
++	struct servico *s;
++	int ch, frente = 0, lfd, n, i;
+ 	FILE *f;
+ 
+ 	while ((ch = getopt(argc, argv, "f")) != -1) {
+@@ -955,7 +1532,7 @@ servidor_main(int argc, char **argv)
+ 	reconciliar_todos();
+ 
+ 	for (;;) {
+-		n = kevent(kq, NULL, 0, ev, 8, NULL);
++		n = kevent(kq, NULL, 0, ev, 16, NULL);
+ 		if (n == -1) {
+ 			if (errno == EINTR)
+ 				continue;
+@@ -966,6 +1543,8 @@ servidor_main(int argc, char **argv)
+ 			if (ev[i].filter == EVFILT_READ &&
+ 			    (int)ev[i].ident == lfd) {
+ 				atender(lfd);
++			} else if (ev[i].filter == EVFILT_READ) {
++				aceitar((int)ev[i].ident);
+ 			} else if (ev[i].filter == EVFILT_SIGNAL) {
+ 				if ((int)ev[i].ident == SIGTERM ||
+ 				    (int)ev[i].ident == SIGINT)
+@@ -983,6 +1562,10 @@ servidor_main(int argc, char **argv)
+ 			break;
+ 	}
+ 
++	for (s = servicos; s != NULL; s = s->prox) {
++		fechar_escuta(s);
++		remover_limites(s);
++	}
+ 	unlink(VIGIA_SOCKET);
+ 	unlink(VIGIA_PIDFILE);
+ 	syslog(LOG_INFO, "encerrado");
+diff --git a/usr.sbin/vigia/vigia.8 b/usr.sbin/vigia/vigia.8
+index 31cfdf9b7..891a1ec97 100644
+--- a/usr.sbin/vigia/vigia.8
++++ b/usr.sbin/vigia/vigia.8
+@@ -46,6 +46,25 @@ e o
+ .Nm vigiad
+ para de tentar até alguém pedir.
+ .Pp
++Cada serviço roda numa classe de login própria
++.Pq Dq v- Ns Ar nome ,
++herdada por tudo o que ele criar.
++Quando o processo principal termina, o que sobrou na classe é encerrado,
++e parar um serviço alcança até processos que saíram do grupo.
++Pela classe o vigia também soma a memória, a CPU e os processos do
++serviço inteiro; a tabela do
++.Nm
++mostra a memória, e
++.Nm Cm info
++mostra tudo, com os limites definidos no arquivo
++.Pq veja Xr vigia.conf 5 .
++.Pp
++Serviços com
++.Cm escutar
++ficam
++.Dq ouvindo :
++o vigia segura o socket e cria um processo para cada conexão.
++.Pp
+ Ao contrário dos scripts de
+ .Xr rc 8 ,
+ que só iniciam o daemon e o esquecem,
+@@ -66,6 +85,9 @@ Esperando as dependências ficarem ativas.
+ Processo criado, ainda no primeiro segundo de vida.
+ .It ativo
+ Rodando.
++.It ouvindo
++Serviço sob demanda pronto para atender; a coluna PID mostra as conexões
++em andamento.
+ .It parando
+ Recebeu SIGTERM; recebe SIGKILL se não terminar em 10 segundos.
+ .It reiniciando
+@@ -87,6 +109,8 @@ Comandos:
+ Tabela com todos os serviços (padrão sem argumentos).
+ .It Cm iniciar , Cm parar , Cm reiniciar
+ Agem agora, sem mudar o que acontece no boot.
++Iniciar um serviço inicia as dependências dele; parar ou reiniciar um
++serviço também para ou reinicia quem depende dele.
+ .It Cm ativar , Cm desativar
+ Iniciam ou param o serviço e guardam a escolha para os próximos boots
+ .Pq em Pa /var/db/vigia .
+diff --git a/usr.sbin/vigia/vigia.conf.5 b/usr.sbin/vigia/vigia.conf.5
+index 42865bea0..0cd0a6b92 100644
+--- a/usr.sbin/vigia/vigia.conf.5
++++ b/usr.sbin/vigia/vigia.conf.5
+@@ -27,7 +27,8 @@ Linha de comando executada por
+ com
+ .Ql exec ,
+ então o processo do serviço é o próprio comando.
+-Ele não deve ir para o segundo plano: o vigia precisa ser o pai dele.
++Ele não deve ir para o segundo plano: o vigia precisa ser o pai dele, e
++quando ele termina os processos que deixou para trás são encerrados.
+ .It Cm descricao
+ Texto curto mostrado por
+ .Nm vigia .
+@@ -58,13 +59,76 @@ e
+ .Cm desativar
+ têm prioridade sobre esta chave.
+ .El
++.Ss Limites
++Valem para a soma de todos os processos do serviço, que rodam na classe
++de login
++.Dq v- Ns Ar nome
++.Pq veja Xr rctl 8 .
++Para usar limites, o nome do serviço precisa ter até 30 caracteres.
++.Bl -tag -width "limite_processos"
++.It Cm limite_memoria
++Memória residente máxima, como
++.Ql 64M
++ou
++.Ql 1G .
++Acima dela, o kernel tira páginas do serviço da memória.
++.It Cm limite_cpu
++Porcentagem de um núcleo, como
++.Ql 50% ;
++.Ql 200%
++são dois núcleos inteiros.
++O serviço é desacelerado, não morto.
++O kernel mede e freia em passos de 1 segundo: o limite é fiel a partir de
++uns 40%, mas um serviço que usa CPU sem parar não fica abaixo de 33\(en40%
++de um núcleo, mesmo com um limite menor.
++.It Cm limite_processos
++Número máximo de processos; acima dele,
++.Xr fork 2
++falha.
++.El
++.Ss Sob demanda
++.Bl -tag -width "max_conexoes"
++.It Cm escutar
++.Ql tcp: Ns Ar porta ,
++.Ql tcp: Ns Ar IP : Ns Ar porta
++ou
++.Ql unix: Ns Ar /caminho .
++O vigia abre o socket (como root, então portas abaixo de 1024
++funcionam mesmo com
++.Cm usuario
++sem privilégios) e, a cada conexão, executa
++.Cm comando
++com a conexão na entrada e na saída padrão, como o
++.Xr inetd 8 .
++A variável
++.Ev VIGIA_CLIENTE
++traz o endereço de quem conectou.
++Sem conexões, nenhum processo do serviço existe.
++.Cm reiniciar
++não se aplica a este modo.
++.It Cm max_conexoes
++Conexões atendidas ao mesmo tempo (padrão 16, máximo 256); as demais
++esperam na fila do kernel.
++.El
+ .Sh EXAMPLES
++Um serviço comum, com limites:
+ .Bd -literal -offset indent
+-descricao = Página "Olá" na porta 8080
+-comando = sh -c 'while true; do printf "HTTP/1.0 200 OK\er\en\er\enOlá\en" | nc -N -l 8080; done'
++descricao = Relógio de exemplo
++comando = sh -c 'while true; do date; sleep 10; done'
+ usuario = nobody
+-depende = relogio
+ reiniciar = sempre
++limite_memoria = 16M
++limite_cpu = 10%
++.Ed
++.Pp
++Um serviço sob demanda, que responde a cada conexão na porta 7777:
++.Bd -literal -offset indent
++descricao = Diz a hora para quem conectar
++escutar = tcp:7777
++comando = date
++usuario = nobody
+ .Ed
+ .Sh SEE ALSO
++.Xr inetd 8 ,
++.Xr rctl 8 ,
+ .Xr vigia 8
+diff --git a/usr.sbin/vigia/vigia.h b/usr.sbin/vigia/vigia.h
+index 997822c49..05a758241 100644
+--- a/usr.sbin/vigia/vigia.h
++++ b/usr.sbin/vigia/vigia.h
+@@ -9,6 +9,7 @@
+ 
+ #include <sys/types.h>
+ #include <limits.h>
++#include <stdint.h>
+ #include <time.h>
+ 
+ #define	VIGIA_SOCKET	"/var/run/vigia.sock"
+@@ -20,6 +21,14 @@
+ #define	NOME_MAX	64
+ #define	MAX_DEPS	8
+ #define	MAX_AMBIENTE	16
++#define	MAX_CONEXOES	256	/* teto de max_conexoes */
++#define	CLASSE_NOME_MAX	30	/* nome cabe na classe de login "v-<nome>" */
++
++enum escuta {
++	ESCUTA_NENHUMA,
++	ESCUTA_TCP,
++	ESCUTA_UNIX,
++};
+ 
+ enum reiniciar {
+ 	R_SEMPRE,
+@@ -37,6 +46,7 @@ enum estado {
+ 	E_REINICIANDO,
+ 	E_MANUTENCAO,
+ 	E_ERRO,
++	E_OUVINDO,		/* socket aberto, sobe a cada conexão */
+ };
+ 
+ /* Configuração lida de /etc/vigia/servicos/<nome>.conf */
+@@ -52,6 +62,14 @@ struct manifesto {
+ 	char	ambiente[MAX_AMBIENTE][256];
+ 	int	nambiente;
+ 	int	ativo;			/* "ativo = sim" no arquivo */
++	uint64_t limite_memoria;	/* bytes; 0 = sem limite */
++	int	limite_cpu;		/* % de um núcleo; 0 = sem limite */
++	int	limite_processos;	/* 0 = sem limite */
++	enum escuta escuta;
++	char	escuta_endereco[64];	/* IPv4; vazio = todas */
++	int	escuta_porta;
++	char	escuta_caminho[104];
++	int	max_conexoes;
+ 	char	erro[256];		/* vazio se o arquivo é válido */
+ };
+ 
+@@ -60,6 +78,8 @@ int	 manifesto_ler(const char *caminho, const char *nome,
+ 	    struct manifesto *);
+ const char *reiniciar_texto(enum reiniciar);
+ void	 duracao(time_t, char *, size_t);
++void	 tamanho(uint64_t, char *, size_t);
++void	 escuta_texto(const struct manifesto *, char *, size_t);
+ 
+ int	 servidor_main(int, char **);
+ int	 cliente_main(int, char **);
+diff --git a/usr.sbin/vigia/web.conf b/usr.sbin/vigia/web.conf
+index 01e56cc7d..667c48b5a 100644
+--- a/usr.sbin/vigia/web.conf
++++ b/usr.sbin/vigia/web.conf
+@@ -1,8 +1,12 @@
+-# Servidor web mínimo na porta 8080, feito só com o nc(1) da base.
++# Página web "sob demanda": o vigia escuta a porta 8080 e só cria um
++# processo quando chega uma conexão. Sem visitas, nada roda.
+ # Teste com: fetch -qo - http://127.0.0.1:8080/
+ # A dependência do relógio existe só para mostrar a ordem de subida.
+-descricao = Página "Olá" na porta 8080
+-comando = sh -c 'while true; do printf "HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOlá do LumeBSD! Servido pelo vigia.\n" | nc -N -l 8080; done'
++descricao = Página "Olá" na porta 8080 (sob demanda)
++escutar = tcp:8080
++max_conexoes = 10
++comando = sh -c 'cr=$(printf "\r"); while read -r l && [ "$l" != "$cr" ]; do :; done; printf "HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOlá, %s! Atendido pelo vigia no LumeBSD.\n" "${VIGIA_CLIENTE%%:*}"'
+ usuario = nobody
+ depende = relogio
+-reiniciar = sempre
++limite_memoria = 64M
++limite_processos = 20
+-- 
+2.43.0
+
