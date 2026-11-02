@@ -104,6 +104,44 @@ elif roteiro == "ausente":
     esperar("# ", 60)
     comando("lume", "# ")
     enviar("shutdown -p now")
+elif roteiro in ("servicos", "persistencia"):
+    P = "lumebox:~ # "
+    esperar("login: ", 1500)
+    print(f"login em {round(time.time() - t0)} s")
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    if roteiro == "servicos":
+        passos = [
+            ("vigia", 0),
+            ("cp /usr/share/examples/vigia/*.conf /etc/vigia/servicos/ && vigia recarregar", 4),
+            ("vigia", 0),
+            ("fetch -qo - http://127.0.0.1:8080/", 0),
+            ("vigia info web", 0),
+            ("vigia log relogio -n 5", 0),
+            ("pkill -9 -f 'HTTP/1.0 200' && echo web derrubado", 3),
+            ("vigia", 0),
+            ("fetch -qo - http://127.0.0.1:8080/", 0),
+            ("vigia ativar instavel", 35),
+            ("vigia", 0),
+            ("vigia log instavel -n 8", 0),
+            ("vigia parar relogio", 0),
+            ("vigia desativar web", 0),
+            ("su -m fabiano -c 'vigia parar ntpd'", 0),
+            ("su -m fabiano -c 'vigia log ntpd -n 2'", 0),
+            ("echo 'comando = x' > /etc/vigia/servicos/Quebrado.conf; printf 'reiniciar = talvez\\n' > /etc/vigia/servicos/quebrado.conf; vigia recarregar", 0),
+            ("vigia", 0),
+            ("rm /etc/vigia/servicos/quebrado.conf /etc/vigia/servicos/Quebrado.conf; vigia recarregar", 0),
+            ("lume", 0),
+        ]
+    else:
+        passos = [("vigia", 0), ("vigia desativar instavel", 0), ("vigia", 0)]
+    for c, pausa in passos:
+        comando(c, P)
+        if pausa:
+            time.sleep(pausa)
+    enviar("shutdown -p now")
 elif roteiro == "segundo":
     esperar("login: ", 1500)
     print(f"login em {round(time.time() - t0)} s")

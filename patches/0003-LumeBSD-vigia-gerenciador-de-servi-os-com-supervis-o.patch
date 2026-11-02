@@ -1,0 +1,2157 @@
+From 0de780e3625de26ae28a76be7e799ac92053f6ea Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 12:06:17 -0300
+Subject: [PATCH 3/3] =?UTF-8?q?LumeBSD:=20vigia,=20gerenciador=20de=20serv?=
+ =?UTF-8?q?i=C3=A7os=20com=20supervis=C3=A3o=20via=20kqueue?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ libexec/rc/rc.d/Makefile     |   1 +
+ libexec/rc/rc.d/vigia        |  25 +
+ usr.bin/login/motd.template  |   1 +
+ usr.bin/lume/lume.c          |  41 ++
+ usr.sbin/Makefile            |   1 +
+ usr.sbin/vigia/Makefile      |  14 +
+ usr.sbin/vigia/cliente.c     | 359 +++++++++++++
+ usr.sbin/vigia/instavel.conf |   7 +
+ usr.sbin/vigia/main.c        |  18 +
+ usr.sbin/vigia/manifesto.c   | 202 +++++++
+ usr.sbin/vigia/ntpd.conf     |   5 +
+ usr.sbin/vigia/relogio.conf  |   7 +
+ usr.sbin/vigia/servidor.c    | 990 +++++++++++++++++++++++++++++++++++
+ usr.sbin/vigia/vigia.8       | 149 ++++++
+ usr.sbin/vigia/vigia.conf.5  |  70 +++
+ usr.sbin/vigia/vigia.h       |  67 +++
+ usr.sbin/vigia/web.conf      |   8 +
+ 17 files changed, 1965 insertions(+)
+ create mode 100644 libexec/rc/rc.d/vigia
+ create mode 100644 usr.sbin/vigia/Makefile
+ create mode 100644 usr.sbin/vigia/cliente.c
+ create mode 100644 usr.sbin/vigia/instavel.conf
+ create mode 100644 usr.sbin/vigia/main.c
+ create mode 100644 usr.sbin/vigia/manifesto.c
+ create mode 100644 usr.sbin/vigia/ntpd.conf
+ create mode 100644 usr.sbin/vigia/relogio.conf
+ create mode 100644 usr.sbin/vigia/servidor.c
+ create mode 100644 usr.sbin/vigia/vigia.8
+ create mode 100644 usr.sbin/vigia/vigia.conf.5
+ create mode 100644 usr.sbin/vigia/vigia.h
+ create mode 100644 usr.sbin/vigia/web.conf
+
+diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
+index b01cbfab8..ac003bf6b 100644
+--- a/libexec/rc/rc.d/Makefile
++++ b/libexec/rc/rc.d/Makefile
+@@ -76,6 +76,7 @@ CONFS=	DAEMON \
+ 	ugidfw \
+ 	var \
+ 	var_run \
++	vigia \
+ 	watchdogd
+ 
+ # Groups for files which don't go in -rc, or which depend on src.conf knobs.
+diff --git a/libexec/rc/rc.d/vigia b/libexec/rc/rc.d/vigia
+new file mode 100644
+index 000000000..35ff23ea1
+--- /dev/null
++++ b/libexec/rc/rc.d/vigia
+@@ -0,0 +1,25 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: inicia o vigiad, o gerenciador de serviços (vigia(8)).
++#
++
++# PROVIDE: vigia
++# REQUIRE: DAEMON lume_configurar
++# BEFORE: LOGIN lume_farol
++# KEYWORD: shutdown nojail
++
++. /etc/rc.subr
++
++name="vigia"
++desc="Gerenciador de serviços do LumeBSD"
++rcvar="vigia_enable"
++command="/usr/sbin/vigiad"
++pidfile="/var/run/vigiad.pid"
++extra_commands="reload"
++sig_reload="HUP"
++
++load_rc_config $name
++: ${vigia_enable:="YES"}
++run_rc_command "$1"
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index 3a0174219..505172493 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -7,6 +7,7 @@
+    Comandos para começar:
+      lume configurar senha, usuário, máquina, fuso, teclado e idioma
+      lume            painel do sistema (versão, CPU, memória, disco, uptime)
++     vigia           serviços: estado, iniciar, parar, logs (man vigia)
+      lume farol      o emblema da distribuição
+      lume dica       uma dica aleatória do sistema
+      man lume        manual do utilitário
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 7f7cedb39..6b0f6e0ac 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -12,8 +12,10 @@
+ 
+ #include <sys/param.h>
+ #include <sys/mount.h>
++#include <sys/socket.h>
+ #include <sys/sysctl.h>
+ #include <sys/time.h>
++#include <sys/un.h>
+ 
+ #include <err.h>
+ #include <stdint.h>
+@@ -28,6 +30,7 @@
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
++#define	VIGIA_SOCKET	"/var/run/vigia.sock"
+ 
+ static int use_color;
+ 
+@@ -156,6 +159,43 @@ farol(void)
+ 	printf("%s   ~~   ~~~~   ~~%s\n", BLUE, RESET);
+ }
+ 
++/* Pergunta ao vigiad quantos serviços estão de pé. */
++static void
++servicos(void)
++{
++	struct sockaddr_un sun;
++	struct timeval tv = { 1, 0 };
++	char buf[128], txt[160];
++	int fd, total, ativos, problemas;
++	ssize_t n;
++
++	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
++		return;
++	memset(&sun, 0, sizeof(sun));
++	sun.sun_family = AF_UNIX;
++	strlcpy(sun.sun_path, VIGIA_SOCKET, sizeof(sun.sun_path));
++	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++	if (connect(fd, (struct sockaddr *)&sun, SUN_LEN(&sun)) == -1 ||
++	    write(fd, "resumo\n", 7) != 7) {
++		close(fd);
++		return;
++	}
++	n = read(fd, buf, sizeof(buf) - 1);
++	close(fd);
++	if (n <= 0)
++		return;
++	buf[n] = '\0';
++	if (sscanf(buf, "ok\n%d\t%d\t%d", &total, &ativos, &problemas) != 3)
++		return;
++	if (problemas > 0)
++		snprintf(txt, sizeof(txt), "%d de %d ativos, %s%d com "
++		    "problema%s (vigia)", ativos, total, RED, problemas, RESET);
++	else
++		snprintf(txt, sizeof(txt), "%d de %d ativos (vigia)", ativos,
++		    total);
++	row("serviços", txt);
++}
++
+ static void
+ painel(void)
+ {
+@@ -232,6 +272,7 @@ painel(void)
+ 			    (intmax_t)(up % 60));
+ 		row("ligado há", buf);
+ 	}
++	servicos();
+ 	if (access(LUME_MARCA, F_OK) != 0)
+ 		printf("\n  %s!%s sistema ainda não configurado: rode %slume "
+ 		    "configurar%s como root\n", RED, RESET, AMBER, RESET);
+diff --git a/usr.sbin/Makefile b/usr.sbin/Makefile
+index eaa9ad606..dc12bafee 100644
+--- a/usr.sbin/Makefile
++++ b/usr.sbin/Makefile
+@@ -98,6 +98,7 @@ SUBDIR=	adduser \
+ 	tzsetup \
+ 	ugidfw \
+ 	valectl \
++	vigia \
+ 	vigr \
+ 	vipw \
+ 	wake \
+diff --git a/usr.sbin/vigia/Makefile b/usr.sbin/vigia/Makefile
+new file mode 100644
+index 000000000..f09c999d4
+--- /dev/null
++++ b/usr.sbin/vigia/Makefile
+@@ -0,0 +1,14 @@
++PROG=	vigia
++SRCS=	main.c manifesto.c servidor.c cliente.c
++MAN=	vigia.8 vigia.conf.5
++LINKS=	${BINDIR}/vigia ${BINDIR}/vigiad
++MLINKS=	vigia.8 vigiad.8
++
++FILESGROUPS=	EXEMPLOS SERVICOS
++EXEMPLOS=	relogio.conf web.conf instavel.conf
++EXEMPLOSDIR=	${SHAREDIR}/examples/vigia
++SERVICOS=	ntpd.conf
++SERVICOSDIR=	/etc/vigia/servicos
++SERVICOSMODE=	0644
++
++.include <bsd.prog.mk>
+diff --git a/usr.sbin/vigia/cliente.c b/usr.sbin/vigia/cliente.c
+new file mode 100644
+index 000000000..f8264bf8c
+--- /dev/null
++++ b/usr.sbin/vigia/cliente.c
+@@ -0,0 +1,359 @@
++/*-
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * vigia - comando para consultar e controlar o vigiad.
++ */
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/un.h>
++
++#include <err.h>
++#include <errno.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <time.h>
++#include <unistd.h>
++
++#include "vigia.h"
++
++static int cor;
++
++#define	C(code)	(cor ? "\033[" code "m" : "")
++#define	VERDE	C("32;1")
++#define	AMARELO	C("33;1")
++#define	VERMELHO C("31;1")
++#define	FRACO	C("2")
++#define	NEGRITO	C("1")
++#define	FIM	C("0")
++
++static void __dead2
++uso(void)
++{
++	fprintf(stderr,
++	    "uso: vigia [estado]\n"
++	    "     vigia iniciar | parar | reiniciar <serviço>\n"
++	    "     vigia ativar | desativar <serviço>\n"
++	    "     vigia info <serviço>\n"
++	    "     vigia log <serviço> [-n linhas] [-f]\n"
++	    "     vigia recarregar\n");
++	exit(2);
++}
++
++/*
++ * Envia um pedido ao vigiad. Em caso de sucesso devolve o corpo da resposta
++ * (depois da linha "ok"); em caso de erro, imprime a mensagem e sai.
++ */
++static char *
++pedir(const char *pedido)
++{
++	struct sockaddr_un sun;
++	char *buf, *p;
++	size_t tam = 4096, n = 0;
++	ssize_t r;
++	int fd;
++
++	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
++		err(1, "socket");
++	memset(&sun, 0, sizeof(sun));
++	sun.sun_family = AF_UNIX;
++	strlcpy(sun.sun_path, VIGIA_SOCKET, sizeof(sun.sun_path));
++	if (connect(fd, (struct sockaddr *)&sun, SUN_LEN(&sun)) == -1)
++		errx(1, "o vigiad não está rodando (inicie com: "
++		    "service vigia start)");
++	if (dprintf(fd, "%s\n", pedido) < 0)
++		err(1, "enviar pedido");
++	shutdown(fd, SHUT_WR);
++
++	if ((buf = malloc(tam)) == NULL)
++		err(1, NULL);
++	for (;;) {
++		if (n + 1 >= tam) {
++			tam *= 2;
++			if ((buf = realloc(buf, tam)) == NULL)
++				err(1, NULL);
++		}
++		r = read(fd, buf + n, tam - 1 - n);
++		if (r == -1 && errno == EINTR)
++			continue;
++		if (r <= 0)
++			break;
++		n += (size_t)r;
++	}
++	buf[n] = '\0';
++	close(fd);
++
++	if (strncmp(buf, "ok\n", 3) == 0)
++		return (buf + 3);
++	if (strncmp(buf, "erro: ", 6) == 0) {
++		if ((p = strchr(buf, '\n')) != NULL)
++			*p = '\0';
++		errx(1, "%s", buf + 6);
++	}
++	errx(1, "resposta inesperada do vigiad");
++}
++
++/* Largura em colunas (conta caracteres UTF-8, não bytes). */
++static int
++largura(const char *s)
++{
++	int n = 0;
++
++	for (; *s != '\0'; s++)
++		if (((unsigned char)*s & 0xC0) != 0x80)
++			n++;
++	return (n);
++}
++
++static void
++coluna(const char *s, int w)
++{
++	int i;
++
++	fputs(s, stdout);
++	for (i = largura(s); i < w; i++)
++		putchar(' ');
++}
++
++static const char *
++cor_estado(const char *e)
++{
++	if (strcmp(e, "ativo") == 0)
++		return (VERDE);
++	if (strcmp(e, "manutenção") == 0 || strcmp(e, "erro") == 0)
++		return (VERMELHO);
++	if (strcmp(e, "parado") == 0 || strcmp(e, "desativado") == 0)
++		return (FRACO);
++	return (AMARELO);
++}
++
++static int
++problema(const char *e)
++{
++	return (strcmp(e, "ativo") != 0 && strcmp(e, "parado") != 0 &&
++	    strcmp(e, "desativado") != 0);
++}
++
++/* Divide uma linha em campos separados por tab. */
++static int
++campos(char *linha, char **f, int max)
++{
++	int n = 0;
++
++	while (n < max) {
++		f[n++] = linha;
++		if ((linha = strchr(linha, '\t')) == NULL)
++			break;
++		*linha++ = '\0';
++	}
++	return (n);
++}
++
++static int
++cmd_estado(void)
++{
++	char *corpo, *linha, *ctx, *f[7], dur[32], num[16];
++	int n, total = 0, ativos = 0;
++
++	corpo = pedir("estado");
++	printf("\n  %s", NEGRITO);
++	coluna("SERVIÇO", 14);
++	coluna("ESTADO", 15);
++	coluna("PID", 8);
++	coluna("HÁ", 11);
++	coluna("REINÍCIOS", 11);
++	printf("DESCRIÇÃO%s\n", FIM);
++
++	for (linha = strtok_r(corpo, "\n", &ctx); linha != NULL;
++	    linha = strtok_r(NULL, "\n", &ctx)) {
++		if ((n = campos(linha, f, 7)) < 6)
++			continue;
++		total++;
++		if (strcmp(f[1], "ativo") == 0)
++			ativos++;
++		printf("  ");
++		coluna(f[0], 14);
++		printf("%s●%s ", cor_estado(f[1]), FIM);
++		coluna(f[1], 13);
++		coluna(strcmp(f[2], "0") == 0 ? "-" : f[2], 8);
++		duracao(strtoll(f[3], NULL, 10), dur, sizeof(dur));
++		coluna(dur, 11);
++		snprintf(num, sizeof(num), "%s", f[4]);
++		coluna(num, 11);
++		printf("%s\n", f[5]);
++		if (n == 7 && f[6][0] != '\0' && problema(f[1]))
++			printf("  %s  └ %s%s\n", FRACO, f[6], FIM);
++	}
++	if (total == 0)
++		printf("  (nenhum serviço em %s; exemplos em "
++		    "/usr/share/examples/vigia)\n", VIGIA_SERVICOS);
++	else
++		printf("\n  %d ativo(s) de %d.\n", ativos, total);
++	printf("\n");
++	return (0);
++}
++
++static int
++cmd_info(const char *nome)
++{
++	char pedido[128], *corpo, *linha, *ctx, *f[2];
++
++	snprintf(pedido, sizeof(pedido), "info %s", nome);
++	corpo = pedir(pedido);
++	printf("\n");
++	for (linha = strtok_r(corpo, "\n", &ctx); linha != NULL;
++	    linha = strtok_r(NULL, "\n", &ctx)) {
++		if (campos(linha, f, 2) < 2)
++			continue;
++		printf("  %s", AMARELO);
++		coluna(f[0], 16);
++		printf("%s", FIM);
++		if (strcmp(f[0], "estado") == 0)
++			printf("%s●%s %s\n", cor_estado(f[1]), FIM, f[1]);
++		else
++			printf("%s\n", f[1]);
++	}
++	printf("\n");
++	return (0);
++}
++
++/* Lê estado, pid e motivo de um serviço. */
++static void
++ler_estado(const char *nome, char *est, size_t elen, char *pid, size_t plen,
++    char *motivo, size_t mlen)
++{
++	char pedido[128], *corpo, *linha, *ctx, *f[2];
++
++	snprintf(pedido, sizeof(pedido), "info %s", nome);
++	corpo = pedir(pedido);
++	est[0] = pid[0] = motivo[0] = '\0';
++	for (linha = strtok_r(corpo, "\n", &ctx); linha != NULL;
++	    linha = strtok_r(NULL, "\n", &ctx)) {
++		if (campos(linha, f, 2) < 2)
++			continue;
++		if (strcmp(f[0], "estado") == 0)
++			strlcpy(est, f[1], elen);
++		else if (strcmp(f[0], "pid") == 0)
++			strlcpy(pid, f[1], plen);
++		else if (strcmp(f[0], "motivo") == 0)
++			strlcpy(motivo, f[1], mlen);
++	}
++}
++
++static int
++terminal(const char *est, int subindo)
++{
++	if (strcmp(est, "manutenção") == 0 || strcmp(est, "erro") == 0)
++		return (1);
++	if (subindo)
++		return (strcmp(est, "ativo") == 0 ||
++		    strcmp(est, "parado") == 0);
++	return (strcmp(est, "parado") == 0 || strcmp(est, "desativado") == 0);
++}
++
++static int
++cmd_acao(const char *verbo, const char *nome)
++{
++	char pedido[128], est[32], pid[16], motivo[256];
++	int subindo, i, espera;
++
++	subindo = strcmp(verbo, "parar") != 0 &&
++	    strcmp(verbo, "desativar") != 0;
++	snprintf(pedido, sizeof(pedido), "%s %s", verbo, nome);
++	(void)pedir(pedido);
++
++	/* Acompanha a mudança por até 8 s (subindo) ou 15 s (parando). */
++	espera = subindo ? 32 : 60;
++	for (i = 0; i < espera; i++) {
++		ler_estado(nome, est, sizeof(est), pid, sizeof(pid), motivo,
++		    sizeof(motivo));
++		if (terminal(est, subindo))
++			break;
++		usleep(250000);
++	}
++
++	printf("  %s: %s●%s %s", nome, cor_estado(est), FIM, est);
++	if (pid[0] != '\0')
++		printf(" (pid %s)", pid);
++	printf("\n");
++	if (motivo[0] != '\0' && problema(est))
++		printf("  %s  └ %s%s\n", FRACO, motivo, FIM);
++	if (strcmp(verbo, "ativar") == 0)
++		printf("  %s sobe sozinho nos próximos boots.\n", nome);
++	else if (strcmp(verbo, "desativar") == 0)
++		printf("  %s não sobe mais no boot.\n", nome);
++	return (strcmp(est, "manutenção") == 0 || strcmp(est, "erro") == 0);
++}
++
++static int
++cmd_log(int argc, char **argv)
++{
++	char caminho[PATH_MAX];
++	const char *linhas = "20";
++	int ch, seguir = 0;
++
++	if (argc < 2 || !nome_valido(argv[1]))
++		uso();
++	snprintf(caminho, sizeof(caminho), "%s/%s.log", VIGIA_LOGDIR, argv[1]);
++	optind = 2;
++	while ((ch = getopt(argc, argv, "fn:")) != -1) {
++		switch (ch) {
++		case 'f':
++			seguir = 1;
++			break;
++		case 'n':
++			linhas = optarg;
++			break;
++		default:
++			uso();
++		}
++	}
++	if (access(caminho, R_OK) == -1) {
++		if (errno == ENOENT)
++			errx(1, "%s ainda não tem log", argv[1]);
++		err(1, "%s (o log é legível pelo root e pelo grupo wheel)",
++		    caminho);
++	}
++	if (seguir)
++		execl("/usr/bin/tail", "tail", "-n", linhas, "-F", caminho,
++		    (char *)NULL);
++	else
++		execl("/usr/bin/tail", "tail", "-n", linhas, caminho,
++		    (char *)NULL);
++	err(1, "tail");
++}
++
++int
++cliente_main(int argc, char **argv)
++{
++	const char *term = getenv("TERM");
++	char *corpo;
++
++	cor = isatty(STDOUT_FILENO) && getenv("NO_COLOR") == NULL &&
++	    (term == NULL || strcmp(term, "dumb") != 0);
++
++	if (argc < 2 || strcmp(argv[1], "estado") == 0)
++		return (cmd_estado());
++	if (strcmp(argv[1], "ajuda") == 0 || strcmp(argv[1], "-h") == 0)
++		uso();
++	if (strcmp(argv[1], "recarregar") == 0) {
++		corpo = pedir("recarregar");
++		printf("  %s", corpo);
++		return (0);
++	}
++	if (strcmp(argv[1], "log") == 0)
++		return (cmd_log(argc - 1, argv + 1));
++	if (argc != 3)
++		uso();
++	if (!nome_valido(argv[2]))
++		errx(1, "nome de serviço inválido: %s", argv[2]);
++	if (strcmp(argv[1], "info") == 0)
++		return (cmd_info(argv[2]));
++	if (strcmp(argv[1], "iniciar") == 0 || strcmp(argv[1], "parar") == 0 ||
++	    strcmp(argv[1], "reiniciar") == 0 ||
++	    strcmp(argv[1], "ativar") == 0 ||
++	    strcmp(argv[1], "desativar") == 0)
++		return (cmd_acao(argv[1], argv[2]));
++	uso();
++}
+diff --git a/usr.sbin/vigia/instavel.conf b/usr.sbin/vigia/instavel.conf
+new file mode 100644
+index 000000000..02c97ef73
+--- /dev/null
++++ b/usr.sbin/vigia/instavel.conf
+@@ -0,0 +1,7 @@
++# Mostra a proteção contra loop de falhas: este serviço cai a cada 2 s.
++# O vigia tenta de novo esperando 1, 2, 4 e 8 s; na 5ª queda seguida
++# coloca o serviço em manutenção e para de tentar.
++descricao = Serviço instável (demonstração)
++comando = sh -c 'echo "subi, e vou cair em 2 s"; sleep 2; exit 3'
++reiniciar = falha
++ativo = nao
+diff --git a/usr.sbin/vigia/main.c b/usr.sbin/vigia/main.c
+new file mode 100644
+index 000000000..398079919
+--- /dev/null
++++ b/usr.sbin/vigia/main.c
+@@ -0,0 +1,18 @@
++/*-
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * Um só binário: chamado como "vigiad" é o daemon, como "vigia" é o comando.
++ */
++
++#include <stdlib.h>
++#include <string.h>
++
++#include "vigia.h"
++
++int
++main(int argc, char *argv[])
++{
++	if (strcmp(getprogname(), "vigiad") == 0)
++		return (servidor_main(argc, argv));
++	return (cliente_main(argc, argv));
++}
+diff --git a/usr.sbin/vigia/manifesto.c b/usr.sbin/vigia/manifesto.c
+new file mode 100644
+index 000000000..35229a51a
+--- /dev/null
++++ b/usr.sbin/vigia/manifesto.c
+@@ -0,0 +1,202 @@
++/*-
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * Leitura dos arquivos de serviço do vigia. Formato: linhas "chave = valor",
++ * comentários com '#'. Veja vigia.conf(5).
++ */
++
++#include <ctype.h>
++#include <errno.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include "vigia.h"
++
++int
++nome_valido(const char *s)
++{
++	size_t i, n = strlen(s);
++
++	if (n == 0 || n >= NOME_MAX)
++		return (0);
++	for (i = 0; i < n; i++) {
++		if (!(islower((unsigned char)s[i]) ||
++		    isdigit((unsigned char)s[i]) || s[i] == '-' || s[i] == '_'))
++			return (0);
++	}
++	return (1);
++}
++
++const char *
++reiniciar_texto(enum reiniciar r)
++{
++	switch (r) {
++	case R_SEMPRE:
++		return ("sempre");
++	case R_FALHA:
++		return ("falha");
++	case R_NUNCA:
++		return ("nunca");
++	}
++	return ("?");
++}
++
++void
++duracao(time_t t, char *buf, size_t len)
++{
++	if (t < 0)
++		t = 0;
++	if (t < 60)
++		snprintf(buf, len, "%d s", (int)t);
++	else if (t < 3600)
++		snprintf(buf, len, "%d min", (int)(t / 60));
++	else if (t < 86400)
++		snprintf(buf, len, "%d h %d min", (int)(t / 3600),
++		    (int)(t % 3600 / 60));
++	else
++		snprintf(buf, len, "%d d %d h", (int)(t / 86400),
++		    (int)(t % 86400 / 3600));
++}
++
++static char *
++aparar(char *s)
++{
++	char *e;
++
++	while (isspace((unsigned char)*s))
++		s++;
++	e = s + strlen(s);
++	while (e > s && isspace((unsigned char)e[-1]))
++		*--e = '\0';
++	return (s);
++}
++
++static int
++copiar(char *dst, size_t len, const char *src)
++{
++	return (strlcpy(dst, src, len) < len);
++}
++
++static void
++erro(struct manifesto *m, int linha, const char *msg, const char *arg)
++{
++	if (m->erro[0] != '\0')
++		return;
++	if (linha > 0)
++		snprintf(m->erro, sizeof(m->erro), "linha %d: %s%s%s", linha,
++		    msg, arg ? " " : "", arg ? arg : "");
++	else
++		snprintf(m->erro, sizeof(m->erro), "%s%s%s", msg,
++		    arg ? " " : "", arg ? arg : "");
++}
++
++int
++manifesto_ler(const char *caminho, const char *nome, struct manifesto *m)
++{
++	FILE *f;
++	char buf[2048], *linha, *chave, *valor, *igual, *tok, *ctx;
++	int n = 0;
++
++	memset(m, 0, sizeof(*m));
++	m->reiniciar = R_FALHA;
++	m->ativo = 1;
++	if (!copiar(m->nome, sizeof(m->nome), nome) || !nome_valido(nome)) {
++		erro(m, 0, "nome de serviço inválido (use a-z, 0-9, - e _):",
++		    nome);
++		return (-1);
++	}
++
++	if ((f = fopen(caminho, "r")) == NULL) {
++		erro(m, 0, "não foi possível abrir:", strerror(errno));
++		return (-1);
++	}
++	while (fgets(buf, sizeof(buf), f) != NULL) {
++		n++;
++		if (strchr(buf, '\n') == NULL && !feof(f)) {
++			erro(m, n, "linha longa demais", NULL);
++			break;
++		}
++		linha = aparar(buf);
++		if (*linha == '\0' || *linha == '#')
++			continue;
++		if ((igual = strchr(linha, '=')) == NULL) {
++			erro(m, n, "esperava 'chave = valor'", NULL);
++			continue;
++		}
++		*igual = '\0';
++		chave = aparar(linha);
++		valor = aparar(igual + 1);
++
++		if (strcmp(chave, "descricao") == 0) {
++			if (!copiar(m->descricao, sizeof(m->descricao), valor))
++				erro(m, n, "descrição longa demais", NULL);
++		} else if (strcmp(chave, "comando") == 0) {
++			if (!copiar(m->comando, sizeof(m->comando), valor))
++				erro(m, n, "comando longo demais", NULL);
++		} else if (strcmp(chave, "usuario") == 0) {
++			if (!copiar(m->usuario, sizeof(m->usuario), valor))
++				erro(m, n, "usuário longo demais", NULL);
++		} else if (strcmp(chave, "diretorio") == 0) {
++			if (valor[0] != '/')
++				erro(m, n, "diretório precisa ser absoluto:",
++				    valor);
++			else if (!copiar(m->diretorio, sizeof(m->diretorio),
++			    valor))
++				erro(m, n, "diretório longo demais", NULL);
++		} else if (strcmp(chave, "reiniciar") == 0) {
++			if (strcmp(valor, "sempre") == 0)
++				m->reiniciar = R_SEMPRE;
++			else if (strcmp(valor, "falha") == 0)
++				m->reiniciar = R_FALHA;
++			else if (strcmp(valor, "nunca") == 0)
++				m->reiniciar = R_NUNCA;
++			else
++				erro(m, n, "reiniciar deve ser sempre, falha "
++				    "ou nunca, não", valor);
++		} else if (strcmp(chave, "ativo") == 0) {
++			if (strcmp(valor, "sim") == 0)
++				m->ativo = 1;
++			else if (strcmp(valor, "nao") == 0 ||
++			    strcmp(valor, "não") == 0)
++				m->ativo = 0;
++			else
++				erro(m, n, "ativo deve ser sim ou nao, não",
++				    valor);
++		} else if (strcmp(chave, "depende") == 0) {
++			for (tok = strtok_r(valor, " \t,", &ctx); tok != NULL;
++			    tok = strtok_r(NULL, " \t,", &ctx)) {
++				if (!nome_valido(tok)) {
++					erro(m, n, "dependência inválida:", tok);
++					break;
++				}
++				if (strcmp(tok, m->nome) == 0) {
++					erro(m, n, "o serviço não pode depender "
++					    "de si mesmo", NULL);
++					break;
++				}
++				if (m->ndepende == MAX_DEPS) {
++					erro(m, n, "dependências demais", NULL);
++					break;
++				}
++				copiar(m->depende[m->ndepende++], NOME_MAX, tok);
++			}
++		} else if (strcmp(chave, "ambiente") == 0) {
++			if (strchr(valor, '=') == NULL || valor[0] == '=')
++				erro(m, n, "ambiente deve ser NOME=valor:",
++				    valor);
++			else if (m->nambiente == MAX_AMBIENTE)
++				erro(m, n, "variáveis de ambiente demais", NULL);
++			else if (!copiar(m->ambiente[m->nambiente++], 256,
++			    valor))
++				erro(m, n, "variável longa demais", NULL);
++		} else {
++			erro(m, n, "chave desconhecida:", chave);
++		}
++	}
++	fclose(f);
++
++	if (m->comando[0] == '\0')
++		erro(m, 0, "falta a chave 'comando'", NULL);
++	return (m->erro[0] == '\0' ? 0 : -1);
++}
+diff --git a/usr.sbin/vigia/ntpd.conf b/usr.sbin/vigia/ntpd.conf
+new file mode 100644
+index 000000000..258b167ed
+--- /dev/null
++++ b/usr.sbin/vigia/ntpd.conf
+@@ -0,0 +1,5 @@
++# Mantém o relógio certo pela internet.
++# Este arquivo substitui o ntpd_enable do rc.conf: não ligue os dois.
++descricao = Relógio sincronizado pela internet (NTP)
++comando = /usr/sbin/ntpd -n -g -c /etc/ntp.conf -f /var/db/ntpd.drift
++reiniciar = sempre
+diff --git a/usr.sbin/vigia/relogio.conf b/usr.sbin/vigia/relogio.conf
+new file mode 100644
+index 000000000..75324e884
+--- /dev/null
++++ b/usr.sbin/vigia/relogio.conf
+@@ -0,0 +1,7 @@
++# Exemplo mínimo: escreve a hora no log a cada 10 segundos.
++# Para usar: cp /usr/share/examples/vigia/relogio.conf /etc/vigia/servicos/
++#            vigia recarregar
++descricao = Relógio de exemplo (escreve a hora no log)
++comando = sh -c 'while true; do date; sleep 10; done'
++usuario = nobody
++reiniciar = sempre
+diff --git a/usr.sbin/vigia/servidor.c b/usr.sbin/vigia/servidor.c
+new file mode 100644
+index 000000000..928329d49
+--- /dev/null
++++ b/usr.sbin/vigia/servidor.c
+@@ -0,0 +1,990 @@
++/*-
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * vigiad - o daemon do gerenciador de serviços do LumeBSD.
++ *
++ * Um único laço kqueue(2) cuida de tudo: pedidos do vigia(8) pelo socket
++ * Unix, SIGCHLD (processos que terminaram), SIGTERM/SIGINT (desligar),
++ * SIGHUP (recarregar) e um temporizador de 500 ms que leva cada serviço do
++ * estado atual ao estado desejado (reconciliação).
++ *
++ * Estados: parado, desativado, aguardando (dependências), iniciando,
++ * ativo, parando, reiniciando (espera crescente), manutencao (caiu
++ * MAX_FALHAS vezes seguidas, ou não pôde iniciar) e erro (arquivo inválido).
++ */
++
++#include <sys/types.h>
++#include <sys/event.h>
++#include <sys/socket.h>
++#include <sys/stat.h>
++#include <sys/time.h>
++#include <sys/un.h>
++#include <sys/wait.h>
++
++#include <ctype.h>
++#include <dirent.h>
++#include <err.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <grp.h>
++#include <pwd.h>
++#include <signal.h>
++#include <stdarg.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <syslog.h>
++#include <time.h>
++#include <unistd.h>
++
++#include "vigia.h"
++
++#define	TICK_MS		500
++#define	TEMPO_ATIVO	1	/* segundos vivo para ser considerado ativo */
++#define	TEMPO_ESTAVEL	10	/* segundos rodando para zerar as falhas */
++#define	MAX_FALHAS	5	/* falhas seguidas até a manutenção */
++#define	ESPERA_MAX	30	/* teto da espera entre tentativas */
++#define	PRAZO_PARADA	10	/* segundos entre SIGTERM e SIGKILL */
++
++struct servico {
++	struct manifesto m;
++	int	 valido;
++	int	 habilitado;	/* sobe no boot */
++	int	 removido;	/* arquivo apagado; sai da lista ao parar */
++	enum estado est;
++	pid_t	 pid;
++	time_t	 desde;		/* entrada no estado atual (monotônico) */
++	time_t	 inicio;	/* início do processo atual */
++	int	 reinicios;	/* reinícios automáticos */
++	int	 falhas;	/* falhas seguidas */
++	time_t	 proxima;	/* próxima tentativa (reiniciando) */
++	time_t	 prazo;		/* SIGKILL se não parar até aqui */
++	int	 quer_rodar;	/* estado desejado */
++	int	 reiniciar_depois;
++	char	 motivo[256];
++	struct servico *prox;
++};
++
++static struct servico *servicos;
++static int desligando;
++static time_t desligar_ate;
++
++static const char *
++estado_texto(enum estado e)
++{
++	switch (e) {
++	case E_PARADO:		return ("parado");
++	case E_DESATIVADO:	return ("desativado");
++	case E_AGUARDANDO:	return ("aguardando");
++	case E_INICIANDO:	return ("iniciando");
++	case E_ATIVO:		return ("ativo");
++	case E_PARANDO:		return ("parando");
++	case E_REINICIANDO:	return ("reiniciando");
++	case E_MANUTENCAO:	return ("manutenção");
++	case E_ERRO:		return ("erro");
++	}
++	return ("?");
++}
++
++static time_t
++agora(void)
++{
++	struct timespec ts;
++
++	clock_gettime(CLOCK_MONOTONIC, &ts);
++	return (ts.tv_sec);
++}
++
++static struct servico *
++achar(const char *nome)
++{
++	struct servico *s;
++
++	for (s = servicos; s != NULL; s = s->prox)
++		if (strcmp(s->m.nome, nome) == 0)
++			return (s);
++	return (NULL);
++}
++
++/* Anota um evento no log do próprio serviço. */
++static void
++registrar(const struct servico *s, const char *fmt, ...)
++{
++	char caminho[PATH_MAX], quando[32], msg[512];
++	time_t t = time(NULL);
++	va_list ap;
++	int fd;
++
++	va_start(ap, fmt);
++	vsnprintf(msg, sizeof(msg), fmt, ap);
++	va_end(ap);
++	strftime(quando, sizeof(quando), "%Y-%m-%d %H:%M:%S", localtime(&t));
++	snprintf(caminho, sizeof(caminho), "%s/%s.log", VIGIA_LOGDIR,
++	    s->m.nome);
++	fd = open(caminho, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0640);
++	if (fd == -1)
++		return;
++	dprintf(fd, "[vigia %s] %s\n", quando, msg);
++	close(fd);
++}
++
++static void
++mudar(struct servico *s, enum estado e, const char *fmt, ...)
++{
++	va_list ap;
++
++	if (fmt != NULL) {
++		va_start(ap, fmt);
++		vsnprintf(s->motivo, sizeof(s->motivo), fmt, ap);
++		va_end(ap);
++	} else {
++		s->motivo[0] = '\0';
++	}
++	if (s->est == e && fmt == NULL)
++		return;
++	s->est = e;
++	s->desde = agora();
++	if (s->motivo[0] != '\0') {
++		syslog(e == E_MANUTENCAO || e == E_ERRO ? LOG_WARNING :
++		    LOG_INFO, "%s: %s (%s)", s->m.nome, estado_texto(e),
++		    s->motivo);
++		registrar(s, "%s: %s", estado_texto(e), s->motivo);
++	} else {
++		registrar(s, "%s", estado_texto(e));
++	}
++}
++
++/* Escolha persistente de "vigia ativar/desativar": -1 se não houver. */
++static int
++escolha_salva(const char *nome)
++{
++	char caminho[PATH_MAX], buf[16];
++	ssize_t n;
++	int fd;
++
++	snprintf(caminho, sizeof(caminho), "%s/%s", VIGIA_DBDIR, nome);
++	if ((fd = open(caminho, O_RDONLY | O_CLOEXEC)) == -1)
++		return (-1);
++	n = read(fd, buf, sizeof(buf) - 1);
++	close(fd);
++	if (n <= 0)
++		return (-1);
++	buf[n] = '\0';
++	return (strncmp(buf, "ativo", 5) == 0);
++}
++
++static void
++salvar_escolha(const char *nome, int ativo)
++{
++	char caminho[PATH_MAX];
++	int fd;
++
++	snprintf(caminho, sizeof(caminho), "%s/%s", VIGIA_DBDIR, nome);
++	fd = open(caminho, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
++	if (fd == -1) {
++		syslog(LOG_ERR, "%s: %m", caminho);
++		return;
++	}
++	dprintf(fd, "%s\n", ativo ? "ativo" : "desativado");
++	close(fd);
++}
++
++static int
++calcular_habilitado(const struct servico *s)
++{
++	int e;
++
++	if (!s->valido)
++		return (0);
++	e = escolha_salva(s->m.nome);
++	return (e == -1 ? s->m.ativo : e);
++}
++
++static void
++inserir(struct servico *novo)
++{
++	struct servico **pp;
++
++	for (pp = &servicos; *pp != NULL; pp = &(*pp)->prox)
++		if (strcmp((*pp)->m.nome, novo->m.nome) > 0)
++			break;
++	novo->prox = *pp;
++	*pp = novo;
++}
++
++/* Lê (ou relê) /etc/vigia/servicos. Retorna quantos serviços há. */
++static int
++carregar(void)
++{
++	struct servico *s;
++	struct manifesto m;
++	struct dirent *de;
++	char caminho[PATH_MAX], nome[NOME_MAX];
++	size_t n;
++	DIR *d;
++	int ok, total = 0, era;
++
++	for (s = servicos; s != NULL; s = s->prox)
++		s->removido = 1;
++
++	if ((d = opendir(VIGIA_SERVICOS)) == NULL) {
++		syslog(LOG_ERR, "%s: %m", VIGIA_SERVICOS);
++	} else {
++		while ((de = readdir(d)) != NULL) {
++			n = strlen(de->d_name);
++			if (n <= 5 || n - 5 >= NOME_MAX ||
++			    strcmp(de->d_name + n - 5, ".conf") != 0)
++				continue;
++			memcpy(nome, de->d_name, n - 5);
++			nome[n - 5] = '\0';
++			snprintf(caminho, sizeof(caminho), "%s/%s",
++			    VIGIA_SERVICOS, de->d_name);
++			ok = manifesto_ler(caminho, nome, &m) == 0;
++			total++;
++
++			if ((s = achar(nome)) == NULL) {
++				if ((s = calloc(1, sizeof(*s))) == NULL) {
++					syslog(LOG_ERR, "sem memória");
++					break;
++				}
++				s->m = m;
++				s->valido = ok;
++				s->habilitado = calcular_habilitado(s);
++				s->quer_rodar = s->habilitado;
++				s->est = s->habilitado ? E_PARADO : E_DESATIVADO;
++				s->desde = agora();
++				inserir(s);
++				if (!ok)
++					mudar(s, E_ERRO, "%s", m.erro);
++				continue;
++			}
++
++			/* Já conhecido: aplica a nova configuração. */
++			s->removido = 0;
++			era = s->habilitado;
++			s->m = m;
++			s->valido = ok;
++			s->habilitado = calcular_habilitado(s);
++			if (!ok) {
++				if (s->pid == 0)
++					mudar(s, E_ERRO, "%s", m.erro);
++				else
++					syslog(LOG_WARNING, "%s: arquivo "
++					    "inválido, mantendo o processo "
++					    "atual: %s", nome, m.erro);
++			} else if (s->est == E_ERRO) {
++				s->quer_rodar = s->habilitado;
++				mudar(s, s->habilitado ? E_PARADO :
++				    E_DESATIVADO, NULL);
++			} else if (!era && s->habilitado) {
++				s->quer_rodar = 1;
++			} else if (s->pid == 0 && s->est == E_PARADO &&
++			    !s->habilitado) {
++				mudar(s, E_DESATIVADO, NULL);
++			}
++		}
++		closedir(d);
++	}
++
++	for (s = servicos; s != NULL; s = s->prox) {
++		if (s->removido) {
++			s->quer_rodar = 0;
++			s->reiniciar_depois = 0;
++		}
++	}
++	return (total);
++}
++
++static void
++limpar_removidos(void)
++{
++	struct servico **pp, *s;
++
++	for (pp = &servicos; (s = *pp) != NULL;) {
++		if (s->removido && s->pid == 0) {
++			syslog(LOG_INFO, "%s: removido", s->m.nome);
++			*pp = s->prox;
++			free(s);
++		} else {
++			pp = &s->prox;
++		}
++	}
++}
++
++struct falha_filho {
++	int	etapa;
++	int	erro;
++};
++
++#define	ETAPA_DIRETORIO	1
++#define	ETAPA_USUARIO	2
++#define	ETAPA_EXEC	3
++
++static void __dead2
++filho(const struct servico *s, const struct passwd *pw, int aviso, int logfd,
++    int nulo)
++{
++	static char envbuf[MAX_AMBIENTE + 8][PATH_MAX + 32];
++	char *env[MAX_AMBIENTE + 9], cmd[sizeof(s->m.comando) + 8];
++	char *argv[4];
++	struct falha_filho ff;
++	sigset_t vazio;
++	int i, ne = 0;
++
++	sigemptyset(&vazio);
++	sigprocmask(SIG_SETMASK, &vazio, NULL);
++	signal(SIGTERM, SIG_DFL);
++	signal(SIGINT, SIG_DFL);
++	signal(SIGHUP, SIG_DFL);
++	signal(SIGPIPE, SIG_DFL);
++	setsid();
++	dup2(nulo, STDIN_FILENO);
++	dup2(logfd, STDOUT_FILENO);
++	dup2(logfd, STDERR_FILENO);
++
++	ff.etapa = ETAPA_DIRETORIO;
++	if (chdir(s->m.diretorio[0] != '\0' ? s->m.diretorio : "/") == -1)
++		goto falhou;
++
++	ff.etapa = ETAPA_USUARIO;
++	if (s->m.usuario[0] != '\0') {
++		if (setgid(pw->pw_gid) == -1 ||
++		    initgroups(pw->pw_name, pw->pw_gid) == -1 ||
++		    setuid(pw->pw_uid) == -1)
++			goto falhou;
++	}
++
++	snprintf(envbuf[ne], sizeof(envbuf[0]),
++	    "PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin");
++	env[ne] = envbuf[ne]; ne++;
++	snprintf(envbuf[ne], sizeof(envbuf[0]), "HOME=%s", pw->pw_dir);
++	env[ne] = envbuf[ne]; ne++;
++	snprintf(envbuf[ne], sizeof(envbuf[0]), "USER=%s", pw->pw_name);
++	env[ne] = envbuf[ne]; ne++;
++	snprintf(envbuf[ne], sizeof(envbuf[0]), "LOGNAME=%s", pw->pw_name);
++	env[ne] = envbuf[ne]; ne++;
++	snprintf(envbuf[ne], sizeof(envbuf[0]), "SHELL=%s", pw->pw_shell);
++	env[ne] = envbuf[ne]; ne++;
++	snprintf(envbuf[ne], sizeof(envbuf[0]), "VIGIA_SERVICO=%s",
++	    s->m.nome);
++	env[ne] = envbuf[ne]; ne++;
++	for (i = 0; i < s->m.nambiente; i++) {
++		strlcpy(envbuf[ne], s->m.ambiente[i], sizeof(envbuf[0]));
++		env[ne] = envbuf[ne]; ne++;
++	}
++	env[ne] = NULL;
++
++	snprintf(cmd, sizeof(cmd), "exec %s", s->m.comando);
++	argv[0] = __DECONST(char *, "sh");
++	argv[1] = __DECONST(char *, "-c");
++	argv[2] = cmd;
++	argv[3] = NULL;
++	ff.etapa = ETAPA_EXEC;
++	execve("/bin/sh", argv, env);
++falhou:
++	ff.erro = errno;
++	(void)write(aviso, &ff, sizeof(ff));
++	_exit(127);
++}
++
++static void
++iniciar_processo(struct servico *s)
++{
++	struct falha_filho ff;
++	struct passwd *pw;
++	char logpath[PATH_MAX];
++	const char *etapa;
++	int aviso[2], logfd, nulo;
++	ssize_t n;
++	pid_t pid;
++
++	if (s->m.usuario[0] != '\0')
++		pw = getpwnam(s->m.usuario);
++	else
++		pw = getpwuid(0);
++	if (pw == NULL) {
++		mudar(s, E_MANUTENCAO, "usuário '%s' não existe",
++		    s->m.usuario);
++		return;
++	}
++
++	snprintf(logpath, sizeof(logpath), "%s/%s.log", VIGIA_LOGDIR,
++	    s->m.nome);
++	logfd = open(logpath, O_WRONLY | O_APPEND | O_CREAT | O_CLOEXEC, 0640);
++	if (logfd == -1)
++		logfd = open("/dev/null", O_WRONLY | O_CLOEXEC);
++	nulo = open("/dev/null", O_RDONLY | O_CLOEXEC);
++	if (logfd == -1 || nulo == -1 || pipe2(aviso, O_CLOEXEC) == -1) {
++		mudar(s, E_MANUTENCAO, "não foi possível preparar: %s",
++		    strerror(errno));
++		if (logfd != -1)
++			close(logfd);
++		if (nulo != -1)
++			close(nulo);
++		return;
++	}
++
++	registrar(s, "executando: %s", s->m.comando);
++	pid = fork();
++	if (pid == 0)
++		filho(s, pw, aviso[1], logfd, nulo);
++	close(aviso[1]);
++	close(logfd);
++	close(nulo);
++	if (pid == -1) {
++		close(aviso[0]);
++		s->falhas++;
++		s->proxima = agora() + 5;
++		mudar(s, E_REINICIANDO, "fork falhou: %s; nova tentativa em "
++		    "5 s", strerror(errno));
++		return;
++	}
++
++	do {
++		n = read(aviso[0], &ff, sizeof(ff));
++	} while (n == -1 && errno == EINTR);
++	close(aviso[0]);
++	if (n == (ssize_t)sizeof(ff)) {
++		/* O filho não chegou ao exec: não adianta tentar de novo. */
++		waitpid(pid, NULL, 0);
++		etapa = ff.etapa == ETAPA_DIRETORIO ? "diretório" :
++		    ff.etapa == ETAPA_USUARIO ? "trocar de usuário" : "exec";
++		mudar(s, E_MANUTENCAO, "não foi possível iniciar (%s: %s)",
++		    etapa, strerror(ff.erro));
++		return;
++	}
++
++	s->pid = pid;
++	s->inicio = agora();
++	mudar(s, E_INICIANDO, "pid %d", (int)pid);
++}
++
++static void
++parar_processo(struct servico *s)
++{
++	if (s->pid > 0 && killpg(s->pid, SIGTERM) == -1 && errno != ESRCH)
++		kill(s->pid, SIGTERM);
++	s->prazo = agora() + PRAZO_PARADA;
++	mudar(s, E_PARANDO, "SIGTERM enviado ao pid %d", (int)s->pid);
++}
++
++static void
++reconciliar(struct servico *s)
++{
++	struct servico *d;
++	const char *falta;
++	time_t t = agora();
++	int i;
++
++	/* Prazo de parada vale mesmo se alguém pediu para iniciar de novo. */
++	if (s->est == E_PARANDO && s->pid > 0 && t >= s->prazo) {
++		killpg(s->pid, SIGKILL);
++		kill(s->pid, SIGKILL);
++		registrar(s, "não parou em %d s: SIGKILL", PRAZO_PARADA);
++		s->prazo = t + 3600;
++	}
++
++	if (!s->quer_rodar) {
++		switch (s->est) {
++		case E_AGUARDANDO:
++		case E_REINICIANDO:
++			mudar(s, s->habilitado ? E_PARADO : E_DESATIVADO, NULL);
++			break;
++		case E_INICIANDO:
++		case E_ATIVO:
++			parar_processo(s);
++			break;
++		default:
++			break;
++		}
++		return;
++	}
++
++	if (!s->valido || s->removido)
++		return;
++	if (s->est == E_PARADO || s->est == E_DESATIVADO)
++		mudar(s, E_AGUARDANDO, NULL);
++	if (s->est == E_REINICIANDO && t >= s->proxima)
++		mudar(s, E_AGUARDANDO, NULL);
++
++	if (s->est == E_AGUARDANDO) {
++		falta = NULL;
++		for (i = 0; i < s->m.ndepende; i++) {
++			d = achar(s->m.depende[i]);
++			if (d == NULL || d->removido || !d->valido) {
++				snprintf(s->motivo, sizeof(s->motivo),
++				    "dependência '%s' não existe ou é "
++				    "inválida", s->m.depende[i]);
++				return;
++			}
++			if (d->est == E_MANUTENCAO) {
++				snprintf(s->motivo, sizeof(s->motivo),
++				    "dependência '%s' em manutenção",
++				    d->m.nome);
++				return;
++			}
++			if (!d->quer_rodar && !desligando)
++				d->quer_rodar = 1;
++			if (d->est != E_ATIVO && falta == NULL)
++				falta = d->m.nome;
++		}
++		if (falta != NULL) {
++			snprintf(s->motivo, sizeof(s->motivo),
++			    "esperando '%s' ficar ativo", falta);
++			return;
++		}
++		iniciar_processo(s);
++	}
++
++	if (s->est == E_INICIANDO && t - s->inicio >= TEMPO_ATIVO)
++		mudar(s, E_ATIVO, "rodando (pid %d)", (int)s->pid);
++	if (s->est == E_ATIVO && s->falhas > 0 &&
++	    t - s->inicio >= TEMPO_ESTAVEL)
++		s->falhas = 0;
++}
++
++static void
++reconciliar_todos(void)
++{
++	struct servico *s;
++	int i;
++
++	/* Duas passadas: uma dependência puxada na primeira sobe na segunda. */
++	for (i = 0; i < 2; i++)
++		for (s = servicos; s != NULL; s = s->prox)
++			reconciliar(s);
++}
++
++static void
++como_terminou(int st, char *buf, size_t len, int *falhou)
++{
++	char sig[16];
++	const char *nome;
++	int i;
++
++	if (WIFEXITED(st)) {
++		snprintf(buf, len, "saiu com código %d", WEXITSTATUS(st));
++		*falhou = WEXITSTATUS(st) != 0;
++		return;
++	}
++	*falhou = 1;
++	if (WIFSIGNALED(st) && WTERMSIG(st) < NSIG) {
++		nome = sys_signame[WTERMSIG(st)];
++		for (i = 0; nome[i] != '\0' && i < (int)sizeof(sig) - 1; i++)
++			sig[i] = (char)toupper((unsigned char)nome[i]);
++		sig[i] = '\0';
++		snprintf(buf, len, "morto por SIG%s%s", sig,
++		    WCOREDUMP(st) ? " (core)" : "");
++		return;
++	}
++	snprintf(buf, len, "terminou (estado %d)", st);
++}
++
++static void
++processo_terminou(struct servico *s, int st)
++{
++	char como[96];
++	time_t rodou = agora() - s->inicio;
++	int falhou, espera;
++
++	como_terminou(st, como, sizeof(como), &falhou);
++	s->pid = 0;
++
++	if (s->est == E_PARANDO || !s->quer_rodar) {
++		if (s->reiniciar_depois) {
++			s->reiniciar_depois = 0;
++			s->quer_rodar = 1;
++			s->falhas = 0;
++		}
++		mudar(s, s->habilitado || s->quer_rodar ? E_PARADO :
++		    E_DESATIVADO, "parou (%s)", como);
++		return;
++	}
++
++	if (s->m.reiniciar == R_NUNCA ||
++	    (s->m.reiniciar == R_FALHA && !falhou)) {
++		s->quer_rodar = 0;
++		mudar(s, E_PARADO, "%s", como);
++		return;
++	}
++
++	if (rodou >= TEMPO_ESTAVEL)
++		s->falhas = 0;
++	s->falhas++;
++	if (s->falhas >= MAX_FALHAS) {
++		mudar(s, E_MANUTENCAO, "%s; caiu %d vezes seguidas, veja "
++		    "'vigia log %s' e use 'vigia reiniciar %s'", como,
++		    s->falhas, s->m.nome, s->m.nome);
++		return;
++	}
++	espera = 1 << (s->falhas - 1);
++	if (espera > ESPERA_MAX)
++		espera = ESPERA_MAX;
++	s->reinicios++;
++	s->proxima = agora() + espera;
++	mudar(s, E_REINICIANDO, "%s; nova tentativa em %d s", como, espera);
++}
++
++static void
++colher(void)
++{
++	struct servico *s;
++	pid_t pid;
++	int st;
++
++	while ((pid = waitpid(-1, &st, WNOHANG)) > 0) {
++		for (s = servicos; s != NULL; s = s->prox)
++			if (s->pid == pid)
++				break;
++		if (s != NULL)
++			processo_terminou(s, st);
++	}
++}
++
++static int
++rodando(void)
++{
++	struct servico *s;
++	int n = 0;
++
++	for (s = servicos; s != NULL; s = s->prox)
++		if (s->pid > 0)
++			n++;
++	return (n);
++}
++
++static void
++iniciar_desligamento(void)
++{
++	struct servico *s;
++
++	if (desligando)
++		return;
++	syslog(LOG_INFO, "desligando: parando %d serviço(s)", rodando());
++	desligando = 1;
++	desligar_ate = agora() + PRAZO_PARADA + 3;
++	for (s = servicos; s != NULL; s = s->prox) {
++		s->quer_rodar = 0;
++		s->reiniciar_depois = 0;
++	}
++}
++
++/* --- pedidos do vigia(8) ------------------------------------------------ */
++
++static void
++cmd_info(int fd, const struct servico *s)
++{
++	char dur[32], deps[MAX_DEPS * NOME_MAX];
++	int i;
++
++	duracao(agora() - s->desde, dur, sizeof(dur));
++	deps[0] = '\0';
++	for (i = 0; i < s->m.ndepende; i++) {
++		if (i > 0)
++			strlcat(deps, " ", sizeof(deps));
++		strlcat(deps, s->m.depende[i], sizeof(deps));
++	}
++	dprintf(fd, "ok\n");
++	dprintf(fd, "serviço\t%s\n", s->m.nome);
++	dprintf(fd, "descrição\t%s\n", s->m.descricao);
++	dprintf(fd, "estado\t%s\n", estado_texto(s->est));
++	if (s->motivo[0] != '\0')
++		dprintf(fd, "motivo\t%s\n", s->motivo);
++	dprintf(fd, "há\t%s\n", dur);
++	if (s->pid > 0)
++		dprintf(fd, "pid\t%d\n", (int)s->pid);
++	dprintf(fd, "reinícios\t%d\n", s->reinicios);
++	dprintf(fd, "no boot\t%s\n", s->habilitado ? "sobe sozinho" :
++	    "desativado");
++	dprintf(fd, "comando\t%s\n", s->m.comando);
++	dprintf(fd, "usuário\t%s\n", s->m.usuario[0] ? s->m.usuario : "root");
++	if (s->m.diretorio[0] != '\0')
++		dprintf(fd, "diretório\t%s\n", s->m.diretorio);
++	dprintf(fd, "reiniciar\t%s\n", reiniciar_texto(s->m.reiniciar));
++	if (deps[0] != '\0')
++		dprintf(fd, "depende de\t%s\n", deps);
++	for (i = 0; i < s->m.nambiente; i++)
++		dprintf(fd, "ambiente\t%s\n", s->m.ambiente[i]);
++	dprintf(fd, "arquivo\t%s/%s.conf\n", VIGIA_SERVICOS, s->m.nome);
++	dprintf(fd, "log\t%s/%s.log\n", VIGIA_LOGDIR, s->m.nome);
++	if (!s->valido)
++		dprintf(fd, "erro no arquivo\t%s\n", s->m.erro);
++}
++
++static void
++comando(int fd, uid_t uid, char *linha)
++{
++	struct servico *s;
++	char *verbo, *arg, *ctx;
++	int total, ativos, problemas;
++
++	verbo = strtok_r(linha, " \t\r\n", &ctx);
++	arg = verbo != NULL ? strtok_r(NULL, " \t\r\n", &ctx) : NULL;
++	if (verbo == NULL) {
++		dprintf(fd, "erro: pedido vazio\n");
++		return;
++	}
++
++	if (strcmp(verbo, "estado") == 0) {
++		dprintf(fd, "ok\n");
++		for (s = servicos; s != NULL; s = s->prox)
++			dprintf(fd, "%s\t%s\t%d\t%lld\t%d\t%s\t%s\n", s->m.nome,
++			    estado_texto(s->est), (int)s->pid,
++			    (long long)(agora() - s->desde), s->reinicios,
++			    s->m.descricao, s->motivo);
++		return;
++	}
++	if (strcmp(verbo, "resumo") == 0) {
++		total = ativos = problemas = 0;
++		for (s = servicos; s != NULL; s = s->prox) {
++			total++;
++			if (s->est == E_ATIVO)
++				ativos++;
++			else if (s->est == E_MANUTENCAO || s->est == E_ERRO)
++				problemas++;
++		}
++		dprintf(fd, "ok\n%d\t%d\t%d\n", total, ativos, problemas);
++		return;
++	}
++	if (strcmp(verbo, "info") == 0) {
++		if (arg == NULL || (s = achar(arg)) == NULL) {
++			dprintf(fd, "erro: serviço '%s' não existe\n",
++			    arg ? arg : "");
++			return;
++		}
++		cmd_info(fd, s);
++		return;
++	}
++
++	/* Daqui para baixo, só o root. */
++	if (uid != 0) {
++		dprintf(fd, "erro: permissão negada (use su - ou peça ao "
++		    "administrador)\n");
++		return;
++	}
++	if (desligando) {
++		dprintf(fd, "erro: o sistema está desligando\n");
++		return;
++	}
++	if (strcmp(verbo, "recarregar") == 0) {
++		total = carregar();
++		reconciliar_todos();
++		dprintf(fd, "ok\n%d serviço(s) em %s\n", total, VIGIA_SERVICOS);
++		return;
++	}
++
++	if (arg == NULL) {
++		dprintf(fd, "erro: diga qual serviço\n");
++		return;
++	}
++	if ((s = achar(arg)) == NULL || s->removido) {
++		dprintf(fd, "erro: serviço '%s' não existe (arquivos em %s)\n",
++		    arg, VIGIA_SERVICOS);
++		return;
++	}
++	if (!s->valido && strcmp(verbo, "parar") != 0) {
++		dprintf(fd, "erro: %s/%s.conf é inválido: %s\n",
++		    VIGIA_SERVICOS, s->m.nome, s->m.erro);
++		return;
++	}
++
++	if (strcmp(verbo, "iniciar") == 0) {
++		if (s->est == E_MANUTENCAO) {
++			s->falhas = 0;
++			mudar(s, E_PARADO, "saindo da manutenção");
++		}
++		s->quer_rodar = 1;
++	} else if (strcmp(verbo, "parar") == 0) {
++		s->quer_rodar = 0;
++		s->reiniciar_depois = 0;
++		if (s->est == E_MANUTENCAO)
++			mudar(s, s->habilitado ? E_PARADO : E_DESATIVADO,
++			    NULL);
++	} else if (strcmp(verbo, "reiniciar") == 0) {
++		s->falhas = 0;
++		if (s->pid > 0) {
++			s->reiniciar_depois = 1;
++			s->quer_rodar = 0;
++		} else {
++			if (s->est == E_MANUTENCAO)
++				mudar(s, E_PARADO, "saindo da manutenção");
++			s->quer_rodar = 1;
++		}
++	} else if (strcmp(verbo, "ativar") == 0) {
++		salvar_escolha(s->m.nome, 1);
++		s->habilitado = 1;
++		if (s->est == E_MANUTENCAO) {
++			s->falhas = 0;
++			mudar(s, E_PARADO, "saindo da manutenção");
++		}
++		s->quer_rodar = 1;
++	} else if (strcmp(verbo, "desativar") == 0) {
++		salvar_escolha(s->m.nome, 0);
++		s->habilitado = 0;
++		s->quer_rodar = 0;
++		s->reiniciar_depois = 0;
++		if (s->est == E_PARADO || s->est == E_MANUTENCAO)
++			mudar(s, E_DESATIVADO, NULL);
++	} else {
++		dprintf(fd, "erro: comando desconhecido '%s'\n", verbo);
++		return;
++	}
++	reconciliar_todos();
++	dprintf(fd, "ok\n");
++}
++
++static void
++atender(int lfd)
++{
++	struct timeval tv = { 2, 0 };
++	char buf[512];
++	size_t n = 0;
++	ssize_t r;
++	uid_t uid;
++	gid_t gid;
++	int c;
++
++	if ((c = accept4(lfd, NULL, NULL, SOCK_CLOEXEC)) == -1)
++		return;
++	setsockopt(c, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++	setsockopt(c, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
++	if (getpeereid(c, &uid, &gid) == -1)
++		uid = (uid_t)-1;
++	while (n < sizeof(buf) - 1) {
++		r = read(c, buf + n, sizeof(buf) - 1 - n);
++		if (r <= 0)
++			break;
++		n += (size_t)r;
++		if (memchr(buf, '\n', n) != NULL)
++			break;
++	}
++	buf[n] = '\0';
++	comando(c, uid, buf);
++	close(c);
++}
++
++static void
++mkdir_p(const char *dir, mode_t modo)
++{
++	char tmp[PATH_MAX], *p;
++
++	strlcpy(tmp, dir, sizeof(tmp));
++	for (p = tmp + 1; *p != '\0'; p++) {
++		if (*p == '/') {
++			*p = '\0';
++			mkdir(tmp, 0755);
++			*p = '/';
++		}
++	}
++	if (mkdir(tmp, modo) == -1 && errno != EEXIST)
++		syslog(LOG_ERR, "%s: %m", dir);
++}
++
++int
++servidor_main(int argc, char **argv)
++{
++	struct sockaddr_un sun;
++	struct kevent ev[8], mudancas[6];
++	int ch, frente = 0, lfd, kq, n, i;
++	FILE *f;
++
++	while ((ch = getopt(argc, argv, "f")) != -1) {
++		switch (ch) {
++		case 'f':
++			frente = 1;
++			break;
++		default:
++			fprintf(stderr, "uso: vigiad [-f]\n");
++			return (1);
++		}
++	}
++	if (geteuid() != 0)
++		errx(1, "precisa rodar como root");
++
++	/* O kqueue não passa por fork(): daemon() vem antes dele. */
++	if (!frente && daemon(0, 0) == -1)
++		err(1, "daemon");
++	openlog("vigiad", LOG_PID | (frente ? LOG_PERROR : 0), LOG_DAEMON);
++	umask(022);
++	mkdir_p(VIGIA_SERVICOS, 0755);
++	mkdir_p(VIGIA_LOGDIR, 0750);
++	mkdir_p(VIGIA_DBDIR, 0755);
++
++	if ((f = fopen(VIGIA_PIDFILE, "w")) != NULL) {
++		fprintf(f, "%d\n", (int)getpid());
++		fclose(f);
++	}
++
++	if ((lfd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0)) == -1) {
++		syslog(LOG_ERR, "socket: %m");
++		return (1);
++	}
++	memset(&sun, 0, sizeof(sun));
++	sun.sun_family = AF_UNIX;
++	strlcpy(sun.sun_path, VIGIA_SOCKET, sizeof(sun.sun_path));
++	unlink(VIGIA_SOCKET);
++	if (bind(lfd, (struct sockaddr *)&sun, SUN_LEN(&sun)) == -1 ||
++	    chmod(VIGIA_SOCKET, 0666) == -1 || listen(lfd, 16) == -1) {
++		syslog(LOG_ERR, "%s: %m", VIGIA_SOCKET);
++		return (1);
++	}
++
++	signal(SIGPIPE, SIG_IGN);
++	signal(SIGTERM, SIG_IGN);
++	signal(SIGINT, SIG_IGN);
++	signal(SIGHUP, SIG_IGN);
++	/* SIGCHLD fica no padrão: ignorá-lo faria o kernel colher sozinho. */
++
++	if ((kq = kqueue()) == -1) {
++		syslog(LOG_ERR, "kqueue: %m");
++		return (1);
++	}
++	EV_SET(&mudancas[0], lfd, EVFILT_READ, EV_ADD, 0, 0, NULL);
++	EV_SET(&mudancas[1], SIGCHLD, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
++	EV_SET(&mudancas[2], SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
++	EV_SET(&mudancas[3], SIGINT, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
++	EV_SET(&mudancas[4], SIGHUP, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
++	EV_SET(&mudancas[5], 1, EVFILT_TIMER, EV_ADD, 0, TICK_MS, NULL);
++	if (kevent(kq, mudancas, 6, NULL, 0, NULL) == -1) {
++		syslog(LOG_ERR, "kevent: %m");
++		return (1);
++	}
++
++	n = carregar();
++	syslog(LOG_INFO, "vigiando %d serviço(s) de %s", n, VIGIA_SERVICOS);
++	reconciliar_todos();
++
++	for (;;) {
++		n = kevent(kq, NULL, 0, ev, 8, NULL);
++		if (n == -1) {
++			if (errno == EINTR)
++				continue;
++			syslog(LOG_ERR, "kevent: %m");
++			break;
++		}
++		for (i = 0; i < n; i++) {
++			if (ev[i].filter == EVFILT_READ &&
++			    (int)ev[i].ident == lfd) {
++				atender(lfd);
++			} else if (ev[i].filter == EVFILT_SIGNAL) {
++				if ((int)ev[i].ident == SIGTERM ||
++				    (int)ev[i].ident == SIGINT)
++					iniciar_desligamento();
++				else if ((int)ev[i].ident == SIGHUP &&
++				    !desligando)
++					syslog(LOG_INFO, "SIGHUP: %d serviço(s)",
++					    carregar());
++			}
++		}
++		colher();
++		reconciliar_todos();
++		limpar_removidos();
++		if (desligando && (rodando() == 0 || agora() > desligar_ate))
++			break;
++	}
++
++	unlink(VIGIA_SOCKET);
++	unlink(VIGIA_PIDFILE);
++	syslog(LOG_INFO, "encerrado");
++	return (0);
++}
+diff --git a/usr.sbin/vigia/vigia.8 b/usr.sbin/vigia/vigia.8
+new file mode 100644
+index 000000000..31cfdf9b7
+--- /dev/null
++++ b/usr.sbin/vigia/vigia.8
+@@ -0,0 +1,149 @@
++.\"
++.\" SPDX-License-Identifier: BSD-2-Clause
++.\"
++.Dd November 2, 2026
++.Dt VIGIA 8
++.Os
++.Sh NAME
++.Nm vigia ,
++.Nm vigiad
++.Nd gerenciador de serviços do LumeBSD
++.Sh SYNOPSIS
++.Nm
++.Op Cm estado
++.Nm
++.Cm iniciar | parar | reiniciar
++.Ar serviço
++.Nm
++.Cm ativar | desativar
++.Ar serviço
++.Nm
++.Cm info
++.Ar serviço
++.Nm
++.Cm log
++.Ar serviço
++.Op Fl n Ar linhas
++.Op Fl f
++.Nm
++.Cm recarregar
++.Nm vigiad
++.Op Fl f
++.Sh DESCRIPTION
++.Nm vigiad
++supervisiona serviços descritos em arquivos simples em
++.Pa /etc/vigia/servicos
++.Pq veja Xr vigia.conf 5 .
++Ele inicia cada serviço na ordem das dependências, guarda a saída do
++processo em
++.Pa /var/log/vigia/ Ns Ar serviço Ns Pa .log
++e, se o processo cair, reinicia com espera crescente
++(1, 2, 4, 8 segundos, até 30).
++Se um serviço cair 5 vezes seguidas sem ficar 10 segundos de pé, ele vai
++para
++.Dq manutenção
++e o
++.Nm vigiad
++para de tentar até alguém pedir.
++.Pp
++Ao contrário dos scripts de
++.Xr rc 8 ,
++que só iniciam o daemon e o esquecem,
++.Nm vigiad
++é o pai de cada serviço e fica sabendo na hora quando um deles termina.
++Todo o trabalho acontece num único laço
++.Xr kqueue 2 .
++.Pp
++Estados de um serviço:
++.Bl -tag -width "reiniciando"
++.It parado
++Não está rodando.
++.It desativado
++Não está rodando e não sobe no boot.
++.It aguardando
++Esperando as dependências ficarem ativas.
++.It iniciando
++Processo criado, ainda no primeiro segundo de vida.
++.It ativo
++Rodando.
++.It parando
++Recebeu SIGTERM; recebe SIGKILL se não terminar em 10 segundos.
++.It reiniciando
++Caiu; esperando para tentar de novo.
++.It manutenção
++Caiu demais ou não pôde iniciar.
++Use
++.Nm Cm log
++para ver o motivo e
++.Nm Cm reiniciar
++para tentar de novo.
++.It erro
++O arquivo do serviço é inválido.
++.El
++.Pp
++Comandos:
++.Bl -tag -width "recarregar"
++.It Cm estado
++Tabela com todos os serviços (padrão sem argumentos).
++.It Cm iniciar , Cm parar , Cm reiniciar
++Agem agora, sem mudar o que acontece no boot.
++.It Cm ativar , Cm desativar
++Iniciam ou param o serviço e guardam a escolha para os próximos boots
++.Pq em Pa /var/db/vigia .
++.It Cm info
++Todos os detalhes de um serviço.
++.It Cm log
++Últimas linhas do log;
++.Fl f
++acompanha em tempo real.
++.It Cm recarregar
++Relê
++.Pa /etc/vigia/servicos :
++serviços novos sobem, os apagados param.
++Mudanças num serviço valem a partir do próximo início.
++.El
++.Pp
++Qualquer usuário pode consultar; só o root pode mudar o estado dos
++serviços.
++Os logs podem ser lidos pelo root e pelo grupo
++.Dq wheel .
++.Pp
++.Nm vigiad
++é iniciado no boot por
++.Pa /etc/rc.d/vigia
++.Pq Va vigia_enable ;
++com
++.Fl f
++roda em primeiro plano.
++Ao receber SIGTERM, para todos os serviços antes de sair; SIGHUP equivale
++a
++.Cm recarregar .
++.Sh FILES
++.Bl -tag -width "/usr/share/examples/vigia" -compact
++.It Pa /etc/vigia/servicos
++arquivos de serviço
++.It Pa /usr/share/examples/vigia
++exemplos
++.It Pa /var/log/vigia
++saída de cada serviço e eventos do vigia
++.It Pa /var/db/vigia
++escolhas de ativar/desativar
++.It Pa /var/run/vigia.sock
++socket de controle
++.El
++.Sh EXAMPLES
++.Bd -literal -offset indent
++cp /usr/share/examples/vigia/*.conf /etc/vigia/servicos/
++vigia recarregar
++vigia
++vigia log relogio -f
++.Ed
++.Sh SEE ALSO
++.Xr vigia.conf 5 ,
++.Xr lume 1 ,
++.Xr kqueue 2 ,
++.Xr rc 8
++.Sh HISTORY
++.Nm
++surgiu no LumeBSD 1.0
++.Dq Farol .
+diff --git a/usr.sbin/vigia/vigia.conf.5 b/usr.sbin/vigia/vigia.conf.5
+new file mode 100644
+index 000000000..42865bea0
+--- /dev/null
++++ b/usr.sbin/vigia/vigia.conf.5
+@@ -0,0 +1,70 @@
++.\"
++.\" SPDX-License-Identifier: BSD-2-Clause
++.\"
++.Dd November 2, 2026
++.Dt VIGIA.CONF 5
++.Os
++.Sh NAME
++.Nm vigia.conf
++.Nd arquivos de serviço do vigia
++.Sh DESCRIPTION
++Cada serviço é um arquivo
++.Pa /etc/vigia/servicos/ Ns Ar nome Ns Pa .conf .
++O nome usa letras minúsculas, números,
++.Ql -
++e
++.Ql _ .
++Cada linha tem a forma
++.Ql chave = valor ;
++linhas vazias e começadas por
++.Ql #
++são ignoradas.
++.Bl -tag -width "descricao"
++.It Cm comando
++Obrigatório.
++Linha de comando executada por
++.Xr sh 1
++com
++.Ql exec ,
++então o processo do serviço é o próprio comando.
++Ele não deve ir para o segundo plano: o vigia precisa ser o pai dele.
++.It Cm descricao
++Texto curto mostrado por
++.Nm vigia .
++.It Cm usuario
++Usuário que roda o serviço (padrão: root).
++.It Cm diretorio
++Diretório de trabalho, absoluto (padrão:
++.Pa / ) .
++.It Cm reiniciar
++.Cm sempre ,
++.Cm falha
++(padrão: só quando sai com código diferente de 0 ou morre por sinal) ou
++.Cm nunca .
++.It Cm depende
++Outros serviços, separados por espaço ou vírgula, que precisam estar
++ativos antes deste subir.
++Iniciar este serviço inicia as dependências.
++.It Cm ambiente
++.Ar NOME Ns = Ns Ar valor ;
++pode aparecer até 16 vezes.
++.It Cm ativo
++.Cm sim
++(padrão) ou
++.Cm nao :
++se o serviço sobe no boot.
++.Nm vigia Cm ativar
++e
++.Cm desativar
++têm prioridade sobre esta chave.
++.El
++.Sh EXAMPLES
++.Bd -literal -offset indent
++descricao = Página "Olá" na porta 8080
++comando = sh -c 'while true; do printf "HTTP/1.0 200 OK\er\en\er\enOlá\en" | nc -N -l 8080; done'
++usuario = nobody
++depende = relogio
++reiniciar = sempre
++.Ed
++.Sh SEE ALSO
++.Xr vigia 8
+diff --git a/usr.sbin/vigia/vigia.h b/usr.sbin/vigia/vigia.h
+new file mode 100644
+index 000000000..997822c49
+--- /dev/null
++++ b/usr.sbin/vigia/vigia.h
+@@ -0,0 +1,67 @@
++/*-
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * vigia - gerenciador de serviços do LumeBSD.
++ */
++
++#ifndef VIGIA_H
++#define	VIGIA_H
++
++#include <sys/types.h>
++#include <limits.h>
++#include <time.h>
++
++#define	VIGIA_SOCKET	"/var/run/vigia.sock"
++#define	VIGIA_PIDFILE	"/var/run/vigiad.pid"
++#define	VIGIA_SERVICOS	"/etc/vigia/servicos"
++#define	VIGIA_LOGDIR	"/var/log/vigia"
++#define	VIGIA_DBDIR	"/var/db/vigia"
++
++#define	NOME_MAX	64
++#define	MAX_DEPS	8
++#define	MAX_AMBIENTE	16
++
++enum reiniciar {
++	R_SEMPRE,
++	R_FALHA,
++	R_NUNCA,
++};
++
++enum estado {
++	E_PARADO,
++	E_DESATIVADO,
++	E_AGUARDANDO,
++	E_INICIANDO,
++	E_ATIVO,
++	E_PARANDO,
++	E_REINICIANDO,
++	E_MANUTENCAO,
++	E_ERRO,
++};
++
++/* Configuração lida de /etc/vigia/servicos/<nome>.conf */
++struct manifesto {
++	char	nome[NOME_MAX];
++	char	descricao[256];
++	char	comando[1024];
++	char	usuario[NOME_MAX];
++	char	diretorio[PATH_MAX];
++	enum reiniciar reiniciar;
++	char	depende[MAX_DEPS][NOME_MAX];
++	int	ndepende;
++	char	ambiente[MAX_AMBIENTE][256];
++	int	nambiente;
++	int	ativo;			/* "ativo = sim" no arquivo */
++	char	erro[256];		/* vazio se o arquivo é válido */
++};
++
++int	 nome_valido(const char *);
++int	 manifesto_ler(const char *caminho, const char *nome,
++	    struct manifesto *);
++const char *reiniciar_texto(enum reiniciar);
++void	 duracao(time_t, char *, size_t);
++
++int	 servidor_main(int, char **);
++int	 cliente_main(int, char **);
++
++#endif
+diff --git a/usr.sbin/vigia/web.conf b/usr.sbin/vigia/web.conf
+new file mode 100644
+index 000000000..01e56cc7d
+--- /dev/null
++++ b/usr.sbin/vigia/web.conf
+@@ -0,0 +1,8 @@
++# Servidor web mínimo na porta 8080, feito só com o nc(1) da base.
++# Teste com: fetch -qo - http://127.0.0.1:8080/
++# A dependência do relógio existe só para mostrar a ordem de subida.
++descricao = Página "Olá" na porta 8080
++comando = sh -c 'while true; do printf "HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOlá do LumeBSD! Servido pelo vigia.\n" | nc -N -l 8080; done'
++usuario = nobody
++depende = relogio
++reiniciar = sempre
+-- 
+2.43.0
+

@@ -52,6 +52,59 @@ qualquer momento com `lume configurar`.
 No FreeBSD essas perguntas só existem no instalador; as imagens de disco
 para VM e nuvem sobem com root sem senha e tudo em inglês.
 
+### vigia: serviços que se reerguem sozinhos
+
+O LumeBSD tem um gerenciador de serviços próprio, o **vigia**. Cada serviço é
+um arquivo de poucas linhas em `/etc/vigia/servicos`:
+
+```ini
+descricao = Página "Olá" na porta 8080
+comando   = sh -c 'while true; do printf "HTTP/1.0 200 OK\r\n\r\nOlá\n" | nc -N -l 8080; done'
+usuario   = nobody
+depende   = relogio
+reiniciar = sempre
+```
+
+O `vigiad` é o pai de cada serviço e fica sabendo na hora quando um deles
+cai (um único laço `kqueue`). Ele:
+
+- sobe os serviços na ordem das dependências;
+- reinicia o que cair, esperando 1, 2, 4, 8 s… até 30 s;
+- desiste depois de 5 quedas seguidas e põe o serviço em **manutenção**,
+  com o motivo à vista, em vez de ficar em loop para sempre;
+- guarda a saída de cada serviço em `/var/log/vigia/<serviço>.log`;
+- para tudo com SIGTERM (e SIGKILL após 10 s) no desligamento.
+
+```
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● manutenção   -       11 s       4          Serviço instável (demonstração)
+    └ saiu com código 3; caiu 5 vezes seguidas, veja 'vigia log instavel' e use 'vigia reiniciar instavel'
+  ntpd          ● ativo        1114    53 s       0          Relógio sincronizado pela internet (NTP)
+  relogio       ● ativo        1208    46 s       0          Relógio de exemplo (escreve a hora no log)
+  web           ● ativo        1224    39 s       1          Página "Olá" na porta 8080
+
+  3 ativo(s) de 4.
+```
+
+| Comando | O que faz |
+|---|---|
+| `vigia` | tabela de serviços |
+| `vigia iniciar / parar / reiniciar X` | age agora |
+| `vigia ativar / desativar X` | age e guarda a escolha para os próximos boots |
+| `vigia info X` | todos os detalhes |
+| `vigia log X [-n N] [-f]` | saída do serviço |
+| `vigia recarregar` | relê os arquivos: novos sobem, apagados param |
+
+Qualquer usuário consulta; só o root muda estados. O `ntpd` já vem
+gerenciado pelo vigia, e há exemplos em `/usr/share/examples/vigia`.
+O painel `lume` mostra o resumo (`serviços   3 de 4 ativos, 1 com problema`).
+Manuais: `man vigia` e `man vigia.conf`.
+
+O vigia convive com o `rc.d` do FreeBSD: o sistema base continua subindo
+pelo `rc`, e o vigia cuida dos serviços que você quer supervisionados.
+
 ### O disco cresce sozinho
 
 No primeiro boot a partição raiz é expandida até o fim do disco
@@ -67,6 +120,7 @@ Também vem com 512 MB de swap já configurados.
 | Kernel | Configuração própria `LUME`: parte do `GENERIC`, sem símbolos de debug, CTF e hooks de DTrace |
 | `lume(1)` | Utilitário nativo em C: painel do sistema (kernel, CPU, memória e disco com barras, carga, uptime), `lume farol`, `lume dica`, `lume versao`, `lume configurar` |
 | `rc.d/lume_farol` | Serviço que acende o farol e o painel ao final do boot (`lume_farol_enable`) |
+| `vigia(8)` | Gerenciador de serviços com supervisão, dependências, logs e proteção contra loop de falhas (`rc.d/vigia`) |
 | `lume-configurar(8)` | Assistente de configuração em português, roda no primeiro boot (`rc.d/lume_configurar`) e com `lume configurar` |
 | Login | Mensagem do dia em português |
 | Userland | `src.conf` enxuto: sem testes, lib32, toolchain, ZFS/CDDL, Kerberos, sendmail, jogos |
@@ -76,6 +130,7 @@ Também vem com 512 MB de swap já configurados.
 ```
 patches/0001-...patch   identidade, loader, lume(1), kernel LUME
 patches/0002-...patch   assistente de primeiro boot (lume-configurar)
+patches/0003-...patch   vigia, o gerenciador de serviços
 conf/src.conf          seleção da userland
 conf/LUME              configuração do kernel
 build-lumebsd.sh       do clone até a imagem bootável
@@ -119,6 +174,8 @@ Teste automatizado (responde o assistente sozinho e confere o resultado):
 cp LumeBSD-1.0-Farol-amd64.img teste.img && truncate -s +2G teste.img
 python3 tests/teste-console.py teste.img primeiro.log primeiro   # assistente
 python3 tests/teste-console.py teste.img segundo.log segundo     # não reaparece
+python3 tests/teste-console.py teste.img vigia.log servicos      # gerenciador
+python3 tests/teste-console.py teste.img boot3.log persistencia  # após reboot
 ```
 
 ## Status
@@ -130,8 +187,12 @@ python3 tests/teste-console.py teste.img segundo.log segundo     # não reaparec
   completa (com entradas inválidas recusadas), segundo boot sem assistente e
   boot sem ninguém respondendo
 - [x] Raiz expandida de 2,9 GB para 4,8 GB num disco 2 GB maior
+- [x] vigia testado: dependências, `kill -9` com reinício automático,
+  loop de falhas indo para manutenção, permissões, arquivos inválidos,
+  desligamento limpo e escolhas que sobrevivem ao reboot
 
-Sessão real do assistente: [`docs/primeiro-boot-assistente.log`](docs/primeiro-boot-assistente.log).
+Sessões reais: [assistente](docs/primeiro-boot-assistente.log) e
+[vigia](docs/vigia-sessao.log).
 
 Primeiro boot real, no console serial:
 

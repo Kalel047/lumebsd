@@ -1,7 +1,7 @@
 From c2ac4cc66373aa7f4da79692701b9bd01d54b022 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 11:23:32 -0300
-Subject: [PATCH 2/2] LumeBSD: assistente de primeiro boot (lume-configurar),
+Subject: [PATCH 2/3] LumeBSD: assistente de primeiro boot (lume-configurar),
  lume configurar
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

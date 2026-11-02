@@ -1,0 +1,123 @@
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
+  ntpd          ● ativo        1114    6 s        0          Relógio sincronizado pela internet (NTP)
+
+  1 ativo(s) de 1.
+
+root@lumebox:~ # cp /usr/share/examples/vigia/*.conf /etc/vigia/servicos/ && vig ia recarregar
+  4 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● desativado   -       5 s        0          Serviço instável (demonstração)
+  ntpd          ● ativo        1114    11 s       0          Relógio sincronizado pela internet (NTP)
+  relogio       ● ativo        1208    4 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● ativo        1211    3 s        0          Página "Olá" na porta 8080
+
+  3 ativo(s) de 4.
+
+root@lumebox:~ # fetch -qo - http://127.0.0.1:8080/
+Olá do LumeBSD! Servido pelo vigia.
+root@lumebox:~ # vigia info web
+
+  serviço         web
+  descrição       Página "Olá" na porta 8080
+  estado          ● ativo
+  motivo          rodando (pid 1211)
+  há              4 s
+  pid             1211
+  reinícios       0
+  no boot         sobe sozinho
+  comando         sh -c 'while true; do printf "HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOlá do LumeBSD! Servido pelo vigia.\n" | nc -N -l 8080; done'
+  usuário         nobody
+  reiniciar       sempre
+  depende de      relogio
+  arquivo         /etc/vigia/servicos/web.conf
+  log             /var/log/vigia/web.log
+
+root@lumebox:~ # vigia log relogio -n 5
+[vigia 2026-11-02 12:12:48] aguardando
+[vigia 2026-11-02 12:12:48] executando: sh -c 'while true; do date; sleep 10; done'
+[vigia 2026-11-02 12:12:48] iniciando: pid 1208
+Mon Nov  2 12:12:48 -03 2026
+[vigia 2026-11-02 12:12:48] ativo: rodando (pid 1208)
+root@lumebox:~ # pkill -9 -f 'HTTP/1.0 200' && echo web derrubado
+web derrubado
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● desativado   -       10 s       0          Serviço instável (demonstração)
+  ntpd          ● ativo        1114    16 s       0          Relógio sincronizado pela internet (NTP)
+  relogio       ● ativo        1208    9 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● ativo        1224    2 s        1          Página "Olá" na porta 8080
+
+  3 ativo(s) de 4.
+
+root@lumebox:~ # fetch -qo - http://127.0.0.1:8080/
+Olá do LumeBSD! Servido pelo vigia.
+root@lumebox:~ # vigia ativar instavel
+  instavel: ● ativo (pid 1233)
+  instavel sobe sozinho nos próximos boots.
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
+  instavel      ● manutenção   -       11 s       4          Serviço instável (demonstração)
+    └ saiu com código 3; caiu 5 vezes seguidas, veja 'vigia log instavel' e use 'vigia reiniciar instavel'
+  ntpd          ● ativo        1114    53 s       0          Relógio sincronizado pela internet (NTP)
+  relogio       ● ativo        1208    46 s       0          Relógio de exemplo (escreve a hora no log)
+  web           ● ativo        1224    39 s       1          Página "Olá" na porta 8080
+
+  3 ativo(s) de 4.
+
+root@lumebox:~ # vigia log instavel -n 8
+[vigia 2026-11-02 12:13:12] ativo: rodando (pid 1242)
+[vigia 2026-11-02 12:13:14] reiniciando: saiu com código 3; nova tentativa em 8 s
+[vigia 2026-11-02 12:13:21] aguardando
+[vigia 2026-11-02 12:13:21] executando: sh -c 'echo "subi, e vou cair em 2 s"; sleep 2; exit 3'
+[vigia 2026-11-02 12:13:21] iniciando: pid 1246
+subi, e vou cair em 2 s
+[vigia 2026-11-02 12:13:22] ativo: rodando (pid 1246)
+[vigia 2026-11-02 12:13:23] manutenção: saiu com código 3; caiu 5 vezes seguidas, veja 'vigia log instavel' e use 'vigia reiniciar instavel'
+root@lumebox:~ # vigia parar relogio
+  relogio: ● parado
+root@lumebox:~ # vigia desativar web
+  web: ● desativado
+  web não sobe mais no boot.
+root@lumebox:~ # su -m fabiano -c 'vigia parar ntpd'
+vigia: permissão negada (use su - ou peça ao administrador)
+root@lumebox:~ # su -m fabiano -c 'vigia log ntpd -n 2'
+[vigia 2026-11-02 12:12:41] ativo: rodando (pid 1114)
+ 2 Nov 12:12:42 ntpd[1114]: Soliciting pool server 72.30.35.88
+root@lumebox:~ # echo 'comando = x' > /etc/vigia/servicos/Quebrado.conf; printf  'reiniciar = talvez\n' > /etc/vigia/servicos/quebrado.conf; vigia recarregar
+  6 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # vigia
+
+  SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
+  Quebrado      ● erro         -       1 s        0          
+    └ nome de serviço inválido (use a-z, 0-9, - e _): Quebrado
+  instavel      ● manutenção   -       15 s       4          Serviço instável (demonstração)
+    └ saiu com código 3; caiu 5 vezes seguidas, veja 'vigia log instavel' e use 'vigia reiniciar instavel'
+  ntpd          ● ativo        1114    57 s       0          Relógio sincronizado pela internet (NTP)
+  quebrado      ● erro         -       1 s        0          
+    └ linha 1: reiniciar deve ser sempre, falha ou nunca, não talvez
+  relogio       ● parado       -       3 s        0          Relógio de exemplo (escreve a hora no log)
+  web           ● desativado   -       2 s        1          Página "Olá" na porta 8080
+
+  1 ativo(s) de 6.
+
+root@lumebox:~ # rm /etc/vigia/servicos/quebrado.conf /etc/vigia/servicos/Quebra do.conf; vigia recarregar
+  4 serviço(s) em /etc/vigia/servicos
+root@lumebox:~ # lume
+
+  LumeBSD 1.0 "Farol"  @ lumebox
+  ----------------------------------------------
+  kernel     LumeBSD 1.0-FAROL (base FreeBSD 15.0)
+  cpu        QEMU Virtual CPU version 2.5+ (2 núcleos)
+  memória    [##..................] 89.9 MiB / 989.5 MiB
+  disco /    [###.................] 739.3 MiB / 4.8 GiB (ufs)
+  carga      0.53  0.24  0.10
+  ligado há  0 h 1 min 54 s
+  serviços   1 de 4 ativos, 1 com problema (vigia)
+
+root@lumebox:~ # shutdown -p now
