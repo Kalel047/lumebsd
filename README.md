@@ -62,7 +62,7 @@ Dependências no Ubuntu/Debian:
 
 ```sh
 sudo apt install clang-18 lld-18 llvm-18 libarchive-dev libbz2-dev zlib1g-dev \
-    bison flex time qemu-system-x86
+    bison flex time qemu-system-x86 ovmf
 ```
 
 ## Testando
@@ -77,8 +77,48 @@ Login: `root`, sem senha. Defina uma com `passwd` antes de qualquer uso real.
 ## Status
 
 - [x] Identidade, loader, `lume(1)`, serviço rc.d, kernel `LUME`
-- [ ] Compilação completa validada
-- [ ] Imagem testada no QEMU
+- [x] Userland e kernel compilados do zero (cross-build em Linux, LLVM 18)
+- [x] Imagem bootando no QEMU por **BIOS** e **UEFI**, até o login em ~1 minuto sem KVM
+
+Primeiro boot real, no console serial:
+
+```
+root@farol:~ # uname -a
+LumeBSD farol 1.0-FAROL LumeBSD 1.0-FAROL lumebsd-403d4045b631 LUME amd64
+root@farol:~ # freebsd-version -ku
+1.0-FAROL
+1.0-FAROL
+root@farol:~ # cat /var/run/os-release
+NAME=LumeBSD
+VERSION="1.0-FAROL"
+VERSION_ID="1.0"
+VERSION_CODENAME=farol
+ID=lumebsd
+ID_LIKE=freebsd
+ANSI_COLOR="0;33"
+PRETTY_NAME="LumeBSD 1.0-FAROL (Farol)"
+root@farol:~ # lume
+
+  LumeBSD 1.0 "Farol"  @ farol
+  ----------------------------------------------
+  kernel     LumeBSD 1.0-FAROL (base FreeBSD 15.0)
+  cpu        QEMU Virtual CPU version 2.5+ (2 núcleos)
+  memória    [##..................] 101.8 MiB / 989.5 MiB
+  disco /    [####................] 581.6 MiB / 2.9 GiB (ufs)
+  carga      0.64  0.20  0.08
+  ligado há  0 h 0 min 59 s
+
+root@farol:~ # lume dica
+dica: man hier explica a organização de diretórios do sistema.
+root@farol:~ # service -e | tail -3
+/etc/rc.d/lume_farol
+/etc/rc.d/cron
+/etc/rc.d/bgfsck
+root@farol:~ # shutdown -p now
+```
+
+Logs completos em [`docs/boot-bios.log`](docs/boot-bios.log) e
+[`docs/boot-uefi.log`](docs/boot-uefi.log).
 
 ## Licença
 

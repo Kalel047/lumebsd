@@ -1,4 +1,4 @@
-From 403d4045b63105944c6d3963102bd3623b002474 Mon Sep 17 00:00:00 2001
+From a78465c22c7261191eea2c7ed07b690fe97690ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 1 Nov 2026 23:43:51 -0300
 Subject: [PATCH] LumeBSD 1.0 'Farol': identidade, emblema do loader, lume(1),
@@ -14,15 +14,15 @@ Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
  stand/lua/drawer.lua        |   8 +-
  stand/lua/gfx-lume.lua      |  43 ++++++
  stand/lua/gfx-lumebw.lua    |  42 ++++++
- sys/amd64/conf/LUME         |  15 +++
+ sys/amd64/conf/LUME         |  15 ++
  sys/conf/newvers.sh         |   6 +-
  sys/sys/copyright.h         |   2 +-
  usr.bin/Makefile            |   1 +
  usr.bin/login/motd.template |  26 ++--
  usr.bin/lume/Makefile       |   4 +
  usr.bin/lume/lume.1         |  39 ++++++
- usr.bin/lume/lume.c         | 258 ++++++++++++++++++++++++++++++++++++
- 15 files changed, 463 insertions(+), 30 deletions(-)
+ usr.bin/lume/lume.c         | 266 ++++++++++++++++++++++++++++++++++++
+ 15 files changed, 471 insertions(+), 30 deletions(-)
  create mode 100644 libexec/rc/rc.d/lume_farol
  create mode 100644 stand/lua/gfx-lume.lua
  create mode 100644 stand/lua/gfx-lumebw.lua
@@ -400,10 +400,10 @@ index 000000000..e8138f748
 +.Dq Farol .
 diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
 new file mode 100644
-index 000000000..0ef2e5d35
+index 000000000..bda843c34
 --- /dev/null
 +++ b/usr.bin/lume/lume.c
-@@ -0,0 +1,258 @@
+@@ -0,0 +1,266 @@
 +/*-
 + * SPDX-License-Identifier: BSD-2-Clause
 + *
@@ -527,7 +527,15 @@ index 000000000..0ef2e5d35
 +static void
 +row(const char *label, const char *value)
 +{
-+	printf("  %s%-10s%s %s\n", AMBER, label, RESET, value);
++	const unsigned char *s;
++	int cols = 0;
++
++	/* Conta colunas, não bytes: rótulos têm acentos em UTF-8. */
++	for (s = (const unsigned char *)label; *s != '\0'; s++)
++		if ((*s & 0xC0) != 0x80)
++			cols++;
++	printf("  %s%s%*s%s %s\n", AMBER, label, cols < 10 ? 10 - cols : 0,
++	    "", RESET, value);
 +}
 +
 +static void
