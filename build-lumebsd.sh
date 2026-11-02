@@ -15,7 +15,9 @@ MODULES="tmpfs nullfs fusefs if_bridge if_epair pf pflog acpi/acpi_video"
 [ -d "$SRC" ] || git clone --depth 1 --branch releng/15.0 \
     https://github.com/freebsd/freebsd-src.git "$SRC"
 if [ ! -d "$SRC/usr.bin/lume" ]; then
-	(cd "$SRC" && git apply "$TOP/patches/0001-lumebsd-1.0-farol.patch")
+	for p in "$TOP"/patches/*.patch; do
+		(cd "$SRC" && git apply "$p")
+	done
 fi
 
 mkdir -p "$OBJ"
@@ -41,9 +43,15 @@ cat > "$STAGE/etc/rc.conf" <<EOF
 hostname="farol"
 ifconfig_DEFAULT="DHCP"
 lume_farol_enable="YES"
+lume_configurar_enable="YES"
+growfs_enable="YES"
+growfs_swap_size="0"
 dumpdev="NO"
 EOF
-printf '/dev/gpt/lumeroot\t/\tufs\trw\t1\t1\n' > "$STAGE/etc/fstab"
+printf '/dev/gpt/lumeroot\t/\tufs\trw\t1\t1\n/dev/gpt/swap\tnone\tswap\tsw\t0\t0\n' \
+    > "$STAGE/etc/fstab"
+# /firstboot: no primeiro boot o growfs expande a raiz até o fim do disco.
+: > "$STAGE/firstboot"
 cat > "$STAGE/boot/loader.conf" <<EOF
 boot_multicons="YES"
 console="comconsole,vidconsole"
@@ -55,7 +63,7 @@ EOF
 python3 - "$STAGE/METALOG" <<'PY'
 import sys
 p = sys.argv[1]
-extra = {"./etc/rc.conf", "./etc/fstab", "./boot/loader.conf"}
+extra = {"./etc/rc.conf", "./etc/fstab", "./boot/loader.conf", "./firstboot"}
 L = [l for l in open(p).read().splitlines() if l.split()[:1] not in [[e] for e in extra]]
 L += [f"{e} type=file uname=root gname=wheel mode=0644" for e in sorted(extra)]
 seen = {l.split()[0] for l in L if l.startswith(".")}
@@ -73,7 +81,7 @@ open(p, "w").write("\n".join(out) + "\n")
 PY
 
 # 5. Imagem de disco GPT bootável (BIOS + UEFI)
-TOOLS=$(ls -d "$OBJ"/*/amd64.amd64/tmp/legacy/bin | head -1)
+TOOLS=$OBJ$SRC/amd64.amd64/tmp/legacy/bin
 rm -f "$TOP/root.ufs" "$TOP/efi.fat" "$IMG"
 (cd "$STAGE" && "$TOOLS/makefs" -t ffs -B little \
     -o version=2,label=lumeroot,softupdates=1 -s 3g \

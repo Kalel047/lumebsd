@@ -1,8 +1,8 @@
 From a78465c22c7261191eea2c7ed07b690fe97690ae Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 1 Nov 2026 23:43:51 -0300
-Subject: [PATCH] LumeBSD 1.0 'Farol': identidade, emblema do loader, lume(1),
- rc.d/lume_farol, kernel LUME
+Subject: [PATCH 1/2] LumeBSD 1.0 'Farol': identidade, emblema do loader,
+ lume(1), rc.d/lume_farol, kernel LUME
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS

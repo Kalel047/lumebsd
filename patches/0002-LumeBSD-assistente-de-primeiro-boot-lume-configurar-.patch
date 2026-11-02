@@ -1,0 +1,510 @@
+From c2ac4cc66373aa7f4da79692701b9bd01d54b022 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 11:23:32 -0300
+Subject: [PATCH 2/2] LumeBSD: assistente de primeiro boot (lume-configurar),
+ lume configurar
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ libexec/rc/rc.d/Makefile                    |   1 +
+ libexec/rc/rc.d/lume_configurar             |  30 +++
+ usr.bin/login/motd.template                 |   1 +
+ usr.bin/lume/lume.1                         |   9 +-
+ usr.bin/lume/lume.c                         |  13 +-
+ usr.sbin/Makefile                           |   1 +
+ usr.sbin/lume-configurar/Makefile           |   4 +
+ usr.sbin/lume-configurar/lume-configurar.8  |  51 ++++
+ usr.sbin/lume-configurar/lume-configurar.sh | 252 ++++++++++++++++++++
+ 9 files changed, 359 insertions(+), 3 deletions(-)
+ create mode 100644 libexec/rc/rc.d/lume_configurar
+ create mode 100644 usr.sbin/lume-configurar/Makefile
+ create mode 100644 usr.sbin/lume-configurar/lume-configurar.8
+ create mode 100644 usr.sbin/lume-configurar/lume-configurar.sh
+
+diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
+index 65e6bc38f..b01cbfab8 100644
+--- a/libexec/rc/rc.d/Makefile
++++ b/libexec/rc/rc.d/Makefile
+@@ -37,6 +37,7 @@ CONFS=	DAEMON \
+ 	local \
+ 	localpkg \
+ 	mixer \
++	lume_configurar \
+ 	lume_farol \
+ 	motd \
+ 	mountcritlocal \
+diff --git a/libexec/rc/rc.d/lume_configurar b/libexec/rc/rc.d/lume_configurar
+new file mode 100644
+index 000000000..9141242c2
+--- /dev/null
++++ b/libexec/rc/rc.d/lume_configurar
+@@ -0,0 +1,30 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: assistente de primeiro boot. Roda até o sistema ser configurado.
++#
++
++# PROVIDE: lume_configurar
++# REQUIRE: DAEMON
++# BEFORE: LOGIN lume_farol
++# KEYWORD: nojail
++
++. /etc/rc.subr
++
++name="lume_configurar"
++desc="Assistente de configuração do primeiro boot do LumeBSD"
++rcvar="lume_configurar_enable"
++start_cmd="lume_configurar_start"
++stop_cmd=":"
++
++lume_configurar_start()
++{
++	[ -e /var/db/lume/configurado ] && return 0
++	[ -x /usr/sbin/lume-configurar ] || return 0
++	/usr/sbin/lume-configurar --boot
++}
++
++load_rc_config $name
++: ${lume_configurar_enable:="YES"}
++run_rc_command "$1"
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index b0849e703..3a0174219 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -5,6 +5,7 @@
+    a partir do código-fonte do FreeBSD.
+ 
+    Comandos para começar:
++     lume configurar senha, usuário, máquina, fuso, teclado e idioma
+      lume            painel do sistema (versão, CPU, memória, disco, uptime)
+      lume farol      o emblema da distribuição
+      lume dica       uma dica aleatória do sistema
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index e8138f748..32bca5a3d 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -9,7 +9,7 @@
+ .Nd painel do sistema e identidade do LumeBSD
+ .Sh SYNOPSIS
+ .Nm
+-.Op Cm farol | dica | versao
++.Op Cm farol | dica | versao | configurar
+ .Sh DESCRIPTION
+ Sem argumentos,
+ .Nm
+@@ -22,7 +22,13 @@ Desenha o emblema da distribuição.
+ Mostra uma dica aleatória sobre o sistema.
+ .It Cm versao
+ Imprime a versão do LumeBSD.
++.It Cm configurar
++Abre o assistente de configuração,
++.Xr lume-configurar 8 .
++Precisa ser executado como root.
+ .El
++.Pp
++Enquanto o sistema não tiver sido configurado, o painel mostra um aviso.
+ .Sh ENVIRONMENT
+ .Bl -tag -width "NO_COLOR"
+ .It Ev NO_COLOR
+@@ -30,6 +36,7 @@ Se definida, desativa as cores.
+ .El
+ .Sh SEE ALSO
+ .Xr freebsd-version 1 ,
++.Xr lume-configurar 8 ,
+ .Xr sysctl 8 ,
+ .Xr rc.conf 5
+ .Sh HISTORY
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index bda843c34..7f7cedb39 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -7,6 +7,7 @@
+  *   lume farol      desenha o emblema (farol) da distribuição
+  *   lume dica       mostra uma dica aleatória
+  *   lume versao     imprime a versão da distribuição
++ *   lume configurar abre o assistente de configuração (lume-configurar(8))
+  */
+ 
+ #include <sys/param.h>
+@@ -25,6 +26,8 @@
+ #define	LUME_NAME	"LumeBSD"
+ #define	LUME_VERSION	"1.0"
+ #define	LUME_CODENAME	"Farol"
++#define	LUME_MARCA	"/var/db/lume/configurado"
++#define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+ 
+ static int use_color;
+ 
+@@ -229,13 +232,16 @@ painel(void)
+ 			    (intmax_t)(up % 60));
+ 		row("ligado há", buf);
+ 	}
++	if (access(LUME_MARCA, F_OK) != 0)
++		printf("\n  %s!%s sistema ainda não configurado: rode %slume "
++		    "configurar%s como root\n", RED, RESET, AMBER, RESET);
+ 	printf("\n");
+ }
+ 
+ static void
+ usage(void)
+ {
+-	fprintf(stderr, "uso: lume [farol | dica | versao]\n");
++	fprintf(stderr, "uso: lume [farol | dica | versao | configurar]\n");
+ 	exit(1);
+ }
+ 
+@@ -256,7 +262,10 @@ main(int argc, char *argv[])
+ 	else if (strcmp(argv[1], "dica") == 0)
+ 		printf("%sdica:%s %s\n", AMBER, RESET,
+ 		    tips[arc4random_uniform(nitems(tips))]);
+-	else if (strcmp(argv[1], "versao") == 0 ||
++	else if (strcmp(argv[1], "configurar") == 0) {
++		execl(LUME_ASSISTENTE, "lume-configurar", (char *)NULL);
++		err(1, "%s", LUME_ASSISTENTE);
++	} else if (strcmp(argv[1], "versao") == 0 ||
+ 	    strcmp(argv[1], "-v") == 0)
+ 		printf("%s %s \"%s\"\n", LUME_NAME, LUME_VERSION,
+ 		    LUME_CODENAME);
+diff --git a/usr.sbin/Makefile b/usr.sbin/Makefile
+index 44679ca29..eaa9ad606 100644
+--- a/usr.sbin/Makefile
++++ b/usr.sbin/Makefile
+@@ -37,6 +37,7 @@ SUBDIR=	adduser \
+ 	iostat \
+ 	iovctl \
+ 	kldxref \
++	lume-configurar \
+ 	mailwrapper \
+ 	makefs \
+ 	memcontrol \
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+new file mode 100644
+index 000000000..20a733da1
+--- /dev/null
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -0,0 +1,4 @@
++SCRIPTS=	lume-configurar.sh
++MAN=	lume-configurar.8
++
++.include <bsd.prog.mk>
+diff --git a/usr.sbin/lume-configurar/lume-configurar.8 b/usr.sbin/lume-configurar/lume-configurar.8
+new file mode 100644
+index 000000000..63b4a8c17
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-configurar.8
+@@ -0,0 +1,51 @@
++.\"
++.\" SPDX-License-Identifier: BSD-2-Clause
++.\"
++.Dd November 2, 2026
++.Dt LUME-CONFIGURAR 8
++.Os
++.Sh NAME
++.Nm lume-configurar
++.Nd assistente de configuração do LumeBSD
++.Sh SYNOPSIS
++.Nm
++.Op Fl -boot
++.Sh DESCRIPTION
++.Nm
++é um assistente interativo, em português, que deixa o sistema pronto para
++uso.
++Em seis passos ele define a senha do root, cria um usuário administrador
++(membro do grupo
++.Dq wheel ) ,
++ajusta o nome da máquina, o fuso horário, o teclado do console
++(ABNT2 por padrão) e o idioma do sistema
++.Pq Cm lang No da classe Dq default No em Xr login.conf 5 .
++Antes de aplicar, mostra um resumo e pede confirmação.
++.Pp
++Com
++.Fl -boot ,
++usado por
++.Pa /etc/rc.d/lume_configurar ,
++o assistente só roda se o sistema ainda não foi configurado e se houver
++um terminal; se ninguém responder em 120 segundos, o boot continua e o
++assistente volta a aparecer no próximo boot.
++.Pp
++Também pode ser executado a qualquer momento com
++.Dl lume configurar
++.Sh FILES
++.Bl -tag -width "/var/db/lume/configurado"
++.It Pa /var/db/lume/configurado
++Criado ao final da configuração; enquanto não existir, o assistente roda
++a cada boot.
++.El
++.Sh SEE ALSO
++.Xr lume 1 ,
++.Xr login.conf 5 ,
++.Xr rc.conf 5 ,
++.Xr kbdcontrol 1 ,
++.Xr pw 8 ,
++.Xr tzsetup 8
++.Sh HISTORY
++.Nm
++surgiu no LumeBSD 1.0
++.Dq Farol .
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+new file mode 100644
+index 000000000..7b826a196
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -0,0 +1,252 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-configurar - assistente de configuração do LumeBSD.
++#
++# Define a senha do root, cria um usuário administrador e ajusta nome da
++# máquina, fuso horário, teclado e idioma. Roda no primeiro boot (via
++# rc.d/lume_configurar, com --boot) e a qualquer momento com
++# "lume configurar".
++#
++
++MARCA=/var/db/lume/configurado
++MODO=manual
++[ "$1" = "--boot" ] && MODO=boot
++
++if [ "$(id -u)" -ne 0 ]; then
++	echo "lume-configurar: precisa ser executado como root (use: su -)." >&2
++	exit 1
++fi
++
++trap 'stty echo 2>/dev/null; echo; echo "  Configuração cancelada."; exit 130' INT TERM
++
++cabecalho()
++{
++	echo
++	echo "  ============================================================"
++	echo "     LumeBSD 1.0 \"Farol\"  -  assistente de configuração"
++	echo "  ============================================================"
++	echo
++}
++
++secao()
++{
++	echo
++	echo "  [$1] $2"
++}
++
++# perguntar "texto" "padrão" -> RESP
++perguntar()
++{
++	if [ -n "$2" ]; then
++		printf '      %s [%s]: ' "$1" "$2"
++	else
++		printf '      %s: ' "$1"
++	fi
++	read -r RESP || RESP=""
++	[ -z "$RESP" ] && RESP=$2
++}
++
++# ler_senha "texto" -> SENHA
++ler_senha()
++{
++	while :; do
++		printf '      %s: ' "$1"
++		stty -echo 2>/dev/null
++		read -r _s1
++		stty echo 2>/dev/null
++		echo
++		if [ ${#_s1} -lt 6 ]; then
++			echo "      A senha precisa ter pelo menos 6 caracteres."
++			continue
++		fi
++		printf '      Repita a senha: '
++		stty -echo 2>/dev/null
++		read -r _s2
++		stty echo 2>/dev/null
++		echo
++		[ "$_s1" = "$_s2" ] && break
++		echo "      As senhas não conferem. Tente de novo."
++	done
++	SENHA=$_s1
++}
++
++coletar()
++{
++	secao 1/6 "Senha do administrador (root)"
++	ler_senha "Nova senha do root"
++	SENHA_ROOT=$SENHA
++
++	secao 2/6 "Seu usuário"
++	echo "      Login em minúsculas (ex.: fabiano). Deixe vazio para pular."
++	while :; do
++		perguntar "Login" ""
++		USUARIO=$RESP
++		[ -z "$USUARIO" ] && break
++		if ! echo "$USUARIO" | grep -Eq '^[a-z_][a-z0-9_-]{0,15}$'; then
++			echo "      Use até 16 letras minúsculas, números, - ou _."
++		elif id "$USUARIO" >/dev/null 2>&1; then
++			echo "      O usuário '$USUARIO' já existe."
++		else
++			break
++		fi
++	done
++	if [ -n "$USUARIO" ]; then
++		perguntar "Nome completo" "$USUARIO"
++		NOME=$(echo "$RESP" | tr -d ':')
++		ler_senha "Senha de $USUARIO"
++		SENHA_USUARIO=$SENHA
++	fi
++
++	secao 3/6 "Nome desta máquina"
++	while :; do
++		perguntar "Nome" "$(hostname)"
++		MAQUINA=$RESP
++		echo "$MAQUINA" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9.-]{0,62})$' && break
++		echo "      Use letras, números, ponto e hífen."
++	done
++
++	secao 4/6 "Fuso horário"
++	echo "      Exemplos: America/Sao_Paulo (Brasília), America/Manaus,"
++	echo "      America/Rio_Branco, America/Noronha, Europe/Lisbon, UTC"
++	while :; do
++		perguntar "Fuso" "America/Sao_Paulo"
++		FUSO=$RESP
++		case "$FUSO" in
++		*..*|/*) ;;
++		*)	[ -f "/usr/share/zoneinfo/$FUSO" ] && break ;;
++		esac
++		echo "      Fuso '$FUSO' não encontrado em /usr/share/zoneinfo."
++	done
++
++	secao 5/6 "Teclado"
++	echo "      1) ABNT2 (Brasil)   2) US internacional   3) US   4) Portugal"
++	while :; do
++		perguntar "Opção" "1"
++		case "$RESP" in
++		1) TECLADO=br;     TECLADO_NOME="ABNT2 (Brasil)"; break ;;
++		2) TECLADO=us.acc; TECLADO_NOME="US internacional"; break ;;
++		3) TECLADO=us;     TECLADO_NOME="US"; break ;;
++		4) TECLADO=pt;     TECLADO_NOME="Portugal"; break ;;
++		esac
++		echo "      Escolha de 1 a 4."
++	done
++
++	secao 6/6 "Idioma do sistema"
++	echo "      1) Português (Brasil)   2) English (US)"
++	while :; do
++		perguntar "Opção" "1"
++		case "$RESP" in
++		1) IDIOMA=pt_BR.UTF-8; break ;;
++		2) IDIOMA=en_US.UTF-8; break ;;
++		esac
++		echo "      Escolha 1 ou 2."
++	done
++}
++
++resumo()
++{
++	echo
++	echo "  Resumo"
++	echo "  ------------------------------------------------------------"
++	echo "      root           senha definida"
++	if [ -n "$USUARIO" ]; then
++		echo "      usuário        $USUARIO ($NOME), administrador (wheel)"
++	else
++		echo "      usuário        nenhum"
++	fi
++	echo "      máquina        $MAQUINA"
++	echo "      fuso           $FUSO"
++	echo "      teclado        $TECLADO_NOME"
++	echo "      idioma         $IDIOMA"
++	echo "  ------------------------------------------------------------"
++}
++
++aplicar()
++{
++	echo
++	printf '      senha do root ......... '
++	printf '%s\n' "$SENHA_ROOT" | pw usermod root -h 0 && echo ok
++
++	if [ -n "$USUARIO" ]; then
++		printf '      usuário %s ' "$USUARIO"
++		printf '%s\n' "$SENHA_USUARIO" | pw useradd -n "$USUARIO" \
++		    -c "$NOME" -m -G wheel -s /bin/sh -h 0 && echo "......... ok"
++	fi
++
++	printf '      nome da máquina ....... '
++	sysrc -q hostname="$MAQUINA" >/dev/null && hostname "$MAQUINA" && echo ok
++
++	printf '      fuso horário .......... '
++	(cd / && tzsetup "$FUSO") >/dev/null 2>&1 && echo ok || echo falhou
++
++	printf '      teclado ............... '
++	sysrc -q keymap="$TECLADO" >/dev/null
++	if [ -c /dev/ttyv0 ]; then
++		kbdcontrol -l "$TECLADO" < /dev/ttyv0 >/dev/null 2>&1
++	fi
++	echo ok
++
++	printf '      idioma ................ '
++	awk -v l="$IDIOMA" '
++		/^default:/ { d = 1 }
++		d && /:lang=/ { sub(/:lang=[^:]*:/, ":lang=" l ":") }
++		d && !/\\$/ { d = 0 }
++		{ print }
++	' /etc/login.conf > /etc/login.conf.lume &&
++	    mv /etc/login.conf.lume /etc/login.conf &&
++	    cap_mkdb /etc/login.conf && echo ok
++
++	# O syslogd guarda nome e fuso de quando iniciou; reinicia para usar
++	# os novos.
++	if service syslogd onestatus >/dev/null 2>&1; then
++		service syslogd restart >/dev/null 2>&1
++	fi
++
++	mkdir -p "$(dirname "$MARCA")"
++	date > "$MARCA"
++
++	SENHA=; SENHA_ROOT=; SENHA_USUARIO=; _s1=; _s2=
++}
++
++# --- início ---------------------------------------------------------------
++
++if [ "$MODO" = boot ]; then
++	[ -e "$MARCA" ] && exit 0
++	[ -t 0 ] || exit 0
++	cabecalho
++	echo "  Este é o primeiro boot. Vamos deixar o sistema pronto:"
++	echo "  senha, seu usuário, nome da máquina, fuso, teclado e idioma."
++	echo
++	echo "  Pressione Enter para começar (pula sozinho em 120 s)."
++	if ! read -t 120 -r _; then
++		echo
++		echo "  Configuração adiada. Rode 'lume configurar' como root."
++		exit 0
++	fi
++else
++	cabecalho
++fi
++
++while :; do
++	coletar
++	resumo
++	perguntar "Aplicar estas configurações? (s/n)" "s"
++	case "$RESP" in
++	[sS]*) break ;;
++	esac
++	echo "      Tudo bem, vamos de novo."
++done
++
++aplicar
++
++echo
++if [ -n "$USUARIO" ]; then
++	echo "  Pronto! Entre como '$USUARIO' e use 'su -' para administrar."
++else
++	echo "  Pronto! O sistema está configurado."
++fi
++echo "  Para refazer depois: lume configurar"
++echo
++exit 0
+-- 
+2.43.0
+
