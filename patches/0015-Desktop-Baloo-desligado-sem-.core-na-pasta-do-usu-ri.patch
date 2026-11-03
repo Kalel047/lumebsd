@@ -1,0 +1,107 @@
+From 852b3430174fa54c7b1b5a309fa80c70d2902aa3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 01:10:35 -0300
+Subject: [PATCH 15/20] =?UTF-8?q?Desktop:=20Baloo=20desligado,=20sem=20.co?=
+ =?UTF-8?q?re=20na=20pasta=20do=20usu=C3=A1rio,=20=C3=ADcone=20do=20navega?=
+ =?UTF-8?q?dor?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- lume desktop desliga o indexador Baloo por padrão (no FreeBSD o
+  extrator cai em loop).
+- lume instalar manda os arquivos core para /var/crash (só os do root
+  são gravados), em vez de espalhá-los na pasta de cada usuário.
+- Tema Papel: o Firefox ganha um ícone de globo em traço de tinta; o
+  dele é um PNG colorido fora do Breeze.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/Makefile           | 3 ++-
+ usr.sbin/lume-configurar/lume-desktop.sh    | 6 ++++++
+ usr.sbin/lume-configurar/lume-instalar.sh   | 3 +++
+ usr.sbin/lume-configurar/lume-tema.sh       | 7 +++++++
+ usr.sbin/lume-configurar/tema/navegador.svg | 8 ++++++++
+ 5 files changed, 26 insertions(+), 1 deletion(-)
+ create mode 100644 usr.sbin/lume-configurar/tema/navegador.svg
+
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index a1c968c8f..9d01c0193 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -13,6 +13,7 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
+ 		tema/plasmarc tema/konsolerc tema/kscreenlockerrc \
+ 		tema/metadata.json tema/defaults tema/layout.js \
+ 		tema/sddm.conf tema/sddm-breeze.conf.user tema/fontes.conf \
+-		tema/gtk-settings.ini tema/papel.png tema/papel-noite.png
++		tema/gtk-settings.ini tema/papel.png tema/papel-noite.png \
++		tema/navegador.svg
+ 
+ .include <bsd.prog.mk>
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+index c4e477bc4..a11790717 100644
+--- a/usr.sbin/lume-configurar/lume-desktop.sh
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -78,6 +78,12 @@ for u in $(pw groupshow wheel | awk -F: '{print $4}' | tr ',' ' '); do
+ 	pw groupmod webcamd -m "$u" 2>/dev/null
+ done
+ 
++# Indexador de arquivos do KDE (Baloo) desligado por padrão: no FreeBSD ele
++# cai em loop no extrator e gasta disco e CPU. Quem quiser liga nas
++# Configurações do Sistema > Pesquisa.
++mkdir -p /usr/local/etc/xdg
++printf '[Basic Settings]\nIndexing-Enabled=false\n' > /usr/local/etc/xdg/baloofilerc
++
+ # Visual "Papel" (e-ink) como padrão; lume tema padrao volta ao do KDE.
+ /usr/sbin/lume-tema papel
+ 
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 3b61b6f18..e007e7759 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -253,6 +253,9 @@ EOF
+ if [ -n "${LUME_CONSOLE_SERIAL:-}" ]; then
+ 	printf 'boot_multicons="YES"\nboot_serial="YES"\nconsole="comconsole,efi"\n' >> "$ALVO/boot/loader.conf"
+ fi
++# Programas que caem não deixam arquivos .core na pasta do usuário;
++# só os do root vão para /var/crash.
++echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ cat > "$ALVO/etc/rc.conf" <<EOF
+ hostname="farol"
+ zfs_enable="YES"
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 8ab41f1c1..05df31c8b 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -87,6 +87,13 @@ icones_cinza()
+ 	find "$ICONES" -type f -name '*.svg.papel' | while read -r f; do
+ 		mv "$f" "${f%.papel}"
+ 	done
++	# Programas que não têm ícone no Breeze (o Firefox traz o próprio, em cores).
++	for app in firefox org.mozilla.firefox; do
++		for t in 32 48 64; do
++			mkdir -p "$ICONES/apps/$t"
++			cp "$T/navegador.svg" "$ICONES/apps/$t/$app.svg"
++		done
++	done
+ 	command -v gtk-update-icon-cache >/dev/null &&
+ 	    gtk-update-icon-cache -q -f "$ICONES" 2>/dev/null
+ 	echo "  ícones: $(find "$ICONES" -type f -name '*.svg' | wc -l | tr -d ' ') em tons de cinza"
+diff --git a/usr.sbin/lume-configurar/tema/navegador.svg b/usr.sbin/lume-configurar/tema/navegador.svg
+new file mode 100644
+index 000000000..6f06aaef9
+--- /dev/null
++++ b/usr.sbin/lume-configurar/tema/navegador.svg
+@@ -0,0 +1,8 @@
++<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
++  <!-- Navegador no tema Papel: um globo em traço de tinta. -->
++  <g fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round">
++    <circle cx="24" cy="24" r="19" fill="#f4f2ec"/>
++    <ellipse cx="24" cy="24" rx="8" ry="19"/>
++    <path d="M5 24h38M8 14h32M8 34h32M24 5v38"/>
++  </g>
++</svg>
+-- 
+2.43.0
+

@@ -1,0 +1,144 @@
+From 03ec6787c3b06336e5563a23c3f11a290a3cebb1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 02:50:05 -0300
+Subject: [PATCH 18/20] =?UTF-8?q?forja:=20compila=20de=20verdade;=20atuali?=
+ =?UTF-8?q?zar=20n=C3=A3o=20para=20sem=20a=20=C3=A1rvore=20nova?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- portmake passava a origem também como alvo do make ("don't know how
+  to make editors/nano"); agora a origem sai da lista de argumentos.
+- construir é recursivo (dependências com opções): variáveis locais.
+- forja atualizar segue com a árvore que existe se não der para
+  atualizá-la.
+- arvore_url no forja.conf, além de FORJA_ARVORE_URL; forja(8) explica
+  de onde vem a árvore e a versão passada aos ports.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/forja/forja.8    | 27 +++++++++++++++++++++++++++
+ usr.sbin/forja/forja.conf |  4 ++++
+ usr.sbin/forja/forja.sh   | 18 ++++++++++++++----
+ 3 files changed, 45 insertions(+), 4 deletions(-)
+
+diff --git a/usr.sbin/forja/forja.8 b/usr.sbin/forja/forja.8
+index 3400ba6fa..971f5895d 100644
+--- a/usr.sbin/forja/forja.8
++++ b/usr.sbin/forja/forja.8
+@@ -53,6 +53,33 @@ Se algo der errado, escolha o ambiente de boot anterior no menu do boot.
+ .Pp
+ Dependências de um programa compilado vêm em binário, exceto as que também
+ tiverem opções próprias, que são compiladas antes.
++.Pp
++A árvore vem do git do FreeBSD; se não houver git ou ele falhar, de um
++tarball
++.Po
++.Va arvore_url
++no
++.Pa forja.conf ,
++ou a variável
++.Ev FORJA_ARVORE_URL
++.Pc .
++Se a árvore não puder ser atualizada,
++.Cm atualizar
++segue com a que já existe.
++.Pp
++A árvore de ports confere a versão do sistema; como o
++.Xr uname 1
++do LumeBSD diz
++.Dq 1.1-FAROL ,
++a forja passa a ela a versão do FreeBSD por baixo
++.Pq Va _OSRELEASE ,
++tirada de
++.Va kern.osreldate .
++.Sh ENVIRONMENT
++.Bl -tag -width "FORJA_ARVORE_URL"
++.It Ev FORJA_ARVORE_URL
++tarball .tar.gz da árvore de ports (um espelho local, por exemplo).
++.El
+ .Sh FILES
+ .Bl -tag -width "/var/db/forja/mundo" -compact
+ .It Pa /etc/forja/forja.conf
+diff --git a/usr.sbin/forja/forja.conf b/usr.sbin/forja/forja.conf
+index 3758e5dbc..5bffb954e 100644
+--- a/usr.sbin/forja/forja.conf
++++ b/usr.sbin/forja/forja.conf
+@@ -18,3 +18,7 @@ snapshot=sim
+ 
+ # "sim" compila da fonte tudo o que você pedir, mesmo sem opções próprias.
+ sempre_fonte=nao
++
++# De onde baixar a árvore de ports quando não há git (ou ele falha): um
++# tarball .tar.gz. Vazio = o espelho do GitHub para o trimestre atual.
++arvore_url=
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index a394dcd5c..e7595035c 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -40,6 +40,7 @@ ramo=auto
+ jobs=auto
+ snapshot=sim
+ sempre_fonte=nao
++arvore_url=
+ [ -f "$CONF" ] && . "$CONF"
+ 
+ if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+@@ -89,7 +90,7 @@ tem_arvore()
+ 
+ baixar_tarball()
+ {
+-	url=${FORJA_ARVORE_URL:-https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/$1}
++	url=${FORJA_ARVORE_URL:-${arvore_url:-https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/$1}}
+ 	msg "Baixando a árvore de ports ($1)..."
+ 	if ! tem_arvore; then
+ 		mkdir -p "$PORTS"
+@@ -118,7 +119,7 @@ cmd_arvore()
+ 	r=$(ramo_trimestral)
+ 	# Com FORJA_ARVORE_URL (um espelho) vai direto no tarball; senão tenta
+ 	# o git e, se ele falhar, o tarball do GitHub.
+-	if [ -n "${FORJA_ARVORE_URL:-}" ] || ! command -v git >/dev/null; then
++	if [ -n "${FORJA_ARVORE_URL:-}${arvore_url:-}" ] || ! command -v git >/dev/null; then
+ 		baixar_tarball "$r"
+ 	elif [ -d "$PORTS/.git" ]; then
+ 		msg "Atualizando a árvore de ports ($r) com git..."
+@@ -206,9 +207,13 @@ gerar_makeconf()
+ 	} > "$MAKECONF"
+ }
+ 
++# portmake categoria/port [argumentos do make...]
+ portmake()
+ {
+-	make -C "$PORTS/$1" __MAKE_CONF="$MAKECONF" BATCH=yes "$@"
++	local o
++	o=$1
++	shift
++	make -C "$PORTS/$o" __MAKE_CONF="$MAKECONF" BATCH=yes "$@"
+ }
+ 
+ instalado()
+@@ -255,6 +260,8 @@ por_no_mundo()
+ # construir categoria/port: compila e instala da árvore com as opções.
+ construir()
+ {
++	# Recursiva (dependências com opções): nada de variáveis globais aqui.
++	local orig nome versao escolhidas ativas log inicio dep dnome
+ 	orig=$1
+ 	tem_arvore || erro "falta a árvore de ports: forja arvore"
+ 	[ -f "$PORTS/$orig/Makefile" ] || erro "port não encontrado: $orig"
+@@ -417,7 +424,10 @@ cmd_atualizar()
+ 		bectl create "$be" &&
+ 		    ok "ponto de volta criado: $be (escolha no menu de boot se precisar)"
+ 	fi
+-	tem_arvore && cmd_arvore
++	if tem_arvore; then
++		( cmd_arvore ) ||
++		    aviso "não deu para atualizar a árvore; sigo com a que já existe"
++	fi
+ 	msg "Atualizando os pacotes binários..."
+ 	ASSUME_ALWAYS_YES=yes pkg upgrade -q || aviso "pkg upgrade teve problemas"
+ 	tem_arvore || { ok "pronto (sem árvore de ports, só binários)"; return; }
+-- 
+2.43.0
+

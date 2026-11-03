@@ -1,7 +1,7 @@
-From a78465c22c7261191eea2c7ed07b690fe97690ae Mon Sep 17 00:00:00 2001
+From 6ae34c4520975ac2a8dfca8307e98411edc31a73 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 1 Nov 2026 23:43:51 -0300
-Subject: [PATCH 1/4] LumeBSD 1.0 'Farol': identidade, emblema do loader,
+Subject: [PATCH 01/20] LumeBSD 1.0 'Farol': identidade, emblema do loader,
  lume(1), rc.d/lume_farol, kernel LUME
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -32,13 +32,13 @@ Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
  create mode 100644 usr.bin/lume/lume.c
 
 diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
-index 3b7f45e8f..65e6bc38f 100644
+index f25338c68..8b02a9dda 100644
 --- a/libexec/rc/rc.d/Makefile
 +++ b/libexec/rc/rc.d/Makefile
-@@ -37,6 +37,7 @@ CONFS=	DAEMON \
+@@ -36,6 +36,7 @@ CONFS=	DAEMON \
+ 	linux \
  	local \
  	localpkg \
- 	mixer \
 +	lume_farol \
  	motd \
  	mountcritlocal \
@@ -266,7 +266,7 @@ index 000000000..07001b56c
 +nooptions	KDTRACE_HOOKS
 +nooptions	DDB_CTF
 diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
-index 9a259c13b..d12701e81 100644
+index 4926891ae..d12701e81 100644
 --- a/sys/conf/newvers.sh
 +++ b/sys/conf/newvers.sh
 @@ -49,9 +49,9 @@
@@ -274,8 +274,8 @@ index 9a259c13b..d12701e81 100644
  #
  
 -TYPE="FreeBSD"
--REVISION="15.0"
--BRANCH="RELEASE-p14"
+-REVISION="15.1"
+-BRANCH="RELEASE-p6"
 +TYPE="LumeBSD"
 +REVISION="1.0"
 +BRANCH="FAROL"
@@ -296,10 +296,10 @@ index 8c89adf7f..2ea12d09c 100644
  
  /* FreeBSD */
 diff --git a/usr.bin/Makefile b/usr.bin/Makefile
-index da1a9b3a6..b752ab411 100644
+index 6d703c151..0e77bc7cc 100644
 --- a/usr.bin/Makefile
 +++ b/usr.bin/Makefile
-@@ -74,6 +74,7 @@ SUBDIR=	alias \
+@@ -73,6 +73,7 @@ SUBDIR=	alias \
  	locale \
  	localedef \
  	lock \

@@ -1,0 +1,92 @@
+From f8b66a5fb8be6b36de83c46eb11cee14b6de3275 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 01:13:43 -0300
+Subject: [PATCH 16/20] =?UTF-8?q?forja=20arvore:=20espelho=20expl=C3=ADcit?=
+ =?UTF-8?q?o=20primeiro;=20git=20que=20falha=20cai=20no=20tarball?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Com FORJA_ARVORE_URL a árvore vem direto do espelho. Sem ele, tenta o
+git e, se falhar (rede, certificado), baixa o tarball do GitHub. A troca
+da árvore funciona também quando /usr/ports é um dataset do ZFS que já
+existe.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/forja/forja.sh | 53 ++++++++++++++++++++++++++++++-----------
+ 1 file changed, 39 insertions(+), 14 deletions(-)
+
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index bce8cc77a..0ea5521fc 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -77,25 +77,50 @@ tem_arvore()
+ 	[ -f "$PORTS/Mk/bsd.port.mk" ]
+ }
+ 
++baixar_tarball()
++{
++	url=${FORJA_ARVORE_URL:-https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/$1}
++	msg "Baixando a árvore de ports ($1)..."
++	rm -rf "$PORTS.nova" && mkdir -p "$PORTS.nova" &&
++	    fetch -q -o - "$url" | tar -xzf - -C "$PORTS.nova" --strip-components 1 &&
++	    [ -f "$PORTS.nova/Mk/bsd.port.mk" ] || {
++		rm -rf "$PORTS.nova"
++		erro "não deu para baixar a árvore ($url)"
++	}
++	# Troca o conteúdo (o $PORTS pode ser um dataset do ZFS).
++	mkdir -p "$PORTS"
++	find "$PORTS" -mindepth 1 -maxdepth 1 ! -name distfiles ! -name packages \
++	    -exec rm -rf {} +
++	(cd "$PORTS.nova" && tar -cf - .) | tar -xf - -C "$PORTS"
++	rm -rf "$PORTS.nova"
++}
++
+ cmd_arvore()
+ {
+ 	raiz
+ 	r=$(ramo_trimestral)
+-	if [ -d "$PORTS/.git" ] && command -v git >/dev/null; then
+-		msg "Atualizando a árvore de ports ($r)..."
+-		git -C "$PORTS" fetch -q --depth 1 origin "$r" &&
+-		    git -C "$PORTS" checkout -q -B "$r" FETCH_HEAD ||
+-		    erro "não deu para atualizar a árvore"
+-	elif command -v git >/dev/null && ! tem_arvore; then
+-		msg "Baixando a árvore de ports ($r) com git..."
+-		git clone -q --depth 1 -b "$r" https://git.FreeBSD.org/ports.git \
+-		    "$PORTS" || erro "não deu para baixar a árvore"
++	# Com FORJA_ARVORE_URL (um espelho) vai direto no tarball; senão tenta
++	# o git e, se ele falhar, o tarball do GitHub.
++	if [ -n "${FORJA_ARVORE_URL:-}" ] || ! command -v git >/dev/null; then
++		baixar_tarball "$r"
++	elif [ -d "$PORTS/.git" ]; then
++		msg "Atualizando a árvore de ports ($r) com git..."
++		{ git -C "$PORTS" fetch -q --depth 1 origin "$r" &&
++		    git -C "$PORTS" checkout -q -B "$r" FETCH_HEAD; } ||
++		    erro "não deu para atualizar a árvore com git"
+ 	else
+-		url=${FORJA_ARVORE_URL:-https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/$r}
+-		msg "Baixando a árvore de ports ($r)..."
+-		mkdir -p "$PORTS"
+-		fetch -q -o - "$url" | tar -xzf - -C "$PORTS" --strip-components 1 ||
+-		    erro "não deu para baixar a árvore ($url)"
++		msg "Baixando a árvore de ports ($r) com git..."
++		rm -rf "$PORTS.git"
++		if git clone -q --depth 1 -b "$r" https://git.FreeBSD.org/ports.git \
++		    "$PORTS.git"; then
++			mkdir -p "$PORTS"
++			(cd "$PORTS.git" && tar -cf - .) | tar -xf - -C "$PORTS"
++			rm -rf "$PORTS.git"
++		else
++			rm -rf "$PORTS.git"
++			aviso "o git falhou; tentando o tarball"
++			baixar_tarball "$r"
++		fi
+ 	fi
+ 	ok "árvore de ports pronta em $PORTS ($(ls -d "$PORTS"/*/*/Makefile 2>/dev/null | wc -l | tr -d ' ') ports)"
+ }
+-- 
+2.43.0
+

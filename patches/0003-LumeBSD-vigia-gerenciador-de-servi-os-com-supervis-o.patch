@@ -1,8 +1,8 @@
-From 0de780e3625de26ae28a76be7e799ac92053f6ea Mon Sep 17 00:00:00 2001
+From fa31eb0e392b87bb99c78ad2ff6eb73f99de9f68 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 12:06:17 -0300
-Subject: [PATCH 3/4] =?UTF-8?q?LumeBSD:=20vigia,=20gerenciador=20de=20serv?=
- =?UTF-8?q?i=C3=A7os=20com=20supervis=C3=A3o=20via=20kqueue?=
+Subject: [PATCH 03/20] =?UTF-8?q?LumeBSD:=20vigia,=20gerenciador=20de=20se?=
+ =?UTF-8?q?rvi=C3=A7os=20com=20supervis=C3=A3o=20via=20kqueue?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -43,10 +43,10 @@ Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
  create mode 100644 usr.sbin/vigia/web.conf
 
 diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
-index b01cbfab8..ac003bf6b 100644
+index 87e45a71c..59ecf6f95 100644
 --- a/libexec/rc/rc.d/Makefile
 +++ b/libexec/rc/rc.d/Makefile
-@@ -76,6 +76,7 @@ CONFS=	DAEMON \
+@@ -75,6 +75,7 @@ CONFS=	DAEMON \
  	ugidfw \
  	var \
  	var_run \
@@ -173,10 +173,10 @@ index 7f7cedb39..6b0f6e0ac 100644
  		printf("\n  %s!%s sistema ainda não configurado: rode %slume "
  		    "configurar%s como root\n", RED, RESET, AMBER, RESET);
 diff --git a/usr.sbin/Makefile b/usr.sbin/Makefile
-index eaa9ad606..dc12bafee 100644
+index 54e316c43..6d28252ff 100644
 --- a/usr.sbin/Makefile
 +++ b/usr.sbin/Makefile
-@@ -98,6 +98,7 @@ SUBDIR=	adduser \
+@@ -96,6 +96,7 @@ SUBDIR=	adduser \
  	tzsetup \
  	ugidfw \
  	valectl \

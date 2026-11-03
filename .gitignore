@@ -1,7 +1,3 @@
+__pycache__/
 *.img
-*.ufs
-*.fat
-src/
-obj/
-stage/
-efi/
+*.img.xz

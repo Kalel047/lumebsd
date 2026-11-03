@@ -1,7 +1,7 @@
-From c2ac4cc66373aa7f4da79692701b9bd01d54b022 Mon Sep 17 00:00:00 2001
+From d6859bc58db5424e458c92d7cb3a8943050013dd Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 11:23:32 -0300
-Subject: [PATCH 2/4] LumeBSD: assistente de primeiro boot (lume-configurar),
+Subject: [PATCH 02/20] LumeBSD: assistente de primeiro boot (lume-configurar),
  lume configurar
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -23,13 +23,13 @@ Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
  create mode 100644 usr.sbin/lume-configurar/lume-configurar.sh
 
 diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
-index 65e6bc38f..b01cbfab8 100644
+index 8b02a9dda..87e45a71c 100644
 --- a/libexec/rc/rc.d/Makefile
 +++ b/libexec/rc/rc.d/Makefile
-@@ -37,6 +37,7 @@ CONFS=	DAEMON \
+@@ -36,6 +36,7 @@ CONFS=	DAEMON \
+ 	linux \
  	local \
  	localpkg \
- 	mixer \
 +	lume_configurar \
  	lume_farol \
  	motd \
@@ -169,7 +169,7 @@ index bda843c34..7f7cedb39 100644
  		printf("%s %s \"%s\"\n", LUME_NAME, LUME_VERSION,
  		    LUME_CODENAME);
 diff --git a/usr.sbin/Makefile b/usr.sbin/Makefile
-index 44679ca29..eaa9ad606 100644
+index 3d3a8443a..54e316c43 100644
 --- a/usr.sbin/Makefile
 +++ b/usr.sbin/Makefile
 @@ -37,6 +37,7 @@ SUBDIR=	adduser \

@@ -1,0 +1,606 @@
+From 1d9744b4f191adad6a45f6841f3976608896a944 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 21:02:13 -0300
+Subject: [PATCH 10/20] =?UTF-8?q?lume=20video/hardware/desktop:=20PCs=20In?=
+ =?UTF-8?q?tel=20+=20NVIDIA=20em=20geral=20(driver=20NVIDIA=20por=20gera?=
+ =?UTF-8?q?=C3=A7=C3=A3o,=20detec=C3=A7=C3=A3o=20autom=C3=A1tica)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.bin/lume/lume.1                       |  29 ++-
+ usr.sbin/lume-configurar/desktop.txt      |   5 +-
+ usr.sbin/lume-configurar/lume-desktop.sh  |  18 +-
+ usr.sbin/lume-configurar/lume-hardware.sh |  86 ++++----
+ usr.sbin/lume-configurar/lume-instalar.sh |   7 +
+ usr.sbin/lume-configurar/lume-video.sh    | 251 +++++++++++++++-------
+ 6 files changed, 259 insertions(+), 137 deletions(-)
+
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index e710da427..49a650319 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -14,7 +14,7 @@
+ .Cm configurar | hardware | wifi | desktop | instalar
+ .Nm
+ .Cm video
+-.Op Cm testar | auto | intel | scfb
++.Op Cm testar | auto | nvidia | intel | scfb
+ .Sh DESCRIPTION
+ Sem argumentos,
+ .Nm
+@@ -32,23 +32,30 @@ Abre o assistente de configuração,
+ .Xr lume-configurar 8 .
+ Precisa ser executado como root.
+ .It Cm hardware
+-Diz o que funciona neste computador: vídeo, Wi-Fi, som, touchpad, teclas
+-da ThinkPad, bateria, suspensão, câmera.
++Diz o que funciona neste computador: placas de vídeo e o driver de cada
++uma, rede cabeada e Wi-Fi, som, discos e, em notebooks, touchpad, teclas,
++bateria e suspensão.
+ Feito para rodar no pendrive antes de instalar.
+ .It Cm video
+-Mostra o driver de vídeo em uso.
+-.Cm testar
+-carrega o driver Intel agora;
++Mostra as placas de vídeo e o driver em uso.
+ .Cm auto
+-tenta o driver Intel a cada boot e usa o modo sem aceleração
++.Pq padrão
++escolhe a cada boot: NVIDIA num desktop, Intel num notebook (inclusive
++híbrido Intel + NVIDIA, em que a tela está ligada na Intel) e o modo sem
++aceleração
+ .Pq scfb
+-se ele falhar;
++quando não há uma das duas ou o driver falha.
++A geração do driver NVIDIA vem do chip: Turing (GTX 16xx, RTX) em diante
++usa o atual, Maxwell, Pascal e Volta o 580, Kepler o 470.
++.Cm testar
++carrega o driver agora;
++.Cm nvidia ,
+ .Cm intel
+ e
+ .Cm scfb
+-fixam um dos dois.
+-Se o driver Intel travar o computador, o boot seguinte percebe e passa
+-para o scfb sozinho.
++fixam um deles.
++Se um driver travar o computador, o boot seguinte percebe e passa para o
++scfb sozinho.
+ .It Cm wifi
+ Procura redes, pede a senha e conecta; a rede fica salva.
+ .It Cm desktop
+diff --git a/usr.sbin/lume-configurar/desktop.txt b/usr.sbin/lume-configurar/desktop.txt
+index 915091b54..5772f0b65 100644
+--- a/usr.sbin/lume-configurar/desktop.txt
++++ b/usr.sbin/lume-configurar/desktop.txt
+@@ -3,14 +3,11 @@
+ pkg
+ cpu-microcode-intel
+ wifi-firmware-iwlwifi-kmod
+-gpu-firmware-intel-kmod-meteorlake
+-# Vídeo: driver Intel (drm 6.12 e 6.6, alternativos) e modo sem aceleração
+-drm-612-kmod
++# Vídeo: X e o modo sem aceleração; o driver da placa (NVIDIA ou Intel) o lume desktop escolhe
+ xorg-minimal
+ xf86-video-scfb
+ xf86-input-libinput
+ mesa-dri
+-libva-intel-media-driver
+ # Desktop KDE Plasma 6
+ # Plasma 6 (o meta-pacote plasma6-plasma, sem o Spectacle e o OCR que ele puxa)
+ plasma6-aurorae
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+index f42cc092a..890fd1cdc 100644
+--- a/usr.sbin/lume-configurar/lume-desktop.sh
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -47,10 +47,26 @@ fi
+ 
+ echo "  Baixando e instalando o desktop (KDE Plasma, Firefox e cia.)..."
+ echo "  Isso baixa uns 1,8 GB; pode levar um tempo."
+-if ! pkg update -q || ! pkg install -q $pacotes; then
++# Driver de vídeo conforme a placa (veja lume video).
++eval "$(/usr/sbin/lume-video detectar)"
++case "$escolha" in
++nvidia)	video="$nvidia_pacote"
++	[ "$nvidia_pacote" = nvidia-driver ] && video="$video nvidia-settings"
++	echo "  Placa NVIDIA: $nvidia -> $nvidia_pacote" ;;
++intel)	video="drm-612-kmod libva-intel-media-driver"
++	echo "  Vídeo Intel: $intel" ;;
++*)	video=
++	echo "  Sem placa NVIDIA ou Intel: o desktop usa o modo sem aceleração." ;;
++esac
++
++if ! pkg update -q || ! pkg install -q $pacotes $video; then
+ 	echo "  ✗ Não deu para baixar os pacotes. Tem internet? (cabo ou: lume wifi)"
+ 	exit 1
+ fi
++if [ "$escolha" = intel ]; then
++	pkg install -q -g 'gpu-firmware-intel-kmod-*' ||
++	    echo "  ! Firmwares Intel não instalados; tente: pkg install -g 'gpu-firmware-intel-kmod-*'"
++fi
+ 
+ sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES \
+     lume_video_enable=YES >/dev/null
+diff --git a/usr.sbin/lume-configurar/lume-hardware.sh b/usr.sbin/lume-configurar/lume-hardware.sh
+index b8acfaf5a..dd9c6260a 100644
+--- a/usr.sbin/lume-configurar/lume-hardware.sh
++++ b/usr.sbin/lume-configurar/lume-hardware.sh
+@@ -69,32 +69,28 @@ for d in $discos; do
+ 	item ok "disco $d" "${desc:-?} ${tam}"
+ done
+ 
+-# Vídeo integrado
+-intel=$(pci 'display' | grep -i 'intel' | head -1)
+-nvidia=$(pci 'display' | grep -i 'nvidia' | head -1)
++# Vídeo
++eval "$(/usr/sbin/lume-video detectar 2>/dev/null)"
+ estado_video=$(cat /var/db/lume/video-estado 2>/dev/null)
+-if [ -n "$intel" ]; then
+-	if [ -c /dev/dri/card0 ] && kldstat -q -m i915kms 2>/dev/null; then
+-		item ok "vídeo Intel" "acelerado (i915) - ${intel#* }"
+-	elif [ "$estado_video" = "travou" ]; then
+-		item falha "vídeo Intel" "o driver travou o computador numa tentativa" \
+-		    "o desktop usa o modo sem aceleração (scfb); veja: lume video"
+-	elif [ "$estado_video" = "falhou" ]; then
+-		item falha "vídeo Intel" "o driver i915 não reconheceu a placa" \
+-		    "o desktop usa o modo sem aceleração (scfb); veja: lume video"
+-	elif [ ! -f /boot/modules/i915kms.ko ]; then
+-		item atencao "vídeo Intel" "driver não instalado (${intel#* })" \
+-		    "instale com: lume desktop"
+-	else
+-		item atencao "vídeo Intel" "driver ainda não testado" \
+-		    "teste com: lume video testar"
+-	fi
+-else
+-	item atencao "vídeo" "nenhuma placa Intel encontrada"
+-fi
+-if [ -n "$nvidia" ]; then
+-	item atencao "vídeo NVIDIA" "${nvidia#* }" \
+-	    "notebook híbrido: o FreeBSD não alterna placas; a tela usa a Intel"
++case "$estado_video" in
++nvidia|intel)
++	item ok "vídeo" "acelerado com o driver $estado_video" ;;
++travou)	item falha "vídeo" "o driver ${escolha:-} travou o computador numa tentativa" \
++	    "o desktop usa o modo sem aceleração (scfb); veja: lume video" ;;
++falhou)	item falha "vídeo" "o driver ${escolha:-} não reconheceu a placa" \
++	    "o desktop usa o modo sem aceleração (scfb); veja: lume video" ;;
++*)	case "${escolha:-scfb}" in
++	nvidia|intel)
++		item atencao "vídeo" "driver $escolha ainda não testado" \
++		    "teste com: lume video testar" ;;
++	*)	item atencao "vídeo" "sem placa NVIDIA ou Intel: modo sem aceleração" ;;
++	esac ;;
++esac
++[ -n "${nvidia:-}" ] && item ok "placa NVIDIA" "$nvidia" "driver: $nvidia_pacote"
++[ -n "${intel:-}" ] && item ok "placa Intel" "$intel"
++if [ -n "${nvidia:-}" ] && [ -n "${intel:-}" ] && [ "${bateria:-}" = sim ]; then
++	item atencao "híbrido" "notebook Intel + NVIDIA: a tela usa a Intel" \
++	    "o FreeBSD não alterna entre as placas em notebooks"
+ fi
+ 
+ # Rede
+@@ -123,43 +119,45 @@ else
+ 	item falha "som" "nenhuma placa de som reconhecida"
+ fi
+ 
++notebook=nao
++acpiconf -i 0 >/dev/null 2>&1 && notebook=sim
++
+ # Entrada
+-if devinfo 2>/dev/null | grep -qE '^ *(hmt|hms|psm)[0-9]'; then
+-	item ok "touchpad" "$(devinfo | grep -oE '(hmt|hms|psm)[0-9]+' | sort -u | tr '\n' ' ')"
+-else
+-	item atencao "touchpad" "não encontrado"
++if [ "$notebook" = sim ]; then
++	if devinfo 2>/dev/null | grep -qE '^ *(hmt|hms|psm)[0-9]'; then
++		item ok "touchpad" "$(devinfo | grep -oE '(hmt|hms|psm)[0-9]+' | sort -u | tr '\n' ' ')"
++	else
++		item atencao "touchpad" "não encontrado"
++	fi
+ fi
+ if sysctl -n dev.acpi_ibm.0.%desc >/dev/null 2>&1; then
+ 	item ok "teclas ThinkPad" "acpi_ibm ativo (volume, brilho, mute)"
+-elif [ "$fabricante" = "LENOVO" ]; then
++elif [ "$fabricante" = "LENOVO" ] && [ "$notebook" = sim ]; then
+ 	item atencao "teclas ThinkPad" "acpi_ibm não carregado (kldload acpi_ibm)"
+ fi
+ 
+-# Bateria
+-if acpiconf -i 0 >/dev/null 2>&1; then
++# Bateria e suspender (notebooks)
++if [ "$notebook" = sim ]; then
+ 	cap=$(acpiconf -i 0 | awk -F':\t*' '/Remaining capacity/ {print $2}')
+ 	est=$(acpiconf -i 0 | awk -F':\t*' '/^State/ {print $2}')
+ 	item ok "bateria" "${cap:-?} (${est:-?})"
+-else
+-	item atencao "bateria" "não encontrada"
++	estados=$(sysctl -n hw.acpi.supported_sleep_state 2>/dev/null)
++	case "$estados" in
++	*S3*)	item ok "suspender" "S3 disponível ($estados)" \
++		    "fechar a tampa suspende" ;;
++	*)	item atencao "suspender" "sem S3 (${estados:-nenhum}); só Modern Standby" \
++		    "suspender ao fechar a tampa pode não funcionar neste modelo" ;;
++	esac
+ fi
+ 
+-# Suspender
+-estados=$(sysctl -n hw.acpi.supported_sleep_state 2>/dev/null)
+-case "$estados" in
+-*S3*)	item ok "suspender" "S3 disponível ($estados)" \
+-	    "fechar a tampa suspende" ;;
+-*)	item atencao "suspender" "sem S3 (${estados:-nenhum}); só Modern Standby" \
+-	    "suspender ao fechar a tampa pode não funcionar neste modelo" ;;
+-esac
+-
+ # USB: câmera, Bluetooth, leitor de digital
+ usb=$(usbconfig list 2>/dev/null)
+ if echo "$usb" | grep -qiE 'camera|webcam|video'; then
+ 	item ok "câmera" "$(echo "$usb" | grep -iE 'camera|webcam|video' | head -1 | sed 's/.*: <//; s/>.*//')" \
+ 	    "funciona com o webcamd (lume desktop instala)"
+ else
+-	item atencao "câmera" "não encontrada no USB (pode ser MIPI, sem suporte)"
++	[ "$notebook" = sim ] &&
++	    item atencao "câmera" "não encontrada no USB (pode ser MIPI, sem suporte)"
+ fi
+ if echo "$usb" | grep -qi 'bluetooth'; then
+ 	item atencao "Bluetooth" "encontrado; suporte limitado no FreeBSD"
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 9111d31a5..8c7abfc9b 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -288,10 +288,17 @@ cp /etc/resolv.conf "$ALVO/etc/" 2>/dev/null
+ mkdir -p "$ALVO/usr/share/lume/pacotes"
+ cp /usr/share/lume/pacotes/*.pkg "$ALVO/usr/share/lume/pacotes/" 2>/dev/null
+ pk=$(ls "$ALVO"/usr/share/lume/pacotes/pkg-*.pkg 2>/dev/null | head -1)
++eval "$(/usr/sbin/lume-video detectar)"
+ if [ -n "$pk" ]; then
+ 	roda chroot "$ALVO" env ASSUME_ALWAYS_YES=yes pkg add "${pk#$ALVO}"
+ 	for p in "$ALVO"/usr/share/lume/pacotes/*.pkg; do
+ 		case "$p" in */pkg-[0-9]*) continue ;; esac
++		# O driver NVIDIA do pendrive é o atual; placas antigas recebem
++		# outra geração pelo lume desktop (os dois não convivem).
++		case "$p" in */nvidia-kmod-[0-9]*)
++			[ "$escolha" = nvidia ] &&
++			    [ "${nvidia_pacote:-}" = nvidia-driver ] || continue ;;
++		esac
+ 		roda chroot "$ALVO" env ASSUME_ALWAYS_YES=yes pkg add -M "${p#$ALVO}"
+ 	done
+ fi
+diff --git a/usr.sbin/lume-configurar/lume-video.sh b/usr.sbin/lume-configurar/lume-video.sh
+index f74c75ee1..b630f9229 100644
+--- a/usr.sbin/lume-configurar/lume-video.sh
++++ b/usr.sbin/lume-configurar/lume-video.sh
+@@ -2,152 +2,249 @@
+ #
+ # SPDX-License-Identifier: BSD-2-Clause
+ #
+-# lume-video - escolhe e testa o driver de vídeo do LumeBSD.
++# lume-video - detecta a placa de vídeo, escolhe e testa o driver.
+ #
+-#   lume video              mostra o modo e o estado atuais
+-#   lume video testar       carrega o driver Intel agora e diz se funcionou
+-#   lume video auto         tenta o driver Intel no boot; se falhar, scfb
+-#   lume video intel        sempre o driver Intel (drm 6.12)
++#   lume video              mostra as placas, o modo e o estado
++#   lume video testar       carrega o driver escolhido agora e diz se deu certo
++#   lume video detectar     só a detecção, em linhas chave=valor (para scripts)
++#   lume video auto         escolhe sozinho a cada boot (padrão)
++#   lume video nvidia       sempre o driver NVIDIA
++#   lume video intel        sempre o driver Intel (i915, drm 6.12)
+ #   lume video scfb         sempre o modo sem aceleração (framebuffer UEFI)
+ #
+-# Proteção contra travamento: antes de carregar o i915 o boot grava
++# No modo auto: placa NVIDIA num desktop (ou sem vídeo Intel) usa o driver
++# NVIDIA; notebook híbrido Intel + NVIDIA usa a Intel, que é quem liga na
++# tela; só Intel usa a Intel; o resto usa o scfb.
++#
++# Proteção contra travamento: antes de carregar o driver o boot grava
+ # /var/db/lume/video-tentando. Se o computador travar, no boot seguinte o
+ # arquivo ainda existe, o modo cai para scfb e o estado fica "travou".
+ #
+ 
+ DB=/var/db/lume
+-XCONF=/usr/local/etc/X11/xorg.conf.d/10-lume-scfb.conf
++XCONF=/usr/local/etc/X11/xorg.conf.d/10-lume-video.conf
+ 
+ uso()
+ {
+-	echo "uso: lume video [testar | auto | intel | scfb]" >&2
++	echo "uso: lume video [testar | detectar | auto | nvidia | intel | scfb]" >&2
+ 	exit 2
+ }
+ 
+-modo_atual()
++# --- detecção -------------------------------------------------------------
++
++# placas: "vendor|nome" de cada controladora de vídeo PCI
++placas()
+ {
+-	sysrc -n lume_video 2>/dev/null || echo auto
++	pciconf -lv 2>/dev/null | awk '
++		/^[a-z]/ {
++			video = ($0 ~ /class=0x03/)
++			v = ""
++			if (match($0, / vendor=0x[0-9a-f]+/))
++				v = substr($0, RSTART + 8, RLENGTH - 8)
++			next
++		}
++		video && /device *=/ {
++			d = $0; sub(/.*device *= */, "", d); gsub(/[\047]/, "", d)
++			print v "|" d
++			video = 0
++		}'
++}
++
++# Geração do driver NVIDIA pelo nome do chip: Turing em diante usa o atual;
++# Maxwell, Pascal e Volta param no 580; Kepler no 470; Fermi no 390.
++nvidia_pacote()
++{
++	case "$1" in
++	GP*|GM*|GV*)	echo nvidia-driver-580 ;;
++	GK*)		echo nvidia-driver-470 ;;
++	GF*)		echo nvidia-driver-390 ;;
++	*)		echo nvidia-driver ;;
++	esac
++}
++
++detectar()
++{
++	nvidia=$(placas | awk -F'|' '$1 == "0x10de" {print $2; exit}')
++	intel=$(placas | awk -F'|' '$1 == "0x8086" {print $2; exit}')
++	bateria=nao
++	acpiconf -i 0 >/dev/null 2>&1 && bateria=sim
++	if [ -n "$nvidia" ] && { [ -z "$intel" ] || [ "$bateria" = nao ]; }; then
++		escolha=nvidia
++	elif [ -n "$intel" ]; then
++		escolha=intel
++	else
++		escolha=scfb
++	fi
++	echo "escolha=$escolha"
++	echo "nvidia=$nvidia"
++	[ -n "$nvidia" ] && echo "nvidia_pacote=$(nvidia_pacote "$nvidia")"
++	echo "intel=$intel"
++	echo "bateria=$bateria"
+ }
+ 
+-xorg_scfb()
++# --- configuração do X ------------------------------------------------------
++
++xorg()
+ {
++	# xorg intel|nvidia|scfb: o Intel usa o "modesetting" que o X acha sozinho
+ 	mkdir -p "$(dirname "$XCONF")"
++	case "$1" in
++	intel)	rm -f "$XCONF"; return ;;
++	esac
+ 	cat > "$XCONF" <<-EOF
+-	# Criado por lume video: vídeo sem aceleração pelo framebuffer UEFI.
++	# Criado por lume video ($1). Para mudar: lume video auto|nvidia|intel|scfb
+ 	Section "Device"
+ 	    Identifier "Tela"
+-	    Driver "scfb"
++	    Driver "$1"
+ 	EndSection
+ 	EOF
+ }
+ 
+-xorg_intel()
++# --- carregar drivers --------------------------------------------------------
++
++esperar_dispositivo()
+ {
+-	rm -f "$XCONF"
++	i=0
++	while [ ! -c "$1" ] && [ $i -lt 10 ]; do
++		sleep 1; i=$((i + 1))
++	done
++	[ -c "$1" ]
+ }
+ 
+-# carregar_intel: 0 se o i915 subiu e criou /dev/dri/card0
+ carregar_intel()
+ {
+-	[ -f /boot/modules/i915kms.ko ] || return 1
+-	# O Meteor Lake pode exigir "force_probe" em versões do driver.
++	[ -f /boot/modules/i915kms.ko ] || return 2
++	# Algumas gerações novas (Meteor Lake) pedem "force_probe".
+ 	kenv -q compat.linuxkpi.i915_force_probe >/dev/null ||
+ 	    kenv compat.linuxkpi.i915_force_probe='*' >/dev/null
+ 	kldstat -q -m i915kms || kldload i915kms 2>/dev/null || return 1
+-	i=0
+-	while [ ! -c /dev/dri/card0 ] && [ $i -lt 10 ]; do
+-		sleep 1; i=$((i + 1))
+-	done
+-	[ -c /dev/dri/card0 ]
++	esperar_dispositivo /dev/dri/card0
+ }
+ 
+-# Chamado por /etc/rc.d/lume_video no boot.
+-boot()
++carregar_nvidia()
++{
++	[ -f /boot/modules/nvidia-modeset.ko ] || return 2
++	kldstat -q -m nvidia_modeset || kldload nvidia-modeset 2>/dev/null ||
++	    return 1
++	esperar_dispositivo /dev/nvidiactl && [ -c /dev/nvidia0 ]
++}
++
++modo_atual()
++{
++	sysrc -n lume_video 2>/dev/null || echo auto
++}
++
++# alvo: o driver que o modo atual manda usar neste computador
++alvo()
+ {
+-	mkdir -p "$DB"
+ 	modo=$(modo_atual)
+ 	case "$modo" in
+-	scfb)
+-		xorg_scfb
+-		echo scfb > "$DB/video-estado"
+-		return 0 ;;
++	auto)	detectar | awk -F= '$1 == "escolha" {print $2}' ;;
++	*)	echo "$modo" ;;
+ 	esac
++}
++
++# tentar intel|nvidia: carrega com a proteção contra travamento.
++# Grava o estado: intel, nvidia, falhou ou sem-driver.
++tentar()
++{
++	mkdir -p "$DB"
++	echo "$1 $(date)" > "$DB/video-tentando"
++	sync
++	carregar_"$1"
++	r=$?
++	rm -f "$DB/video-tentando"
++	case $r in
++	0)	echo "$1" > "$DB/video-estado"; xorg "$1" ;;
++	2)	echo sem-driver > "$DB/video-estado"; xorg scfb ;;
++	*)	echo falhou > "$DB/video-estado"; xorg scfb ;;
++	esac
++	sync
++	return $r
++}
++
++# Chamado por /etc/rc.d/lume_video no boot.
++boot()
++{
++	mkdir -p "$DB"
++	quero=$(alvo)
+ 	if [ -f "$DB/video-tentando" ]; then
++		echo "lume video: o driver $(cut -d' ' -f1 "$DB/video-tentando") travou o último boot; usando scfb."
+ 		rm -f "$DB/video-tentando"
+ 		echo travou > "$DB/video-estado"
+-		echo "lume video: o driver Intel travou o último boot; usando scfb."
+-		[ "$modo" = intel ] || { xorg_scfb; return 0; }
+-	fi
+-	if [ "$modo" = auto ] && [ "$(cat "$DB/video-estado" 2>/dev/null)" = travou ]; then
+-		xorg_scfb
+-		return 0
+-	fi
+-	if [ ! -f /boot/modules/i915kms.ko ]; then
+-		xorg_scfb
+-		echo sem-driver > "$DB/video-estado"
++		[ "$(modo_atual)" = auto ] && { xorg scfb; return 0; }
++	elif [ "$(modo_atual)" = auto ] &&
++	    [ "$(cat "$DB/video-estado" 2>/dev/null)" = travou ]; then
++		xorg scfb
+ 		return 0
+ 	fi
+-	echo "$(date)" > "$DB/video-tentando"
+-	sync
+-	if carregar_intel; then
+-		xorg_intel
+-		echo intel > "$DB/video-estado"
+-	else
+-		xorg_scfb
+-		echo falhou > "$DB/video-estado"
+-		echo "lume video: o driver Intel não reconheceu a placa; usando scfb."
+-	fi
+-	rm -f "$DB/video-tentando"
+-	sync
++	case "$quero" in
++	intel|nvidia)
++		tentar "$quero" ||
++		    echo "lume video: o driver $quero não subiu; usando scfb." ;;
++	*)	xorg scfb
++		echo scfb > "$DB/video-estado" ;;
++	esac
+ }
+ 
+ mostrar()
+ {
++	eval "$(detectar)"
+ 	estado=$(cat "$DB/video-estado" 2>/dev/null || echo "nunca testado")
+-	echo "  modo:   $(modo_atual)   (auto, intel ou scfb)"
++	[ -n "$nvidia" ] && echo "  NVIDIA: $nvidia (pacote $(nvidia_pacote "$nvidia"))"
++	[ -n "$intel" ] && echo "  Intel:  $intel"
++	[ -z "$nvidia$intel" ] && echo "  Nenhuma placa NVIDIA ou Intel; o desktop usa o scfb."
++	echo "  modo:   $(modo_atual) -> $(alvo)"
+ 	echo "  estado: $estado"
+ 	case "$estado" in
+-	intel)	echo "  O driver Intel está ativo: vídeo acelerado." ;;
+-	travou)	echo "  O driver Intel travou o computador; o desktop usa scfb."
++	intel|nvidia) echo "  O driver $estado está ativo: vídeo acelerado." ;;
++	travou)	echo "  Um driver travou o computador; o desktop usa scfb."
+ 		echo "  Para tentar de novo: lume video auto" ;;
+-	falhou)	echo "  O driver Intel não reconheceu a placa; o desktop usa scfb." ;;
+-	scfb)	echo "  Vídeo sem aceleração (funciona em qualquer máquina UEFI)." ;;
++	falhou)	echo "  O driver não reconheceu a placa; o desktop usa scfb." ;;
++	sem-driver) echo "  O driver não está instalado: lume desktop" ;;
+ 	esac
+ }
+ 
+ testar()
+ {
+-	echo "  Carregando o driver Intel (i915)..."
++	quero=$(alvo)
++	case "$quero" in
++	intel|nvidia) ;;
++	*)	echo "  Nada para testar: este computador usa o modo scfb."
++		return 0 ;;
++	esac
++	echo "  Carregando o driver $quero..."
+ 	echo "  Se a tela travar, desligue no botão e ligue de novo:"
+ 	echo "  o LumeBSD vai lembrar e usar o modo sem aceleração."
+-	mkdir -p "$DB"
+-	echo "$(date)" > "$DB/video-tentando"
+-	sync
+-	if carregar_intel; then
+-		rm -f "$DB/video-tentando"
+-		echo intel > "$DB/video-estado"
+-		echo "  ✓ Funcionou: /dev/dri/card0 existe, vídeo acelerado disponível."
+-		dmesg | grep -iE 'i915|drm' | tail -3 | sed 's/^/    /'
+-	else
+-		rm -f "$DB/video-tentando"
+-		echo falhou > "$DB/video-estado"
+-		echo "  ✗ O driver não reconheceu a placa. O desktop usará scfb."
+-		dmesg | grep -iE 'i915|drm' | tail -5 | sed 's/^/    /'
+-	fi
+-	sync
++	tentar "$quero"
++	case $? in
++	0)	echo "  ✓ Funcionou: vídeo acelerado com o driver $quero." ;;
++	2)	echo "  ! O driver $quero não está instalado (lume desktop instala)." ;;
++	*)	echo "  ✗ O driver não reconheceu a placa. O desktop usará scfb."
++		if [ "$quero" = nvidia ]; then
++			eval "$(detectar)"
++			[ "$nvidia_pacote" != nvidia-driver ] &&
++			    echo "    Esta placa precisa do $nvidia_pacote; lume desktop instala o certo."
++		fi ;;
++	esac
++	dmesg | grep -iE 'i915|drm|nvidia|nvrm' | tail -4 | sed 's/^/    /'
+ }
+ 
+-[ "$(id -u)" -eq 0 ] || [ $# -eq 0 ] || {
+-	echo "lume video: precisa ser root (su -)" >&2; exit 1; }
++case "${1:-}" in
++""|detectar|--boot) ;;
++*)	[ "$(id -u)" -eq 0 ] || { echo "lume video: precisa ser root (su -)" >&2
++	    exit 1; } ;;
++esac
+ 
+ case "${1:-}" in
+ "")		mostrar ;;
++detectar)	detectar ;;
+ --boot)		boot ;;
+ testar)		testar ;;
+-auto|intel|scfb)
++auto|nvidia|intel|scfb)
+ 		sysrc -q lume_video="$1" >/dev/null
+ 		[ "$1" = auto ] && rm -f "$DB/video-estado"
+-		[ "$1" = scfb ] && xorg_scfb
++		[ "$1" = scfb ] && xorg scfb
+ 		echo "  modo de vídeo: $1 (vale a partir do próximo boot)" ;;
+ *)		uso ;;
+ esac
+-- 
+2.43.0
+

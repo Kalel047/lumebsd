@@ -1,0 +1,61 @@
+From 1ab12aa738e8afeba178b2cf2667ae261cf58f44 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 16:39:25 -0300
+Subject: [PATCH 08/20] lume desktop: espelho local opcional (LUME_REPO_URL)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/lume-desktop.sh  | 11 +++++++++++
+ usr.sbin/lume-configurar/lume-instalar.sh |  6 ++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+index 512da5ef0..f42cc092a 100644
+--- a/usr.sbin/lume-configurar/lume-desktop.sh
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -16,6 +16,17 @@ LOCAL=/usr/share/lume/pacotes
+ 
+ pacotes=$(sed 's/#.*//' "$LISTA" | tr -s ' \n' ' ')
+ 
++# Espelho local (opcional): LUME_REPO_URL=http://servidor/caminho usa um
++# repositório próprio no lugar dos servidores do FreeBSD.
++if [ -n "${LUME_REPO_URL:-}" ]; then
++	mkdir -p /usr/local/etc/pkg/repos
++	cat > /usr/local/etc/pkg/repos/lume-espelho.conf <<-EOF
++	FreeBSD-ports: { enabled: no }
++	FreeBSD-ports-kmods: { enabled: no }
++	Lume-espelho: { url: "$LUME_REPO_URL", signature_type: "none", enabled: yes }
++	EOF
++fi
++
+ export ASSUME_ALWAYS_YES=yes
+ if ! pkg -N >/dev/null 2>&1; then
+ 	echo "  Preparando o pkg..."
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index e87a17713..9111d31a5 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -12,7 +12,8 @@
+ #
+ # Variáveis para testes automatizados (todas opcionais):
+ #   LUME_DISCO, LUME_SENHA_DISCO, LUME_CONFIRMA=APAGAR, LUME_DESKTOP=s|n,
+-#   LUME_SWAP (padrão 8g), LUME_CONSOLE_SERIAL=1 (console também na serial)
++#   LUME_SWAP (padrão 8g), LUME_CONSOLE_SERIAL=1 (console também na serial),
++#   LUME_REPO_URL (espelho de pacotes, veja lume-desktop)
+ #
+ 
+ # Lista oficial dos arquivos do sistema (METALOG do build), com dono,
+@@ -298,7 +299,8 @@ feito
+ 
+ if [ "$desktop" = s ]; then
+ 	echo "  • Instalando o desktop (pode levar vários minutos)..."
+-	chroot "$ALVO" /usr/sbin/lume-desktop 2>&1 | tee -a "$LOG" |
++	chroot "$ALVO" env LUME_REPO_URL="${LUME_REPO_URL:-}" \
++	    /usr/sbin/lume-desktop 2>&1 | tee -a "$LOG" |
+ 	    sed 's/^/    /' || echo "    (o desktop pode ser instalado depois com: lume desktop)"
+ fi
+ 
+-- 
+2.43.0
+

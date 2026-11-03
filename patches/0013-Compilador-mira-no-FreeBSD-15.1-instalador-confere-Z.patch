@@ -1,0 +1,68 @@
+From 6a10cdaa636e47a264b7462c34ed440cef59b9c6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 22:36:11 -0300
+Subject: [PATCH 13/20] Compilador mira no FreeBSD 15.1; instalador confere ZFS
+ e GELI
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O triplo do compilador vinha de REVISION (1.1), virando
+x86_64-unknown-freebsd1.1. Agora newvers.sh tem FREEBSD_REVISION=15.1
+e é ele que define OS_REVISION.
+
+lume instalar para antes de tocar no disco se zfs.ko ou geom_eli.ko
+não carregarem.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ share/mk/src.sys.env.mk                   | 2 +-
+ sys/conf/newvers.sh                       | 2 ++
+ usr.sbin/lume-configurar/lume-instalar.sh | 4 ++++
+ 3 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/share/mk/src.sys.env.mk b/share/mk/src.sys.env.mk
+index 634606c0e..bf5e9d5ae 100644
+--- a/share/mk/src.sys.env.mk
++++ b/share/mk/src.sys.env.mk
+@@ -23,7 +23,7 @@ RELOBJTOP?=	${RELTOP}
+ RELSRCTOP?=	${RELTOP}
+ 
+ .if !defined(OS_REVISION)
+-OS_REVISION!=eval `sh ${SRCTOP}/sys/conf/newvers.sh -V REVISION` && echo $$REVISION || echo
++OS_REVISION!=eval `sh ${SRCTOP}/sys/conf/newvers.sh -V FREEBSD_REVISION` && echo $$FREEBSD_REVISION || echo
+ .export OS_REVISION
+ .endif
+ 
+diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
+index 1b3f1ea17..c1a57b624 100644
+--- a/sys/conf/newvers.sh
++++ b/sys/conf/newvers.sh
+@@ -52,6 +52,8 @@
+ TYPE="LumeBSD"
+ REVISION="1.1"
+ BRANCH="FAROL"
++# Versão do FreeBSD por baixo: o compilador mira nela (x86_64-unknown-freebsd15.1).
++FREEBSD_REVISION="15.1"
+ if [ -n "${BRANCH_OVERRIDE}" ]; then
+ 	BRANCH=${BRANCH_OVERRIDE}
+ fi
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 8c7abfc9b..88149e7a2 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -159,6 +159,10 @@ fi
+ echo
+ passo "Preparando o disco $disco"
+ for m in zfs aesni geom_eli; do kldload -n $m >> "$LOG" 2>&1; done
++# Sem ZFS e GELI não há instalação: confere antes de mexer no disco.
++for m in zfs geom_eli; do
++	kldstat -q -n $m || morrer "o módulo $m do kernel não carregou (nada no disco foi alterado)"
++done
+ zpool export -f "$POOL" >> "$LOG" 2>&1
+ for g in $(geli status -s 2>/dev/null | awk '{print $1}'); do
+ 	case "$g" in gpt/zfs0.eli|${disco}p*) geli detach -f "$g" >> "$LOG" 2>&1 ;; esac
+-- 
+2.43.0
+

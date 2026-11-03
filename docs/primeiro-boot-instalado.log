@@ -1,0 +1,170 @@
+  Este é o primeiro boot. Vamos deixar o sistema pronto:
+  senha, seu usuário, nome da máquina, fuso, teclado e idioma.
+  Pressione Enter para começar.
+  [1/6] Senha do administrador (root)
+      Nova senha do root: 
+      Repita a senha: 
+  [2/6] Seu usuário
+      Login em minúsculas (ex.: fabiano). Deixe vazio para pular.
+      Login: fabiano
+      Nome completo [fabiano]: Fabiano
+      Senha de fabiano: 
+      Repita a senha: 
+  [3/6] Nome desta máquina
+      Nome [farol]: thinkpad
+  [4/6] Fuso horário
+      Exemplos: America/Sao_Paulo (Brasília), America/Manaus,
+      America/Rio_Branco, America/Noronha, Europe/Lisbon, UTC
+      Fuso [America/Sao_Paulo]: 
+  [5/6] Teclado
+      1) ABNT2 (Brasil)   2) US internacional   3) US   4) Portugal
+      Opção [1]: 
+  [6/6] Idioma do sistema
+      1) Português (Brasil)   2) English (US)
+      Opção [1]: 
+  Resumo
+  ------------------------------------------------------------
+      root           senha definida
+      usuário        fabiano (Fabiano), administrador (wheel)
+      máquina        thinkpad
+      fuso           America/Sao_Paulo
+      teclado        ABNT2 (Brasil)
+      idioma         pt_BR.UTF-8
+  ------------------------------------------------------------
+      Aplicar estas configurações? (s/n) [s]: 
+      senha do root ......... ok
+      usuário fabiano ......... ok
+      nome da máquina ....... ok
+      fuso horário .......... ok
+      teclado ............... ok
+      idioma ................ ok
+Nov  3 08:58:29 farol syslogd: exiting on signal 15
+  Pronto! Entre como 'fabiano' e use 'su -' para administrar.
+  Para refazer depois: lume configurar
+Starting vigia.
+Nov  3 05:58:31 thinkpad ntpd[1688]: leapsecond file ('/var/db/ntpd.leap-seconds.list'): stat failed: No such file or directory
+Starting cron.
+     \    |    /
+   ---  (( ))  ---
+     /   _|_   \
+        /___\
+        |[_]|
+        |===|      LumeBSD 1.1
+        |   |      "Farol"
+        |===|
+       /|   |\     luz firme sobre fundação BSD
+        |===|
+       _|___|_
+  ~~~~/_______\~~~~
+   ~~   ~~~~   ~~
+  LumeBSD 1.1 "Farol"  @ thinkpad
+  ----------------------------------------------
+  kernel     LumeBSD 1.1-FAROL (base FreeBSD 15.1)
+  cpu        QEMU Virtual CPU version 2.5+ (2 núcleos)
+  memória    [##..................] 320.9 MiB / 3.9 GiB
+  disco /    [####................] 5.9 GiB / 30.5 GiB (zfs)
+  carga      1.03  0.34  0.13
+  ligado há  0 h 1 min 32 s
+  serviços   1 de 1 ativos (vigia)
+Starting background file system checks in 60 seconds.
+Starting sddm.
+Tue Nov  3 05:58:38 -03 2026
+LumeBSD/amd64 (thinkpad) (ttyu0)
+login: root
+Password:
+Nov  3 05:59:01 thinkpad login[1800]: ROOT LOGIN (root) ON ttyu0
+LumeBSD 1.1-FAROL (LUME) lumebsd-15.1-6a10cdaa636e
+   LumeBSD 1.1 "Farol"  -  luz firme sobre fundação BSD
+   Este é o LumeBSD, uma distribuição BSD independente construída
+   a partir do código-fonte do FreeBSD.
+   Comandos para começar:
+     lume configurar senha, usuário, máquina, fuso, teclado e idioma
+     lume            painel do sistema (versão, CPU, memória, disco, uptime)
+     vigia           serviços: estado, iniciar, parar, logs (man vigia)
+     forja           pacotes binários ou compilados (man forja)
+     lume video      driver de vídeo (NVIDIA, Intel ou sem aceleração)
+     lume tema       visual do desktop: papel (e-ink) ou padrao
+     lume farol      o emblema da distribuição
+     lume dica       uma dica aleatória do sistema
+     man lume        manual do utilitário
+   Documentação da base (FreeBSD Handbook): man hier ; man rc.conf
+   Para alterar esta mensagem, veja motd(5).
+root@thinkpad:~ # grep -c geom_eli_passphrase_prompt /boot/loader.conf; sed -i ' ' '/geom_eli_passphrase_prompt/d' /boot/loader.conf
+0
+root@thinkpad:~ # uname -a
+LumeBSD thinkpad 1.1-FAROL LumeBSD 1.1-FAROL lumebsd-15.1-6a10cdaa636e LUME amd64
+root@thinkpad:~ # zpool status zroot | head -12
+  pool: zroot
+ state: ONLINE
+config:
+        NAME          STATE     READ WRITE CKSUM
+        zroot         ONLINE       0     0     0
+          nda0p3.eli  ONLINE       0     0     0
+errors: No known data errors
+root@thinkpad:~ # zfs list -o name,used,mountpoint
+NAME                 USED  MOUNTPOINT
+zroot               5.91G  none
+zroot/ROOT          5.91G  none
+zroot/ROOT/default  5.91G  /
+zroot/home           136K  /home
+zroot/tmp            128K  /tmp
+zroot/usr            288K  /usr
+zroot/usr/ports       96K  /usr/ports
+zroot/usr/src         96K  /usr/src
+zroot/var            652K  /var
+zroot/var/audit       96K  /var/audit
+zroot/var/crash       96K  /var/crash
+zroot/var/log        140K  /var/log
+zroot/var/mail       128K  /var/mail
+zroot/var/tmp         96K  /var/tmp
+root@thinkpad:~ # bectl list
+BE      Active Mountpoint Space Created
+default NR     /          5.91G 2026-11-03 05:03
+root@thinkpad:~ # geli status
+         Name  Status  Components
+   nda0p3.eli  ACTIVE  nda0p3
+gpt/swap0.eli  ACTIVE  gpt/swap0
+root@thinkpad:~ # swapinfo -h
+Device              Size     Used    Avail Capacity
+/dev/gpt/swap0.eli     8.0G       0B     8.0G     0%
+root@thinkpad:~ # lume
+  LumeBSD 1.1 "Farol"  @ thinkpad
+  ----------------------------------------------
+  kernel     LumeBSD 1.1-FAROL (base FreeBSD 15.1)
+  cpu        QEMU Virtual CPU version 2.5+ (2 núcleos)
+  memória    [##..................] 494.2 MiB / 3.9 GiB
+  disco /    [####................] 5.9 GiB / 30.5 GiB (zfs)
+  carga      1.15  0.44  0.17
+  ligado há  0 h 2 min 3 s
+  serviços   1 de 1 ativos (vigia)
+root@thinkpad:~ # vigia
+  SERVIÇO       ESTADO         PID      MEMÓRIA    HÁ         REINÍCIOS  DESCRIÇÃO
+  ntpd          ● ativo        1688     6.4 MiB    36 s       0          Relógio sincronizado pela internet (NTP)
+  1 ativo(s) de 1.
+root@thinkpad:~ # lume video
+  Nenhuma placa NVIDIA ou Intel; o desktop usa o scfb.
+  modo:   auto -> scfb
+  estado: scfb
+root@thinkpad:~ # pkg info | wc -l
+     692
+root@thinkpad:~ # pkg info drm-612-kmod plasma6-plasma-workspace | grep -E 'Name |Version'
+root@thinkpad:~ # service sddm status; pgrep -lf Xorg
+sddm is running as pid 1784.
+1806 /usr/local/libexec/Xorg -nolisten tcp -background none -seat seat0 vt9 -auth /var/run/sddm/xauth_cZPxMo -noreset -displayfd 16
+root@thinkpad:~ # id fabiano
+uid=1001(fabiano) gid=1001(fabiano) groups=1001(fabiano),0(wheel),5(operator),44(video),145(webcamd)
+root@thinkpad:~ # lume hardware
+  LumeBSD - diagnóstico de hardware
+  QEMU pc-q35-8.2 (Standard PC (Q35 + ICH9, 2009))
+  ------------------------------------------------------------
+  ✓ processador    QEMU Virtual CPU version 2.5+ (2 núcleos)
+  ! energia CPU    sem controle de frequência
+  ✓ memória       4 GiB
+  ✓ disco nda0     QEMU NVMe Ctrl 42 GB
+  ! vídeo         sem placa NVIDIA ou Intel: modo sem aceleração
+  ! Wi-Fi          nenhuma placa encontrada
+  ✓ rede em0       cabo active
+  ✗ som            nenhuma placa de som reconhecida
+  ------------------------------------------------------------
+  4 ok, 3 atenção, 1 não funciona
+root@thinkpad:~ # shutdown -p now

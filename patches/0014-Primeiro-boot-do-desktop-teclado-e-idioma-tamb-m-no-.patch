@@ -1,0 +1,142 @@
+From 4878dcc847a8a7c415097067e8a172003c91fd21 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 00:44:46 -0300
+Subject: [PATCH 14/20] =?UTF-8?q?Primeiro=20boot=20do=20desktop:=20teclado?=
+ =?UTF-8?q?=20e=20idioma=20tamb=C3=A9m=20no=20modo=20gr=C3=A1fico?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- lume configurar grava o teclado escolhido para o Xorg (ABNT2 vira
+  XkbLayout br/abnt2) e põe a tela de login no idioma escolhido
+  (sddm_lang).
+- Com o desktop instalado, o assistente espera o tempo que for: sem
+  usuário não há como entrar pela tela de login.
+- lume instalar: a senha do disco é pedida uma vez só (sem
+  geom_eli_passphrase_prompt, o loader já repassa a chave); com
+  LUME_CONSOLE_SERIAL o serial vira o console principal.
+- lume hardware: não lista leitores de CD como disco; memória
+  arredondada para cima.
+- Mensagem de boas-vindas cita forja, lume video e lume tema.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.bin/login/motd.template                 |  3 ++
+ usr.sbin/lume-configurar/lume-configurar.sh | 31 +++++++++++++++++++--
+ usr.sbin/lume-configurar/lume-hardware.sh   |  4 ++-
+ usr.sbin/lume-configurar/lume-instalar.sh   |  3 +-
+ 4 files changed, 36 insertions(+), 5 deletions(-)
+
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index 5ceed1c02..5af814902 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -8,6 +8,9 @@
+      lume configurar senha, usuário, máquina, fuso, teclado e idioma
+      lume            painel do sistema (versão, CPU, memória, disco, uptime)
+      vigia           serviços: estado, iniciar, parar, logs (man vigia)
++     forja           pacotes binários ou compilados (man forja)
++     lume video      driver de vídeo (NVIDIA, Intel ou sem aceleração)
++     lume tema       visual do desktop: papel (e-ink) ou padrao
+      lume farol      o emblema da distribuição
+      lume dica       uma dica aleatória do sistema
+      man lume        manual do utilitário
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index 1078bdcff..5f1988faa 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -189,6 +189,23 @@ aplicar()
+ 	if [ -c /dev/ttyv0 ]; then
+ 		kbdcontrol -l "$TECLADO" < /dev/ttyv0 >/dev/null 2>&1
+ 	fi
++	# O mesmo teclado no modo gráfico (tela de login e KDE).
++	case "$TECLADO" in
++	br)	xkb='"br"'; xvar='"abnt2"' ;;
++	us.acc)	xkb='"us"'; xvar='"intl"' ;;
++	pt)	xkb='"pt"'; xvar='""' ;;
++	*)	xkb='"us"'; xvar='""' ;;
++	esac
++	mkdir -p /usr/local/etc/X11/xorg.conf.d
++	cat > /usr/local/etc/X11/xorg.conf.d/00-lume-teclado.conf <<-EOF
++	# Gerado pelo lume configurar.
++	Section "InputClass"
++	    Identifier "Teclado do LumeBSD"
++	    MatchIsKeyboard "on"
++	    Option "XkbLayout" $xkb
++	    Option "XkbVariant" $xvar
++	EndSection
++	EOF
+ 	echo ok
+ 
+ 	printf '      idioma ................ '
+@@ -200,6 +217,8 @@ aplicar()
+ 	' /etc/login.conf > /etc/login.conf.lume &&
+ 	    mv /etc/login.conf.lume /etc/login.conf &&
+ 	    cap_mkdb /etc/login.conf && echo ok
++	# Tela de login gráfica no mesmo idioma.
++	sysrc -q sddm_lang="${IDIOMA%.UTF-8}" >/dev/null
+ 
+ 	# O syslogd guarda nome e fuso de quando iniciou; reinicia para usar
+ 	# os novos.
+@@ -222,8 +241,16 @@ if [ "$MODO" = boot ]; then
+ 	echo "  Este é o primeiro boot. Vamos deixar o sistema pronto:"
+ 	echo "  senha, seu usuário, nome da máquina, fuso, teclado e idioma."
+ 	echo
+-	echo "  Pressione Enter para começar (pula sozinho em 120 s)."
+-	if ! read -t 120 -r _; then
++	# Com o desktop instalado não há como entrar sem um usuário: espera
++	# o tempo que for. Sem desktop (servidor, VM), pula em 120 s.
++	if [ "$(sysrc -n sddm_enable 2>/dev/null)" = YES ]; then
++		echo "  Pressione Enter para começar."
++		espera=
++	else
++		echo "  Pressione Enter para começar (pula sozinho em 120 s)."
++		espera="-t 120"
++	fi
++	if ! read $espera -r _; then
+ 		echo
+ 		echo "  Configuração adiada. Rode 'lume configurar' como root."
+ 		exit 0
+diff --git a/usr.sbin/lume-configurar/lume-hardware.sh b/usr.sbin/lume-configurar/lume-hardware.sh
+index dd9c6260a..d41fbdf97 100644
+--- a/usr.sbin/lume-configurar/lume-hardware.sh
++++ b/usr.sbin/lume-configurar/lume-hardware.sh
+@@ -59,10 +59,12 @@ else
+ fi
+ 
+ # Memória e disco
+-mem=$(($(sysctl -n hw.physmem) / 1024 / 1024 / 1024))
++# Arredonda para cima: parte da RAM fica reservada e 16 GiB viram 15,8.
++mem=$((($(sysctl -n hw.physmem) + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024))
+ item ok "memória" "${mem} GiB"
+ discos=$(sysctl -n kern.disks)
+ for d in $discos; do
++	case "$d" in cd[0-9]*) continue ;; esac
+ 	desc=$(geom disk list "$d" 2>/dev/null | awk -F': ' '/descr:/ {print $2; exit}')
+ 	tam=$(geom disk list "$d" 2>/dev/null | awk '/Mediasize:/ {print $2; exit}')
+ 	[ -n "$tam" ] && tam="$((tam / 1000000000)) GB"
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 88149e7a2..3b61b6f18 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -238,7 +238,6 @@ cat > "$ALVO/boot/loader.conf" <<EOF
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+-geom_eli_passphrase_prompt="YES"
+ vfs.root.mountfrom="zfs:$POOL/ROOT/default"
+ kern.geom.label.disk_ident.enable="0"
+ kern.geom.label.gptid.enable="0"
+@@ -252,7 +251,7 @@ compat.linuxkpi.iwlwifi_disable_11ac="0"
+ compat.linuxkpi.iwlwifi_power_save="1"
+ EOF
+ if [ -n "${LUME_CONSOLE_SERIAL:-}" ]; then
+-	printf 'boot_multicons="YES"\nconsole="efi,comconsole"\n' >> "$ALVO/boot/loader.conf"
++	printf 'boot_multicons="YES"\nboot_serial="YES"\nconsole="comconsole,efi"\n' >> "$ALVO/boot/loader.conf"
+ fi
+ cat > "$ALVO/etc/rc.conf" <<EOF
+ hostname="farol"
+-- 
+2.43.0
+

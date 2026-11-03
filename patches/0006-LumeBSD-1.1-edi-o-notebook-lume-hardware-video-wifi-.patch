@@ -1,0 +1,1182 @@
+From 6f01f458611dd031bd1664091fb53bcc7521dd74 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 16:37:52 -0300
+Subject: [PATCH 06/20] =?UTF-8?q?LumeBSD=201.1:=20edi=C3=A7=C3=A3o=20noteb?=
+ =?UTF-8?q?ook=20(lume=20hardware,=20video,=20wifi,=20desktop,=20instalar;?=
+ =?UTF-8?q?=20rc.d=20lume=5Fvideo=20e=20lume=5Fnotebook)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ libexec/rc/rc.d/Makefile                    |   2 +
+ libexec/rc/rc.d/lume_notebook               |  44 +++
+ libexec/rc/rc.d/lume_video                  |  29 ++
+ usr.bin/lume/lume.1                         |  34 ++-
+ usr.bin/lume/lume.c                         |  31 +-
+ usr.sbin/lume-configurar/Makefile           |   6 +-
+ usr.sbin/lume-configurar/desktop.txt        |  89 ++++++
+ usr.sbin/lume-configurar/lume-configurar.sh |   5 +-
+ usr.sbin/lume-configurar/lume-desktop.sh    |  54 ++++
+ usr.sbin/lume-configurar/lume-hardware.sh   | 176 +++++++++++
+ usr.sbin/lume-configurar/lume-instalar.sh   | 316 ++++++++++++++++++++
+ usr.sbin/lume-configurar/lume-video.sh      | 153 ++++++++++
+ usr.sbin/lume-configurar/lume-wifi.sh       |  68 +++++
+ 13 files changed, 999 insertions(+), 8 deletions(-)
+ create mode 100644 libexec/rc/rc.d/lume_notebook
+ create mode 100644 libexec/rc/rc.d/lume_video
+ create mode 100644 usr.sbin/lume-configurar/desktop.txt
+ create mode 100644 usr.sbin/lume-configurar/lume-desktop.sh
+ create mode 100644 usr.sbin/lume-configurar/lume-hardware.sh
+ create mode 100644 usr.sbin/lume-configurar/lume-instalar.sh
+ create mode 100644 usr.sbin/lume-configurar/lume-video.sh
+ create mode 100644 usr.sbin/lume-configurar/lume-wifi.sh
+
+diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
+index 59ecf6f95..d4e1026b6 100644
+--- a/libexec/rc/rc.d/Makefile
++++ b/libexec/rc/rc.d/Makefile
+@@ -38,6 +38,8 @@ CONFS=	DAEMON \
+ 	localpkg \
+ 	lume_configurar \
+ 	lume_farol \
++	lume_notebook \
++	lume_video \
+ 	motd \
+ 	mountcritlocal \
+ 	mountcritremote \
+diff --git a/libexec/rc/rc.d/lume_notebook b/libexec/rc/rc.d/lume_notebook
+new file mode 100644
+index 000000000..26dc8bca4
+--- /dev/null
++++ b/libexec/rc/rc.d/lume_notebook
+@@ -0,0 +1,44 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: ajustes de notebook no boot.
++#  - fechar a tampa suspende, se o computador tiver S3;
++#  - teclas da ThinkPad (acpi_ibm) mandam brilho e volume ao devd;
++#  - CPU Intel com Speed Shift: equilíbrio entre desempenho e bateria.
++#
++
++# PROVIDE: lume_notebook
++# REQUIRE: FILESYSTEMS kld
++# BEFORE: LOGIN
++# KEYWORD: nojail
++
++. /etc/rc.subr
++
++name="lume_notebook"
++desc="Ajustes de notebook (tampa, teclas, energia)"
++rcvar="lume_notebook_enable"
++start_cmd="lume_notebook_start"
++stop_cmd=":"
++
++lume_notebook_start()
++{
++	case "$(sysctl -n hw.acpi.supported_sleep_state 2>/dev/null)" in
++	*S3*)	sysctl -q hw.acpi.lid_switch_state=S3 >/dev/null ;;
++	esac
++	if [ "$(kenv -q smbios.system.maker)" = "LENOVO" ]; then
++		kldstat -q -m acpi_ibm || kldload -n acpi_ibm 2>/dev/null
++		# Eventos de brilho (0x10, 0x11) para o devd e para o desktop.
++		sysctl -q dev.acpi_ibm.0.handlerevents="0x10 0x11" >/dev/null 2>&1
++	fi
++	# Intel Speed Shift: 50 = equilíbrio (0 desempenho, 100 economia).
++	for cpu in $(sysctl -N dev.hwpstate_intel 2>/dev/null |
++	    grep '\.epp$'); do
++		sysctl -q "$cpu=${lume_notebook_epp:-50}" >/dev/null
++	done
++	return 0
++}
++
++load_rc_config $name
++: ${lume_notebook_enable:="YES"}
++run_rc_command "$1"
+diff --git a/libexec/rc/rc.d/lume_video b/libexec/rc/rc.d/lume_video
+new file mode 100644
+index 000000000..da64d6317
+--- /dev/null
++++ b/libexec/rc/rc.d/lume_video
+@@ -0,0 +1,29 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: escolhe o driver de vídeo no boot, com proteção contra travamento
++# (veja lume-video(8)).
++#
++
++# PROVIDE: lume_video
++# REQUIRE: FILESYSTEMS kld
++# BEFORE: LOGIN dbus sddm
++# KEYWORD: nojail
++
++. /etc/rc.subr
++
++name="lume_video"
++desc="Escolhe o driver de vídeo (Intel ou sem aceleração)"
++rcvar="lume_video_enable"
++start_cmd="lume_video_start"
++stop_cmd=":"
++
++lume_video_start()
++{
++	[ -x /usr/sbin/lume-video ] && /usr/sbin/lume-video --boot
++}
++
++load_rc_config $name
++: ${lume_video_enable:="YES"}
++run_rc_command "$1"
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index 32bca5a3d..e710da427 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -9,7 +9,12 @@
+ .Nd painel do sistema e identidade do LumeBSD
+ .Sh SYNOPSIS
+ .Nm
+-.Op Cm farol | dica | versao | configurar
++.Op Cm farol | dica | versao
++.Nm
++.Cm configurar | hardware | wifi | desktop | instalar
++.Nm
++.Cm video
++.Op Cm testar | auto | intel | scfb
+ .Sh DESCRIPTION
+ Sem argumentos,
+ .Nm
+@@ -26,6 +31,33 @@ Imprime a versão do LumeBSD.
+ Abre o assistente de configuração,
+ .Xr lume-configurar 8 .
+ Precisa ser executado como root.
++.It Cm hardware
++Diz o que funciona neste computador: vídeo, Wi-Fi, som, touchpad, teclas
++da ThinkPad, bateria, suspensão, câmera.
++Feito para rodar no pendrive antes de instalar.
++.It Cm video
++Mostra o driver de vídeo em uso.
++.Cm testar
++carrega o driver Intel agora;
++.Cm auto
++tenta o driver Intel a cada boot e usa o modo sem aceleração
++.Pq scfb
++se ele falhar;
++.Cm intel
++e
++.Cm scfb
++fixam um dos dois.
++Se o driver Intel travar o computador, o boot seguinte percebe e passa
++para o scfb sozinho.
++.It Cm wifi
++Procura redes, pede a senha e conecta; a rede fica salva.
++.It Cm desktop
++Instala o KDE Plasma, o Firefox e os drivers (precisa de internet).
++.It Cm instalar
++Instala o LumeBSD num disco inteiro, a partir do pendrive: ZFS com
++ambientes de boot, criptografia GELI pedindo senha no boot, swap
++criptografada e boot UEFI.
++Apaga tudo o que havia no disco, depois de pedir confirmação.
+ .El
+ .Pp
+ Enquanto o sistema não tiver sido configurado, o painel mostra um aviso.
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 98bc4a05b..987f0bfcb 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -8,6 +8,11 @@
+  *   lume dica       mostra uma dica aleatória
+  *   lume versao     imprime a versão da distribuição
+  *   lume configurar abre o assistente de configuração (lume-configurar(8))
++ *   lume hardware   diz o que funciona neste computador
++ *   lume video      escolhe e testa o driver de vídeo
++ *   lume wifi       conecta a uma rede Wi-Fi
++ *   lume desktop    instala o desktop KDE Plasma
++ *   lume instalar   instala o LumeBSD no disco (a partir do pendrive)
+  */
+ 
+ #include <sys/param.h>
+@@ -30,6 +35,11 @@
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
++
++/* Subcomandos que são scripts em /usr/sbin/lume-<nome>. */
++static const char *scripts[] = {
++	"configurar", "hardware", "video", "wifi", "desktop", "instalar",
++};
+ #define	VIGIA_SOCKET	"/var/run/vigia.sock"
+ 
+ static int use_color;
+@@ -282,7 +292,10 @@ painel(void)
+ static void
+ usage(void)
+ {
+-	fprintf(stderr, "uso: lume [farol | dica | versao | configurar]\n");
++	fprintf(stderr,
++	    "uso: lume [farol | dica | versao]\n"
++	    "     lume configurar | hardware | wifi | desktop | instalar\n"
++	    "     lume video [testar | auto | intel | scfb]\n");
+ 	exit(1);
+ }
+ 
+@@ -295,6 +308,17 @@ main(int argc, char *argv[])
+ 		painel();
+ 		return (0);
+ 	}
++	for (size_t i = 0; i < nitems(scripts); i++) {
++		if (strcmp(argv[1], scripts[i]) == 0) {
++			char caminho[64];
++
++			snprintf(caminho, sizeof(caminho), "/usr/sbin/lume-%s",
++			    scripts[i]);
++			argv[1] = caminho;
++			execv(caminho, argv + 1);
++			err(1, "%s", caminho);
++		}
++	}
+ 	if (argc != 2)
+ 		usage();
+ 
+@@ -303,10 +327,7 @@ main(int argc, char *argv[])
+ 	else if (strcmp(argv[1], "dica") == 0)
+ 		printf("%sdica:%s %s\n", AMBER, RESET,
+ 		    tips[arc4random_uniform(nitems(tips))]);
+-	else if (strcmp(argv[1], "configurar") == 0) {
+-		execl(LUME_ASSISTENTE, "lume-configurar", (char *)NULL);
+-		err(1, "%s", LUME_ASSISTENTE);
+-	} else if (strcmp(argv[1], "versao") == 0 ||
++	else if (strcmp(argv[1], "versao") == 0 ||
+ 	    strcmp(argv[1], "-v") == 0)
+ 		printf("%s %s \"%s\"\n", LUME_NAME, LUME_VERSION,
+ 		    LUME_CODENAME);
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index 20a733da1..3e0e25d3f 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -1,4 +1,8 @@
+-SCRIPTS=	lume-configurar.sh
++SCRIPTS=	lume-configurar.sh lume-hardware.sh lume-video.sh lume-wifi.sh \
++	lume-desktop.sh lume-instalar.sh
+ MAN=	lume-configurar.8
+ 
++FILESDIR=	${SHAREDIR}/lume
++FILES=		desktop.txt
++
+ .include <bsd.prog.mk>
+diff --git a/usr.sbin/lume-configurar/desktop.txt b/usr.sbin/lume-configurar/desktop.txt
+new file mode 100644
+index 000000000..915091b54
+--- /dev/null
++++ b/usr.sbin/lume-configurar/desktop.txt
+@@ -0,0 +1,89 @@
++# Pacotes do desktop do LumeBSD (lume desktop). Um por linha.
++# Base de pacotes e firmware
++pkg
++cpu-microcode-intel
++wifi-firmware-iwlwifi-kmod
++gpu-firmware-intel-kmod-meteorlake
++# Vídeo: driver Intel (drm 6.12 e 6.6, alternativos) e modo sem aceleração
++drm-612-kmod
++xorg-minimal
++xf86-video-scfb
++xf86-input-libinput
++mesa-dri
++libva-intel-media-driver
++# Desktop KDE Plasma 6
++# Plasma 6 (o meta-pacote plasma6-plasma, sem o Spectacle e o OCR que ele puxa)
++plasma6-aurorae
++plasma6-breeze
++plasma6-breeze-gtk
++plasma6-breeze-qt5
++plasma6-discover
++plasma6-kactivitymanagerd
++plasma6-kde-cli-tools
++plasma6-kde-gtk-config
++plasma6-kdecoration
++plasma6-kdeplasma-addons
++plasma6-kgamma
++plasma6-kglobalacceld
++plasma6-kinfocenter
++plasma6-kmenuedit
++plasma6-knighttime
++plasma6-kpipewire
++plasma6-kscreen
++plasma6-kscreenlocker
++plasma6-ksshaskpass
++plasma6-ksystemstats
++plasma6-kwallet-pam
++plasma6-kwayland
++plasma6-kwayland-integration-qt5
++plasma6-kwin
++plasma6-kwin-x11
++plasma6-kwrited
++plasma6-layer-shell-qt
++plasma6-libkscreen
++plasma6-libksysguard
++plasma6-libplasma
++plasma6-milou
++plasma6-ocean-sound-theme
++plasma6-oxygen
++plasma6-oxygen-sounds
++plasma6-plasma-activities
++plasma6-plasma-activities-stats
++plasma6-plasma-browser-integration
++plasma6-plasma-desktop
++plasma6-plasma-disks
++plasma6-plasma-integration-qt5
++plasma6-plasma-integration-qt6
++plasma6-plasma-pa
++plasma6-plasma-sdk
++plasma6-plasma-systemmonitor
++plasma6-plasma-workspace
++plasma6-plasma-workspace-wallpapers
++plasma6-plasma5support
++plasma6-polkit-kde-agent-1
++plasma6-powerdevil
++plasma6-print-manager
++plasma6-qqc2-breeze-style
++plasma6-sddm-kcm
++plasma6-systemsettings
++plasma6-union
++plasma6-xdg-desktop-portal-kde
++sddm
++konsole
++dolphin
++kate
++ark
++gwenview
++okular
++# Som, rede, navegador e utilidades
++pipewire
++wireplumber
++networkmgr
++firefox
++doas
++noto-basic
++webcamd
++fusefs-ntfs
++git
++unzip
++pt-hunspell
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index 49971db47..1078bdcff 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -171,8 +171,11 @@ aplicar()
+ 
+ 	if [ -n "$USUARIO" ]; then
+ 		printf '      usuário %s ' "$USUARIO"
++		# wheel: su -; operator: desligar e montar; video: aceleração.
++		grupos=wheel,operator,video
++		pw groupshow webcamd >/dev/null 2>&1 && grupos=$grupos,webcamd
+ 		printf '%s\n' "$SENHA_USUARIO" | pw useradd -n "$USUARIO" \
+-		    -c "$NOME" -m -G wheel -s /bin/sh -h 0 && echo "......... ok"
++		    -c "$NOME" -m -G "$grupos" -s /bin/sh -h 0 && echo "......... ok"
+ 	fi
+ 
+ 	printf '      nome da máquina ....... '
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+new file mode 100644
+index 000000000..512da5ef0
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -0,0 +1,54 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-desktop - instala o desktop KDE Plasma e os drivers do notebook.
++#
++# Usa os pacotes oficiais do FreeBSD (precisa de internet: cabo ou
++# "lume wifi"). Os pacotes essenciais que vêm no pendrive (driver de vídeo,
++# firmwares) são instalados a partir dele mesmo, sem internet.
++#
++
++LISTA=/usr/share/lume/desktop.txt
++LOCAL=/usr/share/lume/pacotes
++
++[ "$(id -u)" -eq 0 ] || { echo "lume desktop: precisa ser root (su -)" >&2; exit 1; }
++
++pacotes=$(sed 's/#.*//' "$LISTA" | tr -s ' \n' ' ')
++
++export ASSUME_ALWAYS_YES=yes
++if ! pkg -N >/dev/null 2>&1; then
++	echo "  Preparando o pkg..."
++	if ls "$LOCAL"/pkg-*.pkg >/dev/null 2>&1; then
++		pkg add -q "$(ls "$LOCAL"/pkg-*.pkg | head -1)" || exit 1
++	else
++		pkg bootstrap -f -q || exit 1
++	fi
++fi
++
++if [ -d "$LOCAL" ]; then
++	echo "  Instalando drivers e firmwares do pendrive..."
++	for p in "$LOCAL"/*.pkg; do
++		case "$p" in */pkg-[0-9]*) continue ;; esac
++		pkg add -q -M "$p" >/dev/null 2>&1 || pkg add -q "$p" >/dev/null 2>&1
++	done
++fi
++
++echo "  Baixando e instalando o desktop (KDE Plasma, Firefox e cia.)..."
++echo "  Isso baixa uns 1,8 GB; pode levar um tempo."
++if ! pkg update -q || ! pkg install -q $pacotes; then
++	echo "  ✗ Não deu para baixar os pacotes. Tem internet? (cabo ou: lume wifi)"
++	exit 1
++fi
++
++sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES \
++    lume_video_enable=YES >/dev/null
++sysrc -q kld_list+="cuse" >/dev/null
++# Quem é do grupo wheel ganha vídeo e câmera.
++for u in $(pw groupshow wheel | awk -F: '{print $4}' | tr ',' ' '); do
++	[ "$u" = root ] && continue
++	pw groupmod video -m "$u" 2>/dev/null
++	pw groupmod webcamd -m "$u" 2>/dev/null
++done
++
++echo "  ✓ Desktop instalado. Ele abre no próximo boot (ou: service sddm start)."
+diff --git a/usr.sbin/lume-configurar/lume-hardware.sh b/usr.sbin/lume-configurar/lume-hardware.sh
+new file mode 100644
+index 000000000..b8acfaf5a
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-hardware.sh
+@@ -0,0 +1,176 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-hardware - diz o que funciona neste computador no LumeBSD.
++#
++# Pensado para rodar no pendrive "ao vivo" antes de instalar: cada item
++# recebe ok, atenção ou não funciona, com uma explicação curta.
++#
++
++if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
++	VERDE='\033[32;1m'; AMARELO='\033[33;1m'; VERMELHO='\033[31;1m'
++	FRACO='\033[2m'; NEGRITO='\033[1m'; FIM='\033[0m'
++else
++	VERDE=; AMARELO=; VERMELHO=; FRACO=; NEGRITO=; FIM=
++fi
++
++OKS=0; ATENCAO=0; FALHAS=0
++
++item()
++{
++	# item ok|atencao|falha "nome" "detalhe" ["explicação"]
++	case "$1" in
++	ok)	printf "  ${VERDE}✓${FIM} %-14s %s\n" "$2" "$3"; OKS=$((OKS + 1)) ;;
++	atencao) printf "  ${AMARELO}!${FIM} %-14s %s\n" "$2" "$3"
++		ATENCAO=$((ATENCAO + 1)) ;;
++	falha)	printf "  ${VERMELHO}✗${FIM} %-14s %s\n" "$2" "$3"
++		FALHAS=$((FALHAS + 1)) ;;
++	esac
++	[ -n "${4:-}" ] && printf "  ${FRACO}  %-14s %s${FIM}\n" "" "$4"
++	return 0
++}
++
++pci()
++{
++	# pci <classe-regex>: linhas "nome@... vendor device" do pciconf
++	pciconf -lv 2>/dev/null | awk -v re="$1" '
++		/^[a-z]/ { dev = $1 }
++		/device *=/ { sub(/.*device *= */, ""); gsub(/\x27/, ""); desc = $0 }
++		/class *=/ && $0 ~ re { print dev " " desc }'
++}
++
++modelo=$(kenv -q smbios.system.version 2>/dev/null)
++produto=$(kenv -q smbios.system.product 2>/dev/null)
++fabricante=$(kenv -q smbios.system.maker 2>/dev/null)
++
++printf "\n  ${NEGRITO}LumeBSD - diagnóstico de hardware${FIM}\n"
++printf "  %s %s (%s)\n" "$fabricante" "${modelo:-?}" "${produto:-?}"
++printf "  ------------------------------------------------------------\n"
++
++# Processador
++item ok "processador" "$(sysctl -n hw.model) ($(sysctl -n hw.ncpu) núcleos)"
++if sysctl -n dev.hwpstate_intel.0.epp >/dev/null 2>&1; then
++	item ok "energia CPU" "Intel Speed Shift (hwpstate_intel) ativo"
++elif sysctl -n dev.cpu.0.freq_levels >/dev/null 2>&1; then
++	item ok "energia CPU" "controle de frequência ativo"
++else
++	item atencao "energia CPU" "sem controle de frequência"
++fi
++
++# Memória e disco
++mem=$(($(sysctl -n hw.physmem) / 1024 / 1024 / 1024))
++item ok "memória" "${mem} GiB"
++discos=$(sysctl -n kern.disks)
++for d in $discos; do
++	desc=$(geom disk list "$d" 2>/dev/null | awk -F': ' '/descr:/ {print $2; exit}')
++	tam=$(geom disk list "$d" 2>/dev/null | awk '/Mediasize:/ {print $2; exit}')
++	[ -n "$tam" ] && tam="$((tam / 1000000000)) GB"
++	item ok "disco $d" "${desc:-?} ${tam}"
++done
++
++# Vídeo integrado
++intel=$(pci 'display' | grep -i 'intel' | head -1)
++nvidia=$(pci 'display' | grep -i 'nvidia' | head -1)
++estado_video=$(cat /var/db/lume/video-estado 2>/dev/null)
++if [ -n "$intel" ]; then
++	if [ -c /dev/dri/card0 ] && kldstat -q -m i915kms 2>/dev/null; then
++		item ok "vídeo Intel" "acelerado (i915) - ${intel#* }"
++	elif [ "$estado_video" = "travou" ]; then
++		item falha "vídeo Intel" "o driver travou o computador numa tentativa" \
++		    "o desktop usa o modo sem aceleração (scfb); veja: lume video"
++	elif [ "$estado_video" = "falhou" ]; then
++		item falha "vídeo Intel" "o driver i915 não reconheceu a placa" \
++		    "o desktop usa o modo sem aceleração (scfb); veja: lume video"
++	elif [ ! -f /boot/modules/i915kms.ko ]; then
++		item atencao "vídeo Intel" "driver não instalado (${intel#* })" \
++		    "instale com: lume desktop"
++	else
++		item atencao "vídeo Intel" "driver ainda não testado" \
++		    "teste com: lume video testar"
++	fi
++else
++	item atencao "vídeo" "nenhuma placa Intel encontrada"
++fi
++if [ -n "$nvidia" ]; then
++	item atencao "vídeo NVIDIA" "${nvidia#* }" \
++	    "notebook híbrido: o FreeBSD não alterna placas; a tela usa a Intel"
++fi
++
++# Rede
++wifi=$(sysctl -n net.wlan.devices 2>/dev/null)
++placawifi=$(pci 'network' | grep -iE 'wi-?fi|wireless|802\.11|ax2|be2' | head -1)
++if [ -n "$wifi" ]; then
++	item ok "Wi-Fi" "$wifi ${placawifi:+- ${placawifi#* }}" \
++	    "conecte com: lume wifi"
++elif [ -n "$placawifi" ]; then
++	item falha "Wi-Fi" "${placawifi#* } sem driver carregado" \
++	    "falta o firmware? veja dmesg | grep -i iwl"
++else
++	item atencao "Wi-Fi" "nenhuma placa encontrada"
++fi
++for i in $(ifconfig -l ether 2>/dev/null); do
++	case "$i" in wlan*) continue ;; esac
++	st=$(ifconfig "$i" | awk '/status:/ {print $2}')
++	item ok "rede $i" "cabo ${st:-desconhecido}"
++done
++
++# Som
++if grep -q '^pcm' /dev/sndstat 2>/dev/null; then
++	item ok "som" "$(grep '^pcm' /dev/sndstat | head -1 | cut -c1-60)" \
++	    "alto-falantes devem funcionar; o microfone embutido talvez não"
++else
++	item falha "som" "nenhuma placa de som reconhecida"
++fi
++
++# Entrada
++if devinfo 2>/dev/null | grep -qE '^ *(hmt|hms|psm)[0-9]'; then
++	item ok "touchpad" "$(devinfo | grep -oE '(hmt|hms|psm)[0-9]+' | sort -u | tr '\n' ' ')"
++else
++	item atencao "touchpad" "não encontrado"
++fi
++if sysctl -n dev.acpi_ibm.0.%desc >/dev/null 2>&1; then
++	item ok "teclas ThinkPad" "acpi_ibm ativo (volume, brilho, mute)"
++elif [ "$fabricante" = "LENOVO" ]; then
++	item atencao "teclas ThinkPad" "acpi_ibm não carregado (kldload acpi_ibm)"
++fi
++
++# Bateria
++if acpiconf -i 0 >/dev/null 2>&1; then
++	cap=$(acpiconf -i 0 | awk -F':\t*' '/Remaining capacity/ {print $2}')
++	est=$(acpiconf -i 0 | awk -F':\t*' '/^State/ {print $2}')
++	item ok "bateria" "${cap:-?} (${est:-?})"
++else
++	item atencao "bateria" "não encontrada"
++fi
++
++# Suspender
++estados=$(sysctl -n hw.acpi.supported_sleep_state 2>/dev/null)
++case "$estados" in
++*S3*)	item ok "suspender" "S3 disponível ($estados)" \
++	    "fechar a tampa suspende" ;;
++*)	item atencao "suspender" "sem S3 (${estados:-nenhum}); só Modern Standby" \
++	    "suspender ao fechar a tampa pode não funcionar neste modelo" ;;
++esac
++
++# USB: câmera, Bluetooth, leitor de digital
++usb=$(usbconfig list 2>/dev/null)
++if echo "$usb" | grep -qiE 'camera|webcam|video'; then
++	item ok "câmera" "$(echo "$usb" | grep -iE 'camera|webcam|video' | head -1 | sed 's/.*: <//; s/>.*//')" \
++	    "funciona com o webcamd (lume desktop instala)"
++else
++	item atencao "câmera" "não encontrada no USB (pode ser MIPI, sem suporte)"
++fi
++if echo "$usb" | grep -qi 'bluetooth'; then
++	item atencao "Bluetooth" "encontrado; suporte limitado no FreeBSD"
++fi
++if echo "$usb" | grep -qiE 'fingerprint|synaptics.*fp|goodix|validity'; then
++	item falha "digital" "leitor de digital sem suporte no FreeBSD"
++fi
++
++printf "  ------------------------------------------------------------\n"
++printf "  ${VERDE}%d ok${FIM}, ${AMARELO}%d atenção${FIM}, ${VERMELHO}%d não funciona${FIM}\n\n" \
++    "$OKS" "$ATENCAO" "$FALHAS"
++if [ -f /etc/lume-ao-vivo ]; then
++	printf "  Está tudo certo para você? Instale com: lume instalar\n\n"
++fi
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+new file mode 100644
+index 000000000..e87a17713
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -0,0 +1,316 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-instalar - instala o LumeBSD num disco inteiro, a partir do pendrive.
++#
++# Layout (o mesmo do instalador do FreeBSD com ZFS + criptografia):
++#   p1  efi          260 MB  FAT32, carregador UEFI
++#   p2  swap           8 GB  criptografada com chave descartável a cada boot
++#   p3  zfs         o resto  GELI (AES-256-XTS) pedindo a senha no boot,
++#                            pool "zroot" com ambientes de boot (bectl)
++#
++# Variáveis para testes automatizados (todas opcionais):
++#   LUME_DISCO, LUME_SENHA_DISCO, LUME_CONFIRMA=APAGAR, LUME_DESKTOP=s|n,
++#   LUME_SWAP (padrão 8g), LUME_CONSOLE_SERIAL=1 (console também na serial)
++#
++
++# Lista oficial dos arquivos do sistema (METALOG do build), com dono,
++# permissões e flags. O instalador copia exatamente esses arquivos do
++# pendrive para o disco, então o sistema instalado sai limpo.
++SISTEMA=/usr/share/lume/sistema.mtree
++ALVO=/mnt/lume
++POOL=zroot
++SWAP=${LUME_SWAP:-8g}
++LOG=/tmp/lume-instalar.log
++
++if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
++	VERMELHO='\033[31;1m'; VERDE='\033[32;1m'; NEGRITO='\033[1m'; FIM='\033[0m'
++else
++	VERMELHO=; VERDE=; NEGRITO=; FIM=
++fi
++
++morrer()
++{
++	printf "\n  ${VERMELHO}✗ %s${FIM}\n" "$1"
++	echo "    Detalhes em $LOG"
++	stty echo 2>/dev/null
++	exit 1
++}
++
++passo()
++{
++	printf "  • %s..." "$1"
++}
++
++feito()
++{
++	printf " ok\n"
++}
++
++roda()
++{
++	echo "+ $*" >> "$LOG"
++	"$@" >> "$LOG" 2>&1
++}
++
++[ "$(id -u)" -eq 0 ] || { echo "lume instalar: precisa ser root" >&2; exit 1; }
++[ -f "$SISTEMA" ] && [ -f /etc/lume-ao-vivo ] ||
++    morrer "lume instalar roda a partir do pendrive do LumeBSD"
++: > "$LOG"
++
++printf "\n  ${NEGRITO}LumeBSD 1.1 \"Farol\" - instalação${FIM}\n\n"
++
++# --- 1. escolher o disco ------------------------------------------------
++
++# O disco do próprio pendrive fica de fora.
++vivo=$(glabel status 2>/dev/null | awk '$1 == "gpt/lumeroot" {print $3}' |
++    sed -E 's/p[0-9]+$//')
++discos=
++for d in $(sysctl -n kern.disks); do
++	case "$d" in cd*) continue ;; esac
++	[ "$d" = "$vivo" ] && continue
++	discos="$discos $d"
++done
++discos=${discos# }
++[ -n "$discos" ] || morrer "nenhum disco para instalar (o pendrive não conta)"
++
++descrever()
++{
++	desc=$(geom disk list "$1" | awk -F': ' '/descr:/ {print $2; exit}')
++	bytes=$(geom disk list "$1" | awk '/Mediasize:/ {print $2; exit}')
++	printf "%s - %s, %d GB" "$1" "${desc:-sem nome}" "$((bytes / 1000000000))"
++}
++
++if [ -n "${LUME_DISCO:-}" ]; then
++	disco=$LUME_DISCO
++else
++	echo "  Discos encontrados:"
++	n=0
++	for d in $discos; do
++		n=$((n + 1))
++		printf "    %d) %s\n" "$n" "$(descrever "$d")"
++	done
++	printf "  Número do disco onde instalar [1]: "
++	read -r esc
++	disco=$(echo "$discos" | tr ' ' '\n' | sed -n "${esc:-1}p")
++fi
++case " $discos " in
++*" $disco "*) ;;
++*) morrer "disco inválido: $disco" ;;
++esac
++
++# Partições que já existem, para o aviso.
++existentes=$(gpart show -l "$disco" 2>/dev/null | awk 'NR > 1 && $4 != "-" &&
++    $3 ~ /^[0-9]+$/ { printf "%s ", $4 }')
++
++printf "\n  ${VERMELHO}${NEGRITO}ATENÇÃO: TUDO em %s será apagado.${FIM}\n" \
++    "$(descrever "$disco")"
++[ -n "$existentes" ] && printf "  Partições atuais: %s\n" "$existentes"
++echo "  Isso inclui o Windows e todos os arquivos desse disco."
++printf "  Para continuar, digite APAGAR: "
++if [ -n "${LUME_CONFIRMA:-}" ]; then
++	conf=$LUME_CONFIRMA; echo "(automático)"
++else
++	read -r conf
++fi
++[ "$conf" = "APAGAR" ] || { echo "  Nada foi alterado."; exit 1; }
++
++# --- 2. senha do disco --------------------------------------------------
++
++echo
++echo "  O disco será criptografado. A senha é pedida toda vez que o"
++echo "  computador ligar, antes do sistema. Sem ela, os dados não voltam."
++if [ -n "${LUME_SENHA_DISCO:-}" ]; then
++	senha=$LUME_SENHA_DISCO
++else
++	while :; do
++		printf "  Senha do disco (mínimo 8 caracteres): "
++		stty -echo; read -r senha; stty echo; echo
++		[ ${#senha} -ge 8 ] || { echo "  Curta demais."; continue; }
++		printf "  Repita a senha: "
++		stty -echo; read -r senha2; stty echo; echo
++		[ "$senha" = "$senha2" ] && break
++		echo "  As senhas não conferem."
++	done
++	senha2=
++fi
++
++# --- 3. desktop -----------------------------------------------------------
++
++internet=n
++fetch -q -T 8 -o /dev/null https://pkg.freebsd.org/ 2>/dev/null && internet=s
++if [ -n "${LUME_DESKTOP:-}" ]; then
++	desktop=$LUME_DESKTOP
++elif [ "$internet" = s ]; then
++	printf "\n  Instalar o desktop KDE Plasma agora (baixa ~1,8 GB)? [S/n]: "
++	read -r r
++	case "$r" in [nN]*) desktop=n ;; *) desktop=s ;; esac
++else
++	echo
++	echo "  Sem internet agora: o desktop pode ser instalado depois com"
++	echo "  'lume desktop' (cabo de rede ou 'lume wifi')."
++	desktop=n
++fi
++
++# --- 4. instalar ----------------------------------------------------------
++
++echo
++passo "Preparando o disco $disco"
++for m in zfs aesni geom_eli; do kldload -n $m >> "$LOG" 2>&1; done
++zpool export -f "$POOL" >> "$LOG" 2>&1
++for g in $(geli status -s 2>/dev/null | awk '{print $1}'); do
++	case "$g" in gpt/zfs0.eli|${disco}p*) geli detach -f "$g" >> "$LOG" 2>&1 ;; esac
++done
++gpart destroy -F "$disco" >> "$LOG" 2>&1
++roda gpart create -s gpt "$disco" || morrer "não deu para criar a tabela GPT"
++roda gpart add -a 1m -s 260m -t efi -l efiboot0 "$disco" &&
++roda gpart add -a 1m -s "$SWAP" -t freebsd-swap -l swap0 "$disco" &&
++roda gpart add -a 1m -t freebsd-zfs -l zfs0 "$disco" ||
++    morrer "não deu para criar as partições"
++roda newfs_msdos -F 32 -c 1 -L EFISYS "/dev/gpt/efiboot0" ||
++    morrer "não deu para formatar a partição EFI"
++feito
++
++passo "Criptografando (AES-256-XTS)"
++printf '%s' "$senha" | roda geli init -bg -e AES-XTS -J - -l 256 -s 4096 \
++    /dev/gpt/zfs0 || morrer "geli init falhou"
++printf '%s' "$senha" | roda geli attach -j - /dev/gpt/zfs0 ||
++    morrer "geli attach falhou"
++senha=
++feito
++
++passo "Criando o ZFS"
++mkdir -p "$ALVO"
++roda zpool create -f -o altroot="$ALVO" -O compress=zstd -O atime=off \
++    -O mountpoint=none "$POOL" /dev/gpt/zfs0.eli || morrer "zpool create falhou"
++roda zfs create -o mountpoint=none "$POOL/ROOT" &&
++roda zfs create -o mountpoint=/ "$POOL/ROOT/default" &&
++roda zfs create -o mountpoint=/home "$POOL/home" &&
++roda zfs create -o mountpoint=/tmp -o exec=on -o setuid=off "$POOL/tmp" &&
++roda zfs create -o mountpoint=/usr -o canmount=off "$POOL/usr" &&
++roda zfs create "$POOL/usr/src" &&
++roda zfs create -o setuid=off "$POOL/usr/ports" &&
++roda zfs create -o mountpoint=/var -o canmount=off "$POOL/var" &&
++roda zfs create -o exec=off -o setuid=off "$POOL/var/audit" &&
++roda zfs create -o exec=off -o setuid=off "$POOL/var/crash" &&
++roda zfs create -o exec=off -o setuid=off "$POOL/var/log" &&
++roda zfs create -o atime=on "$POOL/var/mail" &&
++roda zfs create -o setuid=off "$POOL/var/tmp" ||
++    morrer "não deu para criar os datasets"
++roda zpool set bootfs="$POOL/ROOT/default" "$POOL"
++feito
++
++passo "Copiando o sistema"
++echo "+ tar @$SISTEMA" >> "$LOG"
++tar -cf - -C / "@$SISTEMA" 2>> "$LOG" | tar -xpf - -C "$ALVO" 2>> "$LOG" ||
++    morrer "falha ao copiar o sistema"
++# O pendrive mostra instruções próprias no login; o sistema instalado não.
++cp /usr/share/lume/motd.template "$ALVO/etc/motd.template"
++chmod 1777 "$ALVO/tmp" "$ALVO/var/tmp"
++mkdir -p "$ALVO/boot/efi"
++feito
++
++passo "Configurando o boot UEFI"
++mkdir -p /tmp/lume-efi
++roda mount_msdosfs /dev/gpt/efiboot0 /tmp/lume-efi || morrer "mount EFI"
++mkdir -p /tmp/lume-efi/EFI/BOOT /tmp/lume-efi/EFI/LumeBSD
++cp "$ALVO/boot/loader.efi" /tmp/lume-efi/EFI/BOOT/BOOTX64.EFI &&
++cp "$ALVO/boot/loader.efi" /tmp/lume-efi/EFI/LumeBSD/loader.efi ||
++    morrer "não deu para copiar o loader.efi"
++roda efibootmgr -a -c -l /tmp/lume-efi/EFI/LumeBSD/loader.efi -L LumeBSD
++roda umount /tmp/lume-efi
++
++cat > "$ALVO/etc/fstab" <<EOF
++# Dispositivo		Ponto	Tipo	Opções	Dump	Pass
++/dev/gpt/efiboot0	/boot/efi	msdosfs	rw	2	2
++/dev/gpt/swap0.eli	none	swap	sw	0	0
++fdesc			/dev/fd	fdescfs	rw	0	0
++proc			/proc	procfs	rw	0	0
++EOF
++cat > "$ALVO/boot/loader.conf" <<EOF
++# LumeBSD 1.1 - notebook
++zfs_load="YES"
++aesni_load="YES"
++geom_eli_load="YES"
++geom_eli_passphrase_prompt="YES"
++vfs.root.mountfrom="zfs:$POOL/ROOT/default"
++kern.geom.label.disk_ident.enable="0"
++kern.geom.label.gptid.enable="0"
++autoboot_delay="3"
++# Microcódigo da CPU (pacote cpu-microcode-intel)
++cpu_microcode_load="YES"
++cpu_microcode_name="/boot/firmware/intel-ucode.bin"
++# Wi-Fi Intel: liga 802.11n/ac e a economia de energia
++compat.linuxkpi.iwlwifi_11n_disable="0"
++compat.linuxkpi.iwlwifi_disable_11ac="0"
++compat.linuxkpi.iwlwifi_power_save="1"
++EOF
++if [ -n "${LUME_CONSOLE_SERIAL:-}" ]; then
++	printf 'boot_multicons="YES"\nconsole="efi,comconsole"\n' >> "$ALVO/boot/loader.conf"
++fi
++cat > "$ALVO/etc/rc.conf" <<EOF
++hostname="farol"
++zfs_enable="YES"
++ifconfig_DEFAULT="DHCP"
++dumpdev="AUTO"
++powerd_enable="YES"
++powerd_flags="-a hiadaptive -b adaptive"
++performance_cx_lowest="Cmax"
++economy_cx_lowest="Cmax"
++kld_list="acpi_ibm coretemp cpuctl"
++devmatch_blocklist="if_iwx if_iwm"
++microcode_update_enable="YES"
++lume_farol_enable="YES"
++lume_configurar_enable="YES"
++lume_notebook_enable="YES"
++lume_video_enable="YES"
++lume_video="auto"
++vigia_enable="YES"
++sshd_enable="NO"
++EOF
++# Wi-Fi configurado no pendrive vai junto.
++if [ -f /etc/wpa_supplicant.conf ] && grep -q network= /etc/wpa_supplicant.conf; then
++	cp /etc/wpa_supplicant.conf "$ALVO/etc/" && chmod 600 "$ALVO/etc/wpa_supplicant.conf"
++	for v in $(sysrc -a 2>/dev/null | awk -F: '/^wlans_|^ifconfig_wlan0/ {print $1}'); do
++		sysrc -f "$ALVO/etc/rc.conf" -q "$v=$(sysrc -n "$v")" >/dev/null
++	done
++fi
++# O resultado do teste de vídeo feito no pendrive vai junto.
++mkdir -p "$ALVO/var/db/lume"
++[ -f /var/db/lume/video-estado ] && cp /var/db/lume/video-estado "$ALVO/var/db/lume/"
++feito
++
++passo "Instalando drivers e firmwares do pendrive"
++mount -t devfs devfs "$ALVO/dev"
++cp /etc/resolv.conf "$ALVO/etc/" 2>/dev/null
++mkdir -p "$ALVO/usr/share/lume/pacotes"
++cp /usr/share/lume/pacotes/*.pkg "$ALVO/usr/share/lume/pacotes/" 2>/dev/null
++pk=$(ls "$ALVO"/usr/share/lume/pacotes/pkg-*.pkg 2>/dev/null | head -1)
++if [ -n "$pk" ]; then
++	roda chroot "$ALVO" env ASSUME_ALWAYS_YES=yes pkg add "${pk#$ALVO}"
++	for p in "$ALVO"/usr/share/lume/pacotes/*.pkg; do
++		case "$p" in */pkg-[0-9]*) continue ;; esac
++		roda chroot "$ALVO" env ASSUME_ALWAYS_YES=yes pkg add -M "${p#$ALVO}"
++	done
++fi
++feito
++
++if [ "$desktop" = s ]; then
++	echo "  • Instalando o desktop (pode levar vários minutos)..."
++	chroot "$ALVO" /usr/sbin/lume-desktop 2>&1 | tee -a "$LOG" |
++	    sed 's/^/    /' || echo "    (o desktop pode ser instalado depois com: lume desktop)"
++fi
++
++passo "Finalizando"
++umount "$ALVO/dev" >> "$LOG" 2>&1
++roda zfs umount -a
++roda zpool export "$POOL"
++roda geli detach /dev/gpt/zfs0.eli
++feito
++
++printf "\n  ${VERDE}✓ LumeBSD instalado em %s.${FIM}\n" "$disco"
++echo "  Tire o pendrive e reinicie (shutdown -r now)."
++echo "  No boot: digite a senha do disco; depois o assistente pede a senha"
++echo "  do root e cria o seu usuário."
++echo
+diff --git a/usr.sbin/lume-configurar/lume-video.sh b/usr.sbin/lume-configurar/lume-video.sh
+new file mode 100644
+index 000000000..f74c75ee1
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-video.sh
+@@ -0,0 +1,153 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-video - escolhe e testa o driver de vídeo do LumeBSD.
++#
++#   lume video              mostra o modo e o estado atuais
++#   lume video testar       carrega o driver Intel agora e diz se funcionou
++#   lume video auto         tenta o driver Intel no boot; se falhar, scfb
++#   lume video intel        sempre o driver Intel (drm 6.12)
++#   lume video scfb         sempre o modo sem aceleração (framebuffer UEFI)
++#
++# Proteção contra travamento: antes de carregar o i915 o boot grava
++# /var/db/lume/video-tentando. Se o computador travar, no boot seguinte o
++# arquivo ainda existe, o modo cai para scfb e o estado fica "travou".
++#
++
++DB=/var/db/lume
++XCONF=/usr/local/etc/X11/xorg.conf.d/10-lume-scfb.conf
++
++uso()
++{
++	echo "uso: lume video [testar | auto | intel | scfb]" >&2
++	exit 2
++}
++
++modo_atual()
++{
++	sysrc -n lume_video 2>/dev/null || echo auto
++}
++
++xorg_scfb()
++{
++	mkdir -p "$(dirname "$XCONF")"
++	cat > "$XCONF" <<-EOF
++	# Criado por lume video: vídeo sem aceleração pelo framebuffer UEFI.
++	Section "Device"
++	    Identifier "Tela"
++	    Driver "scfb"
++	EndSection
++	EOF
++}
++
++xorg_intel()
++{
++	rm -f "$XCONF"
++}
++
++# carregar_intel: 0 se o i915 subiu e criou /dev/dri/card0
++carregar_intel()
++{
++	[ -f /boot/modules/i915kms.ko ] || return 1
++	# O Meteor Lake pode exigir "force_probe" em versões do driver.
++	kenv -q compat.linuxkpi.i915_force_probe >/dev/null ||
++	    kenv compat.linuxkpi.i915_force_probe='*' >/dev/null
++	kldstat -q -m i915kms || kldload i915kms 2>/dev/null || return 1
++	i=0
++	while [ ! -c /dev/dri/card0 ] && [ $i -lt 10 ]; do
++		sleep 1; i=$((i + 1))
++	done
++	[ -c /dev/dri/card0 ]
++}
++
++# Chamado por /etc/rc.d/lume_video no boot.
++boot()
++{
++	mkdir -p "$DB"
++	modo=$(modo_atual)
++	case "$modo" in
++	scfb)
++		xorg_scfb
++		echo scfb > "$DB/video-estado"
++		return 0 ;;
++	esac
++	if [ -f "$DB/video-tentando" ]; then
++		rm -f "$DB/video-tentando"
++		echo travou > "$DB/video-estado"
++		echo "lume video: o driver Intel travou o último boot; usando scfb."
++		[ "$modo" = intel ] || { xorg_scfb; return 0; }
++	fi
++	if [ "$modo" = auto ] && [ "$(cat "$DB/video-estado" 2>/dev/null)" = travou ]; then
++		xorg_scfb
++		return 0
++	fi
++	if [ ! -f /boot/modules/i915kms.ko ]; then
++		xorg_scfb
++		echo sem-driver > "$DB/video-estado"
++		return 0
++	fi
++	echo "$(date)" > "$DB/video-tentando"
++	sync
++	if carregar_intel; then
++		xorg_intel
++		echo intel > "$DB/video-estado"
++	else
++		xorg_scfb
++		echo falhou > "$DB/video-estado"
++		echo "lume video: o driver Intel não reconheceu a placa; usando scfb."
++	fi
++	rm -f "$DB/video-tentando"
++	sync
++}
++
++mostrar()
++{
++	estado=$(cat "$DB/video-estado" 2>/dev/null || echo "nunca testado")
++	echo "  modo:   $(modo_atual)   (auto, intel ou scfb)"
++	echo "  estado: $estado"
++	case "$estado" in
++	intel)	echo "  O driver Intel está ativo: vídeo acelerado." ;;
++	travou)	echo "  O driver Intel travou o computador; o desktop usa scfb."
++		echo "  Para tentar de novo: lume video auto" ;;
++	falhou)	echo "  O driver Intel não reconheceu a placa; o desktop usa scfb." ;;
++	scfb)	echo "  Vídeo sem aceleração (funciona em qualquer máquina UEFI)." ;;
++	esac
++}
++
++testar()
++{
++	echo "  Carregando o driver Intel (i915)..."
++	echo "  Se a tela travar, desligue no botão e ligue de novo:"
++	echo "  o LumeBSD vai lembrar e usar o modo sem aceleração."
++	mkdir -p "$DB"
++	echo "$(date)" > "$DB/video-tentando"
++	sync
++	if carregar_intel; then
++		rm -f "$DB/video-tentando"
++		echo intel > "$DB/video-estado"
++		echo "  ✓ Funcionou: /dev/dri/card0 existe, vídeo acelerado disponível."
++		dmesg | grep -iE 'i915|drm' | tail -3 | sed 's/^/    /'
++	else
++		rm -f "$DB/video-tentando"
++		echo falhou > "$DB/video-estado"
++		echo "  ✗ O driver não reconheceu a placa. O desktop usará scfb."
++		dmesg | grep -iE 'i915|drm' | tail -5 | sed 's/^/    /'
++	fi
++	sync
++}
++
++[ "$(id -u)" -eq 0 ] || [ $# -eq 0 ] || {
++	echo "lume video: precisa ser root (su -)" >&2; exit 1; }
++
++case "${1:-}" in
++"")		mostrar ;;
++--boot)		boot ;;
++testar)		testar ;;
++auto|intel|scfb)
++		sysrc -q lume_video="$1" >/dev/null
++		[ "$1" = auto ] && rm -f "$DB/video-estado"
++		[ "$1" = scfb ] && xorg_scfb
++		echo "  modo de vídeo: $1 (vale a partir do próximo boot)" ;;
++*)		uso ;;
++esac
+diff --git a/usr.sbin/lume-configurar/lume-wifi.sh b/usr.sbin/lume-configurar/lume-wifi.sh
+new file mode 100644
+index 000000000..85053ca9a
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-wifi.sh
+@@ -0,0 +1,68 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-wifi - conecta a uma rede Wi-Fi pelo terminal e guarda a escolha.
++# No desktop, use o ícone de rede (networkmgr).
++#
++
++[ "$(id -u)" -eq 0 ] || { echo "lume wifi: precisa ser root (su -)" >&2; exit 1; }
++
++placa=$(sysctl -n net.wlan.devices 2>/dev/null | awk '{print $1}')
++if [ -z "$placa" ]; then
++	echo "  Nenhuma placa Wi-Fi com driver. Veja: lume hardware"
++	exit 1
++fi
++
++if ! ifconfig wlan0 >/dev/null 2>&1; then
++	ifconfig wlan0 create wlandev "$placa" || exit 1
++fi
++ifconfig wlan0 up
++
++echo "  Procurando redes ($placa)..."
++ifconfig wlan0 scan >/dev/null 2>&1
++sleep 3
++redes=$(ifconfig wlan0 list scan 2>/dev/null | awk 'NR > 1 {
++	ssid = substr($0, 1, 33); sub(/ +$/, "", ssid)
++	if (ssid != "" && !(ssid in visto)) { visto[ssid] = 1; print ssid }
++}')
++if [ -z "$redes" ]; then
++	echo "  Nenhuma rede encontrada."
++	exit 1
++fi
++echo "$redes" | awk '{ printf "    %2d) %s\n", NR, $0 }'
++printf "  Número da rede: "
++read -r n
++ssid=$(echo "$redes" | sed -n "${n}p")
++[ -n "$ssid" ] || { echo "  Opção inválida."; exit 1; }
++
++printf "  Senha de \"%s\" (vazio se aberta): " "$ssid"
++stty -echo 2>/dev/null; read -r senha; stty echo 2>/dev/null; echo
++
++conf=/etc/wpa_supplicant.conf
++touch "$conf"; chmod 600 "$conf"
++grep -q '^ctrl_interface=' "$conf" ||
++    printf 'ctrl_interface=/var/run/wpa_supplicant\nctrl_interface_group=wheel\nupdate_config=1\n' >> "$conf"
++if [ -n "$senha" ]; then
++	wpa_passphrase "$ssid" "$senha" | grep -v '#psk=' >> "$conf"
++else
++	printf 'network={\n\tssid="%s"\n\tkey_mgmt=NONE\n}\n' "$ssid" >> "$conf"
++fi
++senha=
++
++sysrc -q wlans_"$placa"="wlan0" >/dev/null
++sysrc -q ifconfig_wlan0="WPA DHCP" >/dev/null
++echo "  Conectando..."
++service netif restart wlan0 >/dev/null 2>&1
++i=0
++while [ $i -lt 20 ]; do
++	ip=$(ifconfig wlan0 | awk '/inet / {print $2}')
++	[ -n "$ip" ] && break
++	sleep 1; i=$((i + 1))
++done
++if [ -n "$ip" ]; then
++	echo "  ✓ Conectado a \"$ssid\" com o endereço $ip."
++else
++	echo "  ✗ Não conectou. Confira a senha e tente de novo."
++	exit 1
++fi
+-- 
+2.43.0
+

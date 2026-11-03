@@ -1,0 +1,122 @@
+From c47ec18fdea1047006579a6d9f24fcb0fae09b41 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 2 Nov 2026 16:27:34 -0300
+Subject: [PATCH 05/20] =?UTF-8?q?LumeBSD=201.1=20sobre=20FreeBSD=2015.1;?=
+ =?UTF-8?q?=20kernel=20LUME=20completo=20(DTrace,=20todos=20os=20m=C3=B3du?=
+ =?UTF-8?q?los)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ sys/amd64/conf/LUME                         | 11 +++--------
+ sys/conf/newvers.sh                         |  2 +-
+ sys/sys/copyright.h                         |  2 +-
+ usr.bin/login/motd.template                 |  2 +-
+ usr.bin/lume/lume.c                         |  4 ++--
+ usr.sbin/lume-configurar/lume-configurar.sh |  2 +-
+ 6 files changed, 9 insertions(+), 14 deletions(-)
+
+diff --git a/sys/amd64/conf/LUME b/sys/amd64/conf/LUME
+index fb42bd8d5..688ff44a8 100644
+--- a/sys/amd64/conf/LUME
++++ b/sys/amd64/conf/LUME
+@@ -1,18 +1,13 @@
+ #
+-# LUME -- kernel do LumeBSD 1.0 "Farol" para amd64.
+-# Parte do GENERIC e ajusta para um sistema mais enxuto e de boot rápido.
++# LUME -- kernel do LumeBSD 1.1 "Farol" para amd64.
++# Parte do GENERIC: todos os drivers e módulos, DTrace e ZFS, sem os
++# símbolos de depuração do kernel (que ocupam centenas de MB).
+ #
+ include		GENERIC
+ 
+ ident		LUME
+ 
+ nomakeoptions	DEBUG
+-nomakeoptions	WITH_CTF
+-
+-# Sem símbolos de depuração/rastreio pesados no kernel de release.
+-nooptions	KDTRACE_FRAME
+-nooptions	KDTRACE_HOOKS
+-nooptions	DDB_CTF
+ 
+ # Contabilidade de recursos ligada: o vigia(8) mede memória, CPU e
+ # processos de cada serviço e aplica os limites com o RCTL.
+diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
+index d12701e81..1b3f1ea17 100644
+--- a/sys/conf/newvers.sh
++++ b/sys/conf/newvers.sh
+@@ -50,7 +50,7 @@
+ #
+ 
+ TYPE="LumeBSD"
+-REVISION="1.0"
++REVISION="1.1"
+ BRANCH="FAROL"
+ if [ -n "${BRANCH_OVERRIDE}" ]; then
+ 	BRANCH=${BRANCH_OVERRIDE}
+diff --git a/sys/sys/copyright.h b/sys/sys/copyright.h
+index 2ea12d09c..12dfce946 100644
+--- a/sys/sys/copyright.h
++++ b/sys/sys/copyright.h
+@@ -30,7 +30,7 @@
+ /* Add a FreeBSD vendor copyright here - or via CFLAGS */
+ #ifndef COPYRIGHT_Vendor
+ #define	COPYRIGHT_Vendor \
+-	"LumeBSD 1.0 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
++	"LumeBSD 1.1 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
+ #endif
+ 
+ /* FreeBSD */
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index 505172493..5ceed1c02 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -1,5 +1,5 @@
+ 
+-   LumeBSD 1.0 "Farol"  -  luz firme sobre fundação BSD
++   LumeBSD 1.1 "Farol"  -  luz firme sobre fundação BSD
+ 
+    Este é o LumeBSD, uma distribuição BSD independente construída
+    a partir do código-fonte do FreeBSD.
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 6b0f6e0ac..98bc4a05b 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -26,7 +26,7 @@
+ #include <unistd.h>
+ 
+ #define	LUME_NAME	"LumeBSD"
+-#define	LUME_VERSION	"1.0"
++#define	LUME_VERSION	"1.1"
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+@@ -223,7 +223,7 @@ painel(void)
+ 	printf("  %s----------------------------------------------%s\n",
+ 	    DIM, RESET);
+ 
+-	snprintf(buf, sizeof(buf), "%s %s (base FreeBSD 15.0)", ostype, osrel);
++	snprintf(buf, sizeof(buf), "%s %s (base FreeBSD 15.1)", ostype, osrel);
+ 	row("kernel", buf);
+ 
+ 	snprintf(buf, sizeof(buf), "%s (%ju núcleos)", model, (uintmax_t)ncpu);
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index 7b826a196..49971db47 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -25,7 +25,7 @@ cabecalho()
+ {
+ 	echo
+ 	echo "  ============================================================"
+-	echo "     LumeBSD 1.0 \"Farol\"  -  assistente de configuração"
++	echo "     LumeBSD 1.1 \"Farol\"  -  assistente de configuração"
+ 	echo "  ============================================================"
+ 	echo
+ }
+-- 
+2.43.0
+

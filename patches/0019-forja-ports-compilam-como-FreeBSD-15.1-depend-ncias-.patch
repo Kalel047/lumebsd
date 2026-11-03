@@ -1,0 +1,124 @@
+From de2c3e7ddc464b824fcad2e5828bbd4424ceaf70 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 03:53:18 -0300
+Subject: [PATCH 19/20] =?UTF-8?q?forja:=20ports=20compilam=20como=20FreeBS?=
+ =?UTF-8?q?D=2015.1;=20depend=C3=AAncias=20diretas=20em=20bin=C3=A1rio?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- O uname diz "LumeBSD", e o configure dos programas não reconhece
+  amd64-portbld-lumebsd15.1. Para os ports, OPSYS=FreeBSD e
+  UNAME_s/UNAME_r com a versão do FreeBSD por baixo (o uname(1) respeita
+  essas variáveis e os ports as repassam a cada compilação). O mesmo vai
+  no /etc/make.conf que o instalador escreve.
+- Dependências: só as diretas (build-depends-list run-depends-list) em
+  binário; o pkg traz o resto. O install-missing-packages descia nas
+  dependências de compilação das dependências.
+- pkg info -O devolve 0 mesmo sem o pacote; a conferência usa pkg query.
+- "opções: nenhuma" quando todas estão desligadas.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/forja/forja.sh                   | 33 ++++++++++++++++-------
+ usr.sbin/lume-configurar/lume-instalar.sh |  9 ++++---
+ 2 files changed, 30 insertions(+), 12 deletions(-)
+
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index e7595035c..70c815d5c 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -24,15 +24,17 @@ MAKECONF=$DB/make.conf
+ LOGS=/var/log/forja
+ PORTS=${PORTSDIR:-/usr/ports}
+ 
+-# A árvore de ports confere a versão do sistema pelo uname -r, que no
+-# LumeBSD é "1.1-FAROL". Ela precisa da versão do FreeBSD por baixo, que
+-# vem do kern.osreldate (1501000 -> 15.1-RELEASE).
++# Para a árvore de ports e os programas que ela compila, o sistema é o
++# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 1.1-FAROL", que o
++# configure dos programas não conhece. A versão vem do kern.osreldate
++# (1501000 -> 15.1-RELEASE); o uname(1) respeita UNAME_s e UNAME_r, e os
++# ports repassam essas variáveis para cada compilação.
+ if [ -z "${_OSRELEASE:-}" ]; then
+ 	_rel=$(sysctl -n kern.osreldate)
+ 	_OSRELEASE="$((_rel / 100000)).$((_rel / 1000 % 100))-RELEASE"
+-	UNAME_r=$_OSRELEASE
+-	export _OSRELEASE UNAME_r
+ fi
++OPSYS=FreeBSD UNAME_s=FreeBSD UNAME_r=$_OSRELEASE
++export _OSRELEASE OPSYS UNAME_s UNAME_r
+ 
+ # Padrões; o forja.conf pode mudar qualquer um.
+ opcoes_globais=""
+@@ -261,7 +263,7 @@ por_no_mundo()
+ construir()
+ {
+ 	# Recursiva (dependências com opções): nada de variáveis globais aqui.
+-	local orig nome versao escolhidas ativas log inicio dep dnome
++	local orig nome versao escolhidas ativas log inicio dep dnome faltam
+ 	orig=$1
+ 	tem_arvore || erro "falta a árvore de ports: forja arvore"
+ 	[ -f "$PORTS/$orig/Makefile" ] || erro "port não encontrado: $orig"
+@@ -270,7 +272,7 @@ construir()
+ 	versao=$(portmake "$orig" -V PKGVERSION)
+ 	escolhidas=$(normalizar "$opcoes_globais $(opcoes_de "$orig")")
+ 	ativas=$(portmake "$orig" -V SELECTED_OPTIONS | tr ' ' '\n' | sort |
+-	    tr '\n' ' ')
++	    tr '\n' ' ' | sed 's/^ *//; s/ *$//')
+ 	log="$LOGS/$nome.log"
+ 	msg "${AZUL}compilando${FIM} $orig ($versao)"
+ 	msg "${FRACO}  opções: ${ativas:-nenhuma}${FIM}"
+@@ -284,9 +286,22 @@ construir()
+ 			instalado "$dnome" || construir "$dep"
+ 		fi
+ 	done
++	# Só as dependências diretas; o pkg traz as de cada binário. (O
++	# install-missing-packages dos ports desce nas dependências de
++	# compilação das dependências, que um binário não precisa.)
+ 	msg "${FRACO}  dependências em binário...${FIM}"
+-	portmake "$orig" install-missing-packages > "$log" 2>&1 ||
+-	    { tail -20 "$log"; erro "falhou ao instalar as dependências (log: $log)"; }
++	faltam=
++	for dep in $(portmake "$orig" build-depends-list run-depends-list \
++	    2>/dev/null | sed "s|^$PORTS/||" | sort -u); do
++		# (pkg info -O devolve 0 mesmo sem o pacote; pkg query não.)
++		[ -n "$(pkg query -e "%o == $dep" '%n' 2>/dev/null)" ] ||
++		    faltam="$faltam $dep"
++	done
++	: > "$log"
++	if [ -n "$faltam" ]; then
++		ASSUME_ALWAYS_YES=yes pkg install -q $faltam >> "$log" 2>&1 ||
++		    { tail -20 "$log"; erro "falhou ao instalar as dependências:$faltam (log: $log)"; }
++	fi
+ 
+ 	inicio=$(date +%s)
+ 	instalado "$nome" && pkg unlock -q -y "$nome" >/dev/null 2>&1
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index a9efdcace..5344375f7 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -258,13 +258,16 @@ fi
+ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
+ cat >> "$ALVO/etc/make.conf" <<'EOF'
+-# LumeBSD: o uname -r diz "1.1-FAROL"; a árvore de ports precisa da versão
+-# do FreeBSD em que o sistema se baseia (kern.osreldate 1501000 -> 15.1).
++# LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
++# diz "LumeBSD 1.1-FAROL", que o configure dos programas não conhece; a
++# versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
+ .if !defined(_OSRELEASE)
+ _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
+ _OSRELEASE=	${_LUME_OSREL:C/^([0-9]+)([0-9][0-9])[0-9][0-9][0-9]$/\1.\2/:C/\.0([0-9])$/.\1/}-RELEASE
+-UNAME_r=	${_OSRELEASE}
+ .endif
++OPSYS?=		FreeBSD
++UNAME_s?=	FreeBSD
++UNAME_r?=	${_OSRELEASE}
+ EOF
+ cat > "$ALVO/etc/rc.conf" <<EOF
+ hostname="farol"
+-- 
+2.43.0
+

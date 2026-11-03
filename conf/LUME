@@ -1,18 +1,12 @@
 #
-# LUME -- kernel do LumeBSD 1.0 "Farol" para amd64.
-# Parte do GENERIC e ajusta para um sistema mais enxuto e de boot rápido.
+# LUME -- kernel do LumeBSD 1.1 "Farol" para amd64.
+# Parte do GENERIC: todos os drivers e módulos, DTrace e ZFS.
+# Os símbolos de depuração são gerados (o DTrace precisa deles para o CTF),
+# mas não são instalados (WITHOUT_DEBUG_FILES no src.conf).
 #
 include		GENERIC
 
 ident		LUME
-
-nomakeoptions	DEBUG
-nomakeoptions	WITH_CTF
-
-# Sem símbolos de depuração/rastreio pesados no kernel de release.
-nooptions	KDTRACE_FRAME
-nooptions	KDTRACE_HOOKS
-nooptions	DDB_CTF
 
 # Contabilidade de recursos ligada: o vigia(8) mede memória, CPU e
 # processos de cada serviço e aplica os limites com o RCTL.

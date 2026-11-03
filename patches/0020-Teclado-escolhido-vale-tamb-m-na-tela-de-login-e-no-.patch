@@ -1,0 +1,59 @@
+From 77a8ef68c596998ff03515b69b4473750415ebc3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 06:23:52 -0300
+Subject: [PATCH 20/20] =?UTF-8?q?Teclado=20escolhido=20vale=20tamb=C3=A9m?=
+ =?UTF-8?q?=20na=20tela=20de=20login=20e=20no=20KDE?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O Xsetup do SDDM no FreeBSD põe "us,<idioma>" (us primeiro), e o KDE
+herdava isso. lume configurar define sddm_xkb_layout (ex.: "br -variant
+abnt2") e um kxkbrc padrão para o Plasma com o teclado escolhido.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/lume-configurar.sh | 18 ++++++++++++++----
+ 1 file changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index 5f1988faa..37a9754fb 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -191,11 +191,12 @@ aplicar()
+ 	fi
+ 	# O mesmo teclado no modo gráfico (tela de login e KDE).
+ 	case "$TECLADO" in
+-	br)	xkb='"br"'; xvar='"abnt2"' ;;
+-	us.acc)	xkb='"us"'; xvar='"intl"' ;;
+-	pt)	xkb='"pt"'; xvar='""' ;;
+-	*)	xkb='"us"'; xvar='""' ;;
++	br)	k=br; v=abnt2 ;;
++	us.acc)	k=us; v=intl ;;
++	pt)	k=pt; v= ;;
++	*)	k=us; v= ;;
+ 	esac
++	xkb="\"$k\""; xvar="\"$v\""
+ 	mkdir -p /usr/local/etc/X11/xorg.conf.d
+ 	cat > /usr/local/etc/X11/xorg.conf.d/00-lume-teclado.conf <<-EOF
+ 	# Gerado pelo lume configurar.
+@@ -206,6 +207,15 @@ aplicar()
+ 	    Option "XkbVariant" $xvar
+ 	EndSection
+ 	EOF
++	# A tela de login (o Xsetup do SDDM usaria "us,<idioma>") e o KDE.
++	sysrc -q sddm_xkb_layout="$k${v:+ -variant $v}" >/dev/null
++	mkdir -p /usr/local/etc/xdg
++	cat > /usr/local/etc/xdg/kxkbrc <<-EOF
++	[Layout]
++	LayoutList=$k
++	VariantList=$v
++	Use=true
++	EOF
+ 	echo ok
+ 
+ 	printf '      idioma ................ '
+-- 
+2.43.0
+

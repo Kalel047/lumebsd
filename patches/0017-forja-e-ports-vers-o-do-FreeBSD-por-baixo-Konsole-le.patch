@@ -1,0 +1,122 @@
+From 271d0f342ba1273e025d4030d7dbe3b178396c00 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 02:46:05 -0300
+Subject: [PATCH 17/20] =?UTF-8?q?forja=20e=20ports:=20vers=C3=A3o=20do=20F?=
+ =?UTF-8?q?reeBSD=20por=20baixo;=20Konsole=20leg=C3=ADvel=20no=20papel?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- A árvore de ports compara o uname -r ("1.1-FAROL") com o OSVERSION e
+  recusava compilar qualquer coisa. A forja exporta _OSRELEASE/UNAME_r
+  com a versão do FreeBSD (15.1-RELEASE, tirada do kern.osreldate), e o
+  instalador põe a mesma regra no /etc/make.conf para quem usa
+  /usr/ports direto.
+- forja arvore: extrai direto quando a árvore está vazia; conta os
+  ports com find.
+- Tema Papel no Konsole: o "branco" ANSI vira cinza-tinta; o emblema do
+  lume farol sumia no papel.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/forja/forja.sh                       | 19 ++++++++++++++++++-
+ usr.sbin/lume-configurar/lume-instalar.sh     | 10 ++++++++++
+ .../lume-configurar/tema/Papel.colorscheme    |  7 ++++---
+ 3 files changed, 32 insertions(+), 4 deletions(-)
+
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index 0ea5521fc..a394dcd5c 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -24,6 +24,16 @@ MAKECONF=$DB/make.conf
+ LOGS=/var/log/forja
+ PORTS=${PORTSDIR:-/usr/ports}
+ 
++# A árvore de ports confere a versão do sistema pelo uname -r, que no
++# LumeBSD é "1.1-FAROL". Ela precisa da versão do FreeBSD por baixo, que
++# vem do kern.osreldate (1501000 -> 15.1-RELEASE).
++if [ -z "${_OSRELEASE:-}" ]; then
++	_rel=$(sysctl -n kern.osreldate)
++	_OSRELEASE="$((_rel / 100000)).$((_rel / 1000 % 100))-RELEASE"
++	UNAME_r=$_OSRELEASE
++	export _OSRELEASE UNAME_r
++fi
++
+ # Padrões; o forja.conf pode mudar qualquer um.
+ opcoes_globais=""
+ ramo=auto
+@@ -81,6 +91,13 @@ baixar_tarball()
+ {
+ 	url=${FORJA_ARVORE_URL:-https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/$1}
+ 	msg "Baixando a árvore de ports ($1)..."
++	if ! tem_arvore; then
++		mkdir -p "$PORTS"
++		fetch -q -o - "$url" | tar -xzf - -C "$PORTS" --strip-components 1 &&
++		    [ -f "$PORTS/Mk/bsd.port.mk" ] ||
++		    erro "não deu para baixar a árvore ($url)"
++		return 0
++	fi
+ 	rm -rf "$PORTS.nova" && mkdir -p "$PORTS.nova" &&
+ 	    fetch -q -o - "$url" | tar -xzf - -C "$PORTS.nova" --strip-components 1 &&
+ 	    [ -f "$PORTS.nova/Mk/bsd.port.mk" ] || {
+@@ -122,7 +139,7 @@ cmd_arvore()
+ 			baixar_tarball "$r"
+ 		fi
+ 	fi
+-	ok "árvore de ports pronta em $PORTS ($(ls -d "$PORTS"/*/*/Makefile 2>/dev/null | wc -l | tr -d ' ') ports)"
++	ok "árvore de ports pronta em $PORTS ($(find "$PORTS" -mindepth 3 -maxdepth 3 -name Makefile | wc -l | tr -d ' ') ports)"
+ }
+ 
+ # --- nomes, origens e opções -----------------------------------------------
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index e007e7759..a9efdcace 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -256,6 +256,16 @@ fi
+ # Programas que caem não deixam arquivos .core na pasta do usuário;
+ # só os do root vão para /var/crash.
+ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
++# Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
++cat >> "$ALVO/etc/make.conf" <<'EOF'
++# LumeBSD: o uname -r diz "1.1-FAROL"; a árvore de ports precisa da versão
++# do FreeBSD em que o sistema se baseia (kern.osreldate 1501000 -> 15.1).
++.if !defined(_OSRELEASE)
++_LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
++_OSRELEASE=	${_LUME_OSREL:C/^([0-9]+)([0-9][0-9])[0-9][0-9][0-9]$/\1.\2/:C/\.0([0-9])$/.\1/}-RELEASE
++UNAME_r=	${_OSRELEASE}
++.endif
++EOF
+ cat > "$ALVO/etc/rc.conf" <<EOF
+ hostname="farol"
+ zfs_enable="YES"
+diff --git a/usr.sbin/lume-configurar/tema/Papel.colorscheme b/usr.sbin/lume-configurar/tema/Papel.colorscheme
+index 555a75b9a..844a33027 100644
+--- a/usr.sbin/lume-configurar/tema/Papel.colorscheme
++++ b/usr.sbin/lume-configurar/tema/Papel.colorscheme
+@@ -1,4 +1,5 @@
+ # Esquema de cores do Konsole "Papel" (LumeBSD, estética e-ink).
++# O "branco" do terminal vira cinza-tinta: no papel, branco some.
+ [Background]
+ Color=244,242,236
+ 
+@@ -81,13 +82,13 @@ Color=50,58,58
+ Color=130,136,136
+ 
+ [Color7]
+-Color=196,193,185
++Color=120,118,112
+ 
+ [Color7Intense]
+-Color=244,242,236
++Color=60,60,58
+ 
+ [Color7Faint]
+-Color=210,208,200
++Color=150,148,142
+ 
+ [General]
+ Description=Papel
+-- 
+2.43.0
+

@@ -1,0 +1,118 @@
+login: root
+LumeBSD 1.1-FAROL (LUME) lumebsd-15.1-6a10cdaa636e
+   LumeBSD 1.1 "Farol"  -  pendrive ao vivo
+   Nada no disco deste computador foi alterado.
+     lume hardware        o que funciona aqui (comece por aqui)
+     lume video testar    testa o driver de vídeo (NVIDIA ou Intel)
+     lume wifi            conecta no Wi-Fi
+     lume instalar        instala o LumeBSD no disco inteiro (APAGA TUDO)
+   Você está como root, sem senha. Desligar: shutdown -p now
+root@lume-ao-vivo:~ # uname -a
+LumeBSD lume-ao-vivo 1.1-FAROL LumeBSD 1.1-FAROL lumebsd-15.1-6a10cdaa636e LUME amd64
+root@lume-ao-vivo:~ # lume hardware
+  LumeBSD - diagnóstico de hardware
+  QEMU pc-q35-8.2 (Standard PC (Q35 + ICH9, 2009))
+  ------------------------------------------------------------
+  ✓ processador    QEMU Virtual CPU version 2.5+ (2 núcleos)
+  ! energia CPU    sem controle de frequência
+  ✓ memória       4 GiB
+  ✓ disco ada0     QEMU HARDDISK 3 GB
+  ✓ disco nda0     QEMU NVMe Ctrl 42 GB
+  ! vídeo         sem placa NVIDIA ou Intel: modo sem aceleração
+  ! Wi-Fi          nenhuma placa encontrada
+  ✓ rede em0       cabo active
+  ✗ som            nenhuma placa de som reconhecida
+  ------------------------------------------------------------
+  5 ok, 3 atenção, 1 não funciona
+  Está tudo certo para você? Instale com: lume instalar
+root@lume-ao-vivo:~ # lume video testar
+  Nada para testar: este computador usa o modo scfb.
+root@lume-ao-vivo:~ # lume video
+  Nenhuma placa NVIDIA ou Intel; o desktop usa o scfb.
+  modo:   auto -> scfb
+  estado: nunca testado
+root@lume-ao-vivo:~ # ls /usr/share/lume/pacotes
+cpu-microcode-intel-20260925.pkg
+drm-612-kmod-6.12.85.1501000_2.pkg
+gpu-firmware-intel-kmod-alderlake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-battlemage-20260519.1501000.pkg
+gpu-firmware-intel-kmod-broxton-20260519.1501000.pkg
+gpu-firmware-intel-kmod-cannonlake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-dg1-20260519.1501000.pkg
+gpu-firmware-intel-kmod-dg2-20260519.1501000.pkg
+gpu-firmware-intel-kmod-elkhartlake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-geminilake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-icelake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-kabylake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-meteorlake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-rocketlake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-skylake-20260519.1501000.pkg
+gpu-firmware-intel-kmod-tigerlake-20260519.1501000.pkg
+nvidia-kmod-595.104.02.1501000.pkg
+pkg-2.8.4.pkg
+wifi-firmware-iwlwifi-kmod-20260410.pkg
+root@lume-ao-vivo:~ # kldstat | tail -5
+ 1   12 0xffffffff80200000  23520c8 kernel
+ 2    1 0xffffffff841f8000     4210 acpi_ibm.ko
+ 3    1 0xffffffff841fd000     20f0 coretemp.ko
+ 4    1 0xffffffff84200000     4250 ichsmb.ko
+ 5    1 0xffffffff84205000     2178 smbus.ko
+root@lume-ao-vivo:~ # env LUME_DISCO=nda0 LUME_CONFIRMA=APAGAR LUME_SENHA_DISCO= ******** LUME_DESKTOP=s LUME_CONSOLE_SERIAL=1 LUME_REPO_URL=http://10.0 .2.2:8000 lume instalar
+  LumeBSD 1.1 "Farol" - instalação
+  ATENÇÃO: TUDO em nda0 - QEMU NVMe Ctrl, 42 GB será apagado.
+  Isso inclui o Windows e todos os arquivos desse disco.
+  Para continuar, digite APAGAR: (automático)
+  O disco será criptografado. A senha é pedida toda vez que o
+  computador ligar, antes do sistema. Sem ela, os dados não voltam.
+  • Preparando o disco nda0...ZFS filesystem version: 5
+ZFS storage pool version: features support (5000)
+ ok
+  • Criptografando (AES-256-XTS)...GEOM_ELI: Device gpt/zfs0.eli created.
+GEOM_ELI: Encryption: AES-XTS 256
+GEOM_ELI:     Crypto: software
+ ok
+  • Criando o ZFS... ok
+  • Copiando o sistema... ok
+  • Configurando o boot UEFI... ok
+  • Instalando drivers e firmwares do pendrive... ok
+  • Instalando o desktop (pode levar vários minutos)...
+      Instalando drivers e firmwares do pendrive...
+      Baixando e instalando o desktop (KDE Plasma, Firefox e cia.)...
+      Isso baixa uns 1,8 GB; pode levar um tempo.
+      Sem placa NVIDIA ou Intel: o desktop usa o modo sem aceleração.
+     + Creating /usr/local/share/sgml/catalog
+     + Registering CATALOG catalog.ports (SGML)
+     + Creating /usr/local/share/sgml/catalog.ports
+     + Creating /usr/local/share/xml/catalog
+     + Registering nextCatalog catalog.ports (XML)
+     + Creating /usr/local/share/xml/catalog.ports
+      Aplicando o tema Papel...
+      ícones: 7853 em tons de cinza
+      ✓ Tema Papel aplicado. Vale para quem entrar a partir de agora;
+        quem já usa o KDE escolhe "Papel (LumeBSD)" em
+        Configurações do Sistema > Aparência > Tema global.
+      ✓ Desktop instalado. Ele abre no próximo boot (ou: service sddm start).
+  • Finalizando...GEOM_ELI: Device gpt/zfs0.eli destroyed.
+ ok
+  ✓ LumeBSD instalado em nda0.
+  Tire o pendrive e reinicie (shutdown -r now).
+  No boot: digite a senha do disco; depois o assistente pede a senha
+  do root e cria o seu usuário.
+root@lume-ao-vivo:~ # cat /tmp/lume-instalar.log | grep -iE 'erro|error|fail' |  head -20
+root@lume-ao-vivo:~ # gpart show -l nda0
+=>      40  83886000  nda0  GPT  (40G)
+        40      2008        - free -  (1004K)
+      2048    532480     1  efiboot0  (260M)
+    534528  16777216     2  swap0  (8.0G)
+  17311744  66572288     3  zfs0  (32G)
+  83884032      2008        - free -  (1004K)
+root@lume-ao-vivo:~ # efibootmgr
+Boot to FW : false
+BootCurrent: 0001
+Timeout    : 0 seconds
+BootOrder  : 0003, 0001, 0000, 0002
+ Boot0003* LumeBSD
++Boot0001* UEFI QEMU HARDDISK QM00001 
+ Boot0000* UiApp
+ Boot0002* EFI Internal Shell
+root@lume-ao-vivo:~ # shutdown -p now

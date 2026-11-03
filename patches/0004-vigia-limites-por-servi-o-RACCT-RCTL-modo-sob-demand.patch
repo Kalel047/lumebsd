@@ -1,8 +1,8 @@
-From 8aefc7aa855ba1f2e64d81141808dfaf4224a76b Mon Sep 17 00:00:00 2001
+From 0647185fba55cce60fb59bedde1c5d275dd4e3f0 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 14:32:57 -0300
-Subject: [PATCH 4/4] =?UTF-8?q?vigia:=20limites=20por=20servi=C3=A7o=20(RA?=
- =?UTF-8?q?CCT/RCTL),=20modo=20sob=20demanda=20e=20parada=20em=20cascata?=
+Subject: [PATCH 04/20] =?UTF-8?q?vigia:=20limites=20por=20servi=C3=A7o=20(?=
+ =?UTF-8?q?RACCT/RCTL),=20modo=20sob=20demanda=20e=20parada=20em=20cascata?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

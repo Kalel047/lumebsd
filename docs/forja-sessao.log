@@ -1,0 +1,90 @@
+root@thinkpad:~ # grep -q MASTER_SITE_OVERRIDE /etc/make.conf || echo 'MASTER_SI TE_OVERRIDE?= http://10.0.2.2:8000/distfiles/' >> /etc/make.conf
+root@thinkpad:~ # forja instalar htop
+  binário htop
+  ✓ htop instalado (pacote oficial)
+root@thinkpad:~ # forja opcoes nano
+  editors/nano  Nano's ANOther editor, an enhanced free Pico clone
+    - DOCS           Build and/or install documentation (sua escolha)
+    - EXAMPLES       Build and/or install examples
+    + NLS            Native Language Support (sua escolha)
+  Mude com: forja opcoes nano +OPÇÃO -OPÇÃO
+root@thinkpad:~ # forja opcoes nano -NLS -DOCS
+  ✓ editors/nano: -DOCS -NLS
+  Aplique com: forja instalar nano   (ou forja atualizar)
+root@thinkpad:~ # cat /etc/forja/opcoes | grep -v '^#'
+editors/nano             -DOCS -NLS
+root@thinkpad:~ # pkg delete -y -f pkgconf > /dev/null; pkg info -e pkgconf || e cho 'pkgconf ausente'
+pkgconf ausente
+root@thinkpad:~ # time forja instalar nano
+  compilando editors/nano (9.2)
+    opções: nenhuma
+    dependências em binário...
+  ✓ nano-9.2 compilado em 1517 s
+     1592,74 real      1300,72 user       165,35 sys
+root@thinkpad:~ # pkg query '%n %v %At' pkgconf nano
+pkgconf 3.0.7,1 FreeBSD_version
+pkgconf 3.0.7,1 build_timestamp
+pkgconf 3.0.7,1 built_by
+pkgconf 3.0.7,1 cpe
+pkgconf 3.0.7,1 port_checkout_unclean
+pkgconf 3.0.7,1 port_git_hash
+pkgconf 3.0.7,1 ports_top_checkout_unclean
+pkgconf 3.0.7,1 ports_top_git_hash
+pkgconf 3.0.7,1 repo_type
+pkgconf 3.0.7,1 repository
+nano 9.2 FreeBSD_version
+nano 9.2 forja_opcoes
+root@thinkpad:~ # nano --version | head -3
+ GNU nano, version 9.2
+ (C) 2026 the Free Software Foundation and various contributors
+ Compiled options: --disable-nls --enable-utf8
+root@thinkpad:~ # forja mundo
+  PACOTE                     VERSÃO              TIPO     OPÇÕES
+  sysutils/htop              3.5.3                binário 
+  editors/nano               9.2                  fonte    -DOCS -EXAMPLES -NLS
+root@thinkpad:~ # forja info nano
+  editors/nano
+  instalado: nano-9.2
+  tipo: compilado pela forja (opções: -DOCS -EXAMPLES -NLS)
+  no mundo: sim
+  suas opções: -DOCS -NLS
+  versão na árvore: 9.2
+root@thinkpad:~ # forja opcoes nano +NLS
+  ✓ editors/nano: -DOCS +NLS
+  Aplique com: forja instalar nano   (ou forja atualizar)
+root@thinkpad:~ # time forja atualizar
+  ✓ ponto de volta criado: forja-20261103-0422 (escolha no menu de boot se precisar)
+  Baixando a árvore de ports (2026Q4) com git...
+fatal: não foi possível acessar 'https://git.FreeBSD.org/ports.git/': SSL certificate OpenSSL verify result: self-signed certificate in certificate chain (19)
+  ! o git falhou; tentando o tarball
+  Baixando a árvore de ports (2026Q4)...
+Certificate verification failed for /O=Anthropic/CN=sandbox-egress-gateway-production Egress Gateway CA
+1050A409D8290000:error:0A000086:SSL routines:tls_post_process_server_certificate:certificate verify failed:/usr/src/crypto/openssl/ssl/statem/statem_clnt.c:2125:
+fetch: https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/2026Q4: Authentication error
+  ✗ não deu para baixar a árvore (https://codeload.github.com/freebsd/freebsd-ports/tar.gz/refs/heads/2026Q4)
+  ! não deu para atualizar a árvore; sigo com a que já existe
+  Atualizando os pacotes binários...
+    nano: opções mudaram (-DOCS -EXAMPLES -NLS -> -DOCS -EXAMPLES +NLS)
+  compilando editors/nano (9.2)
+    opções: NLS
+    dependências em binário...
+  ✓ nano-9.2 compilado em 1566 s
+     2153,23 real      1701,23 user       296,10 sys
+root@thinkpad:~ # nano --version | grep -o 'disable-nls' || echo 'NLS ligado'
+NLS ligado
+root@thinkpad:~ # forja mundo
+  PACOTE                     VERSÃO              TIPO     OPÇÕES
+  sysutils/htop              3.5.3                binário 
+  editors/nano               9.2                  fonte    -DOCS -EXAMPLES +NLS
+root@thinkpad:~ # bectl list
+BE                  Active Mountpoint Space Created
+default             NR     /          5.93G 2026-11-03 01:16
+forja-20261103-0239 -      -          884K  2026-11-03 02:39
+forja-20261103-0248 -      -          684K  2026-11-03 02:48
+forja-20261103-0256 -      -          696K  2026-11-03 02:56
+forja-20261103-0339 -      -          3.73M 2026-11-03 03:39
+forja-20261103-0422 -      -          3.76M 2026-11-03 04:22
+root@thinkpad:~ # pkg lock -l
+Currently locked packages:
+nano-9.2
+root@thinkpad:~ # shutdown -p now

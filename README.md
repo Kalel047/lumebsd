@@ -1,22 +1,23 @@
-# LumeBSD 1.0 "Farol"
+# LumeBSD 1.1 "Farol"
 
 > Luz firme sobre fundação BSD.
 
 LumeBSD é uma distribuição BSD independente construída a partir do código-fonte
-do **FreeBSD 15.0** (`releng/15.0`). Ela mantém a base sólida do FreeBSD
-(kernel, userland, rc.d, ports/pkg) e dá ao sistema identidade, ferramentas e
-padrões próprios.
+do **FreeBSD 15.1** (`releng/15.1`). Ela mantém a base sólida do FreeBSD
+(kernel, userland, rc.d, ZFS, ports/pkg) e dá ao sistema identidade,
+ferramentas e padrões próprios.
 
-A ideia: **um BSD que já chega pronto para quem fala português**. Você liga
-a máquina, um assistente em português pergunta o essencial e o sistema
-fica configurado, em pt-BR, com teclado ABNT2 e horário de Brasília.
+A ideia: **um BSD de desktop que já chega pronto para quem fala português**.
+Você grava o pendrive, testa o hardware sem tocar no disco, instala com
+criptografia em poucos minutos e entra num KDE Plasma com visual próprio,
+em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 ```
      \    |    /
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.0
+        |[_]|        LumeBSD 1.1
         |===|        "Farol"
         |   |
         |===|
@@ -27,35 +28,180 @@ fica configurado, em pt-BR, com teclado ABNT2 e horário de Brasília.
    ~~   ~~~~   ~~
 ```
 
-## O que o LumeBSD muda
+## Novidades da 1.1
 
-### Primeiro boot guiado
+| | |
+|---|---|
+| **Pendrive ao vivo + instalador** | boota sem tocar no disco; `lume hardware` diz o que funciona; `lume instalar` instala no disco inteiro |
+| **PCs Intel + NVIDIA** | o driver NVIDIA certo para a geração da placa (Turing/GTX 16xx em diante, 580 para Maxwell–Volta, 470 para Kepler), Intel em notebooks e híbridos, e volta sozinho ao modo sem aceleração se um driver travar |
+| **ZFS criptografado** | GELI AES-256-XTS com senha no boot, swap criptografada, ambientes de boot (`bectl`) |
+| **forja** | gerenciador de pacotes no estilo Portage: binário por padrão, compilado com as suas opções (as "USE flags") quando você muda alguma |
+| **Tema Papel** | KDE Plasma com estética e-ink: papel, tinta e cinzas |
+| **Base** | FreeBSD 15.1, kernel `LUME` completo (todos os módulos, DTrace), compilado com LLVM 19 |
 
-No primeiro boot, antes do login, aparece o assistente `lume-configurar`:
+## Do pendrive ao desktop
+
+### 1. Gravar
+
+Pegue a imagem `LumeBSD-1.1-Farol-pendrive.img` (gerada pelo
+`build-lumebsd.sh`; a versão compactada `.img.xz` se abre com o 7-Zip) e
+grave num pendrive de 8 GB ou mais:
+
+- **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
+  perguntar, **modo DD**.
+- **Linux/FreeBSD**: `dd if=LumeBSD-1.1-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+
+Na BIOS/UEFI do PC, desligue o *Secure Boot* (o loader do FreeBSD não é
+assinado) e dê boot pelo pendrive (F12 na maioria das placas).
+
+### 2. Testar o hardware
+
+O pendrive é um LumeBSD completo. Entra como root, sem senha, e nada no
+disco do computador é alterado.
+
+```
+root@lume-ao-vivo:~ # lume hardware        (numa VM; no seu PC aparece a sua placa)
+
+  LumeBSD - diagnóstico de hardware
+  QEMU pc-q35-8.2 (Standard PC (Q35 + ICH9, 2009))
+  ------------------------------------------------------------
+  ✓ processador    QEMU Virtual CPU version 2.5+ (2 núcleos)
+  ! energia CPU    sem controle de frequência
+  ✓ memória       4 GiB
+  ✓ disco nda0     QEMU NVMe Ctrl 42 GB
+  ! vídeo         sem placa NVIDIA ou Intel: modo sem aceleração
+  ! Wi-Fi          nenhuma placa encontrada
+  ✓ rede em0       cabo active
+  ✗ som            nenhuma placa de som reconhecida
+  ------------------------------------------------------------
+  4 ok, 3 atenção, 1 não funciona
+```
+
+`lume video testar` carrega o driver de vídeo na hora, para você ver se
+ele funciona antes de instalar. `lume wifi` conecta no Wi-Fi.
+
+### 3. Instalar
+
+```
+root@lume-ao-vivo:~ # lume instalar
+```
+
+Ele pergunta o disco, pede para você digitar `APAGAR`, pede a senha do
+disco e instala:
+
+- GPT com partição EFI, swap de 8 GB criptografada e o resto em ZFS sobre
+  GELI (AES-256-XTS); a senha é pedida pelo loader, antes do sistema;
+- datasets do ZFS no esquema de ambientes de boot (`zroot/ROOT/default`),
+  então `bectl` e as atualizações da forja têm volta;
+- boot UEFI registrado com `efibootmgr` e no caminho padrão `BOOTX64.EFI`;
+- os drivers e firmwares que vêm no pendrive;
+- com internet, o desktop (KDE Plasma 6, Firefox, Konsole, Dolphin, Kate,
+  Okular, PipeWire...) já com o driver de vídeo certo e o tema Papel.
+
+> Reinstalando num PC que já tem o LumeBSD? O loader do pendrive vê o
+> disco criptografado e pergunta a senha dele: aperte Enter para pular.
+
+### 4. Primeiro boot
+
+Depois da senha do disco, o assistente em português pergunta o essencial:
 
 ```
   [1/6] Senha do administrador (root)
-  [2/6] Seu usuário              -> criado no grupo wheel (pode usar su -)
+  [2/6] Seu usuário              -> grupos wheel, operator e video
   [3/6] Nome desta máquina
   [4/6] Fuso horário             -> padrão America/Sao_Paulo
   [5/6] Teclado                  -> ABNT2, US internacional, US ou Portugal
   [6/6] Idioma do sistema        -> Português (Brasil) ou English (US)
 ```
 
-Ele mostra um resumo, pede confirmação e aplica tudo. Valida o que você
-digita (senha com pelo menos 6 caracteres, login em minúsculas, fuso
-existente) e nunca deixa o sistema com o root sem senha por descuido: se
-ninguém responder em 120 s, o boot segue, o assistente volta no próximo
-boot e o painel `lume` avisa que falta configurar. Dá para refazer a
-qualquer momento com `lume configurar`.
+e o sistema sobe direto na tela de login gráfica.
 
-No FreeBSD essas perguntas só existem no instalador; as imagens de disco
-para VM e nuvem sobem com root sem senha e tudo em inglês.
+## Vídeo: Intel + NVIDIA
+
+`lume video` decide a cada boot (`rc.d/lume_video`):
+
+| Computador | Driver |
+|---|---|
+| Desktop com NVIDIA Turing em diante (GTX 16xx, RTX) | `nvidia-driver` (595) |
+| NVIDIA Maxwell, Pascal ou Volta (GTX 9xx/10xx) | `nvidia-driver-580` |
+| NVIDIA Kepler (GTX 6xx/7xx) | `nvidia-driver-470` |
+| Intel (inclusive notebook híbrido Intel + NVIDIA) | `drm-612-kmod` (i915/xe) |
+| Nada disso, ou um driver que falhou | `scfb` (framebuffer UEFI, sem aceleração) |
+
+Se o driver travar o computador no boot, o boot seguinte percebe (marca em
+`/var/db/lume/video-tentando`) e passa para o `scfb` sozinho. Dá para fixar
+um modo: `lume video nvidia | intel | scfb | auto`.
+
+> Num notebook híbrido, a tela interna está ligada na Intel; a NVIDIA
+> fica sem uso (o FreeBSD não tem PRIME offload maduro).
+
+## forja: pacotes no estilo Portage
+
+```
+forja instalar htop                 # binário oficial, instala em segundos
+forja opcoes nano -NLS -DOCS        # muda opções (as "USE flags")
+forja instalar nano                 # agora compila da árvore de ports com elas
+forja atualizar                     # snapshot do ZFS, binários e recompilações
+forja mundo                         # o que você pediu (o @world)
+```
+
+- Cada pacote vem **binário** até você mudar uma opção dele; aí a forja o
+  compila da árvore de ports com as suas opções e o **trava** (`pkg lock`)
+  para a atualização binária não desfazer a escolha.
+- `forja atualizar` cria um ambiente de boot antes de mexer em qualquer
+  coisa (`bectl`), atualiza os binários e recompila só o que mudou de
+  versão ou de opções.
+- `forja arvore` baixa a árvore de ports do trimestre (`2026Q4`).
+- Arquivos: `/etc/forja/forja.conf`, `/etc/forja/opcoes`,
+  `/var/db/forja/mundo`. Manual: `man forja`.
+
+## Tema Papel (e-ink)
+
+O desktop vem com um visual próprio inspirado nas telas de e-ink
+(Kindle, reMarkable, Boox) e nos setups monocromáticos do r/unixporn:
+
+- **cores**: papel `#F4F2EC`, tinta `#1A1A1A` e cinzas quentes; o único
+  acento é um vermelho escuro para erros; seleção invertida (tinta sobre
+  papel, como num e-reader);
+- **fontes**: IBM Plex Sans, Serif (títulos das janelas) e Mono (terminal);
+- **sem animações, sombras nem transparência** (`AnimationDurationFactor=0`,
+  composição desligada): a tela muda de uma vez, como e-ink, e o desktop
+  fica leve até no modo sem aceleração;
+- **ícones em tons de cinza**: o tema `lume-papel` é gerado a partir do
+  Breeze, convertendo cada cor para luminância;
+- **papel de parede**: o farol em traço sobre papel (`papel.png`) e uma
+  versão noturna (`papel-noite.png`), em 4K;
+- Konsole, SDDM (tela de login), tela de bloqueio, GTK e splash seguem o
+  mesmo tema.
+
+`lume tema padrao` volta ao visual original do KDE; `lume tema papel`
+aplica de novo.
+
+| | |
+|---|---|
+| ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
+| ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
+
+<sub>Capturas reais do sistema instalado numa VM (sem aceleração de vídeo).</sub>
+
+## Ferramentas do LumeBSD
+
+| Comando | O que faz |
+|---|---|
+| `lume` | painel: kernel, CPU, memória, disco, carga, serviços |
+| `lume hardware` | o que funciona neste computador |
+| `lume video [testar\|auto\|nvidia\|intel\|scfb]` | driver de vídeo |
+| `lume wifi` | conecta no Wi-Fi |
+| `lume desktop` | instala o KDE Plasma e os drivers |
+| `lume instalar` | instala no disco inteiro (ZFS + GELI) |
+| `lume tema [papel\|padrao]` | visual do KDE |
+| `lume configurar` | assistente de configuração |
+| `vigia` | gerenciador de serviços (abaixo) |
+| `forja` | pacotes por binário ou código-fonte |
 
 ### vigia: serviços que se reerguem sozinhos
 
-O LumeBSD tem um gerenciador de serviços próprio, o **vigia**. Cada serviço é
-um arquivo de poucas linhas em `/etc/vigia/servicos`:
+Cada serviço é um arquivo de poucas linhas em `/etc/vigia/servicos`:
 
 ```ini
 descricao = Página "Olá" na porta 8080
@@ -63,137 +209,53 @@ comando   = sh -c 'while true; do printf "HTTP/1.0 200 OK\r\n\r\nOlá\n" | nc -N
 usuario   = nobody
 depende   = relogio
 reiniciar = sempre
+limite_memoria = 64M
+limite_cpu     = 50%
 ```
 
-O `vigiad` é o pai de cada serviço e fica sabendo na hora quando um deles
-cai (um único laço `kqueue`). Ele:
-
-- sobe os serviços na ordem das dependências;
-- reinicia o que cair, esperando 1, 2, 4, 8 s… até 30 s;
-- desiste depois de 5 quedas seguidas e põe o serviço em **manutenção**,
-  com o motivo à vista, em vez de ficar em loop para sempre;
-- guarda a saída de cada serviço em `/var/log/vigia/<serviço>.log`;
-- para tudo com SIGTERM (e SIGKILL após 10 s) no desligamento.
+O `vigiad` sobe os serviços na ordem das dependências, reinicia o que cair
+(1, 2, 4… até 30 s), põe em **manutenção** depois de 5 quedas seguidas,
+guarda a saída em `/var/log/vigia/`, limita memória, CPU e processos pelo
+RCTL do kernel, atende sockets sob demanda (`escutar = tcp:7777`, como o
+`inetd`) e para em cascata quem depende de um serviço parado.
 
 ```
 root@lumebox:~ # vigia
-
   SERVIÇO       ESTADO         PID     HÁ         REINÍCIOS  DESCRIÇÃO
   instavel      ● manutenção   -       11 s       4          Serviço instável (demonstração)
     └ saiu com código 3; caiu 5 vezes seguidas, veja 'vigia log instavel' e use 'vigia reiniciar instavel'
   ntpd          ● ativo        1114    53 s       0          Relógio sincronizado pela internet (NTP)
-  relogio       ● ativo        1208    46 s       0          Relógio de exemplo (escreve a hora no log)
   web           ● ativo        1224    39 s       1          Página "Olá" na porta 8080
-
-  3 ativo(s) de 4.
 ```
 
-| Comando | O que faz |
-|---|---|
-| `vigia` | tabela de serviços |
-| `vigia iniciar / parar / reiniciar X` | age agora |
-| `vigia ativar / desativar X` | age e guarda a escolha para os próximos boots |
-| `vigia info X` | todos os detalhes |
-| `vigia log X [-n N] [-f]` | saída do serviço |
-| `vigia recarregar` | relê os arquivos: novos sobem, apagados param |
-
-#### Limites por serviço
-
-Cada serviço roda numa classe de login própria (`v-<nome>`), herdada por
-tudo o que ele criar. Isso dá ao vigia uma visão do serviço inteiro, não
-só do processo principal:
-
-- a tabela mostra a **memória** do serviço todo, e `vigia info` mostra
-  também CPU e número de processos;
-- **limites** no arquivo valem para a soma (aplicados pelo RCTL do kernel,
-  que o LumeBSD já traz ligado):
-
-  ```ini
-  limite_memoria   = 64M
-  limite_cpu       = 50%
-  limite_processos = 20
-  ```
-
-- quando o processo principal morre, os filhos que ele deixou para trás
-  são encerrados, em vez de ficarem órfãos.
-
-Medido numa VM: com `limite_cpu = 50%`, um laço infinito usou 30,1 s de
-CPU em 60 s (50,2%). O kernel freia em passos de 1 segundo, então abaixo
-de ~35% um serviço que usa CPU sem parar fica em 33–40% (com 20%, deu
-40%). Isso está documentado em `man vigia.conf`.
-
-#### Sob demanda
-
-Com `escutar`, o vigia segura o socket e cria um processo por conexão,
-como o `inetd`. Sem visitas, o serviço não ocupa nada:
-
-```ini
-descricao = Diz a hora para quem conectar
-escutar   = tcp:7777          # ou tcp:127.0.0.1:7777, ou unix:/var/run/x.sock
-comando   = date
-usuario   = nobody            # portas < 1024 funcionam: quem abre é o vigia
-```
-
-A conexão vira a entrada e a saída padrão do comando, então qualquer
-script vira um serviço de rede. `VIGIA_CLIENTE` traz o endereço de quem
-conectou, e `max_conexoes` controla quantas são atendidas ao mesmo tempo.
-
-#### Dependências em cascata
-
-Iniciar um serviço inicia as dependências; parar ou reiniciar um serviço
-faz o mesmo com quem depende dele:
-
-```
-root@lumebox:~ # vigia parar relogio
-  relogio: ● parado
-  parando também: web
-```
-
-Qualquer usuário consulta; só o root muda estados. O `ntpd` já vem
-gerenciado pelo vigia, e há exemplos em `/usr/share/examples/vigia`.
-O painel `lume` mostra o resumo (`serviços   3 de 4 ativos, 1 com problema`).
-Manuais: `man vigia` e `man vigia.conf`.
-
-O vigia convive com o `rc.d` do FreeBSD: o sistema base continua subindo
-pelo `rc`, e o vigia cuida dos serviços que você quer supervisionados.
-
-### O disco cresce sozinho
-
-No primeiro boot a partição raiz é expandida até o fim do disco
-(`growfs`). Deu 20 GB para a VM? O sistema usa os 20 GB, sem comandos.
-Também vem com 512 MB de swap já configurados.
-
-### Tudo o mais
-
-| Área | Mudança |
-|---|---|
-| Identidade | `uname -s` → `LumeBSD`, versão `1.0-FAROL`, `/etc/os-release` com `ID=lumebsd`, `ID_LIKE=freebsd` |
-| Boot | Menu do loader "Bem-vindo ao LumeBSD", marca LumeBSD em ASCII e emblema do farol colorido (luz âmbar, torre branca, mar azul) |
-| Kernel | Configuração própria `LUME`: parte do `GENERIC`, sem símbolos de debug, CTF e hooks de DTrace, e com a contabilidade de recursos (RACCT) ligada |
-| `lume(1)` | Utilitário nativo em C: painel do sistema (kernel, CPU, memória e disco com barras, carga, uptime), `lume farol`, `lume dica`, `lume versao`, `lume configurar` |
-| `rc.d/lume_farol` | Serviço que acende o farol e o painel ao final do boot (`lume_farol_enable`) |
-| `vigia(8)` | Gerenciador de serviços com supervisão, dependências, logs e proteção contra loop de falhas (`rc.d/vigia`) |
-| `lume-configurar(8)` | Assistente de configuração em português, roda no primeiro boot (`rc.d/lume_configurar`) e com `lume configurar` |
-| Login | Mensagem do dia em português |
-| Userland | `src.conf` enxuto: sem testes, lib32, toolchain, ZFS/CDDL, Kerberos, sendmail, jogos |
+Manuais: `man vigia` e `man vigia.conf`. Sessões reais em
+[docs/vigia-sessao.log](docs/vigia-sessao.log) e
+[docs/vigia-recursos-sessao.log](docs/vigia-recursos-sessao.log).
 
 ## Estrutura
 
 ```
-patches/0001-...patch   identidade, loader, lume(1), kernel LUME
-patches/0002-...patch   assistente de primeiro boot (lume-configurar)
-patches/0003-...patch   vigia, o gerenciador de serviços
-patches/0004-...patch   vigia: limites, sob demanda, cascata; kernel com RACCT
+patches/0001..0004     identidade, assistente, vigia (da 1.0)
+patches/0005           base FreeBSD 15.1, kernel LUME completo
+patches/0006           pendrive: lume hardware, video, wifi, desktop, instalar
+patches/0007..0009     pkg trimestral, espelho local, kernel com CTF
+patches/0010           vídeo Intel + NVIDIA por geração
+patches/0011           forja
+patches/0012           tema Papel
+patches/0013..0020     correções dos testes: compilador, instalador, primeiro boot,
+                       desktop, forja
 conf/src.conf          seleção da userland
 conf/LUME              configuração do kernel
-build-lumebsd.sh       do clone até a imagem bootável
-tests/teste-console.py boota no QEMU e conversa com o console serial
-docs/                  logs reais de boot
+build-lumebsd.sh       do clone até a imagem do pendrive
+ferramentas/           pacotes.py (baixa e confere pacotes), montar-pendrive.py,
+                       papel-de-parede.py
+tests/                 testes no QEMU pelo console serial
+docs/                  logs reais
 ```
 
 ## Construindo
 
-Funciona em Linux (cross-build com LLVM) ou FreeBSD:
+Funciona em Linux (cross-build com LLVM 19) ou FreeBSD:
 
 ```sh
 git clone https://github.com/Kalel047/lumebsd.git
@@ -201,103 +263,93 @@ cd lumebsd
 sh build-lumebsd.sh
 ```
 
-O script clona o FreeBSD `releng/15.0`, aplica o patch, compila userland e
-kernel `LUME`, instala num diretório de staging sem precisar de root e gera
-`LumeBSD-1.0-Farol-amd64.img` (GPT, boot BIOS e UEFI).
+O script clona o FreeBSD `releng/15.1`, aplica os patches, compila
+userland e kernel `LUME`, instala num diretório de staging sem precisar de
+root, baixa os pacotes essenciais do repositório trimestral do FreeBSD
+(conferindo os hashes) e gera `LumeBSD-1.1-Farol-pendrive.img`.
+Leva várias horas numa máquina de 2 núcleos (o world é a parte longa).
 
 Dependências no Ubuntu/Debian:
 
 ```sh
-sudo apt install clang-18 lld-18 llvm-18 libarchive-dev libbz2-dev zlib1g-dev \
-    bison flex time qemu-system-x86 ovmf
+sudo apt install clang-19 lld-19 llvm-19 libarchive-dev libbz2-dev zlib1g-dev \
+    bison flex time python3 qemu-system-x86 ovmf
 ```
+
+> Precisa ser o **LLVM 19** (o mesmo do FreeBSD 15.1). O clang 18 do
+> Ubuntu acessa `__stack_chk_guard` pela GOT nos módulos do kernel, e o
+> linker do kernel recusa essa relocação: metade dos módulos (inclusive
+> `zfs.ko` e `geom_eli.ko`) não carregaria.
 
 ## Testando
 
-```sh
-qemu-system-x86_64 -m 1024 -nographic \
-    -drive file=LumeBSD-1.0-Farol-amd64.img,format=raw
-```
-
-No primeiro boot o assistente pede a senha do root e cria seu usuário.
-
-Teste automatizado (responde o assistente sozinho e confere o resultado):
+O teste automatizado faz o caminho de um usuário no QEMU (UEFI, disco
+NVMe de destino), conversando pelo console serial:
 
 ```sh
-cp LumeBSD-1.0-Farol-amd64.img teste.img && truncate -s +2G teste.img
-python3 tests/teste-console.py teste.img primeiro.log primeiro   # assistente
-python3 tests/teste-console.py teste.img segundo.log segundo     # não reaparece
-python3 tests/teste-console.py teste.img vigia.log servicos      # gerenciador
-python3 tests/teste-console.py teste.img boot3.log persistencia  # após reboot
-python3 tests/teste-console.py teste.img rec.log recursos         # limites, socket
-ALVO_CPU=50 python3 tests/teste-console.py teste.img cpu.log cpu2 # mede limite de CPU
+python3 -m http.server 8000 -d ESPELHO &   # espelho dos pacotes (opcional)
+python3 tests/teste-pendrive.py aovivo    aovivo.log     # boot, lume hardware, instala
+python3 tests/teste-pendrive.py instalado instalado.log  # senha do disco, assistente
+python3 tests/teste-pendrive.py desktop   desktop.log    # login gráfico, fotos da tela
+python3 tests/teste-pendrive.py forja     forja.log      # binário, compilação, atualizar
 ```
 
 ## Status
 
-- [x] Identidade, loader, `lume(1)`, serviço rc.d, kernel `LUME`
-- [x] Userland e kernel compilados do zero (cross-build em Linux, LLVM 18)
-- [x] Imagem bootando no QEMU por **BIOS** e **UEFI**, até o login em ~1 minuto sem KVM
-- [x] Assistente de primeiro boot testado nos três cenários: configuração
-  completa (com entradas inválidas recusadas), segundo boot sem assistente e
-  boot sem ninguém respondendo
-- [x] Raiz expandida de 2,9 GB para 4,8 GB num disco 2 GB maior
-- [x] vigia testado: dependências, `kill -9` com reinício automático,
-  loop de falhas indo para manutenção, permissões, arquivos inválidos,
-  desligamento limpo e escolhas que sobrevivem ao reboot
-- [x] Limites e contabilidade por serviço: memória e processos medidos;
-  `limite_processos` barrando o 4º `fork`; sobras encerradas; CPU medida
-  contra um serviço idêntico sem limite (50% → 50,2%)
-- [x] Sob demanda: TCP, socket Unix, porta 79 atendida por `nobody`,
-  5 conexões simultâneas; cascata ao parar e reiniciar
+Tudo abaixo foi testado de ponta a ponta no QEMU (UEFI/OVMF, sem KVM),
+com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
-Sessões reais: [assistente](docs/primeiro-boot-assistente.log),
-[vigia](docs/vigia-sessao.log) e
-[limites e sob demanda](docs/vigia-recursos-sessao.log).
+- [x] **Build do zero**: FreeBSD 15.1 + 20 patches, world com LLVM, kernel
+  `LUME` completo (847 módulos) com LLVM 19
+- [x] **Pendrive ao vivo**: boot até o login em ~1 min (emulado), `lume
+  hardware`, `lume video`, drivers do pendrive carregando
+- [x] **Instalação**: GPT + EFI + swap GELI + ZFS sobre GELI AES-256-XTS,
+  ambientes de boot, entrada UEFI "LumeBSD"; desktop KDE (692 pacotes)
+  instalado a partir de um espelho, tema Papel aplicado, 7 847 ícones
+  convertidos — ~49 min emulado
+- [x] **Primeiro boot**: senha do disco pedida uma vez pelo loader,
+  assistente completo (root, usuário nos grupos wheel/operator/video,
+  máquina, fuso, ABNT2, pt-BR), SDDM no ar
+- [x] **Desktop**: login gráfico em português, Plasma 6.7 com o tema Papel,
+  Konsole e Dolphin abertos na sessão (capturas em `docs/capturas/`)
+- [x] **forja**: binário (`htop`), opções `-NLS -DOCS`, compilação do
+  `nano` da árvore de ports com as dependências diretas em binário
+  (`nano --version` → `--disable-nls`), `forja mundo`/`info`, `forja
+  atualizar` com ambiente de boot antes e recompilação ao mudar opção
+- Sessões completas: [instalação pelo pendrive](docs/pendrive-instalacao.log),
+  [primeiro boot](docs/primeiro-boot-instalado.log), [forja](docs/forja-sessao.log)
+- [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA
+  (precisa da placa) — no pendrive, rode `lume hardware` e
+  `lume video testar` antes de instalar
 
-Primeiro boot real, no console serial:
+### Bugs que os testes pegaram (e já estão corrigidos)
 
+| Bug | Correção |
+|---|---|
+| Metade dos módulos do kernel (inclusive `zfs.ko` e `geom_eli.ko`) não carregava | compilar com LLVM 19: o clang 18 acessa `__stack_chk_guard` pela GOT |
+| Compilador mirava `freebsd1.1` (a versão do LumeBSD) | `FREEBSD_REVISION` no `newvers.sh` |
+| Senha do disco pedida duas vezes | sem `geom_eli_passphrase_prompt` (o loader já repassa a chave) |
+| Assistente pulava em 120 s mesmo com desktop, deixando o sistema sem usuário | com o SDDM ligado ele espera |
+| Teclado ABNT2 e português só no console | `00-lume-teclado.conf` para o Xorg e `sddm_lang` |
+| Sistema instalado mostrava a mensagem do pendrive ("root sem senha") | `motd` original preservado no build |
+| Baloo (indexador do KDE) caindo em loop; arquivos `.core` na pasta do usuário | Baloo desligado por padrão; cores em `/var/crash` |
+| Ports recusavam compilar (`uname` diz LumeBSD 1.1) | a forja e o `/etc/make.conf` passam FreeBSD 15.1 aos ports |
+| forja passava a origem como alvo do make; dependências de dependências em fonte | corrigido; dependências diretas em binário |
+
+### Compilando programas à mão
+
+O `uname` do LumeBSD diz `LumeBSD 1.1-FAROL`. Pela forja ou por
+`/usr/ports` isso é resolvido sozinho. Para um `./configure` fora dos
+ports que não reconheça o sistema:
+
+```sh
+env UNAME_s=FreeBSD UNAME_r=15.1-RELEASE ./configure
 ```
-root@farol:~ # uname -a
-LumeBSD farol 1.0-FAROL LumeBSD 1.0-FAROL lumebsd-403d4045b631 LUME amd64
-root@farol:~ # freebsd-version -ku
-1.0-FAROL
-1.0-FAROL
-root@farol:~ # cat /var/run/os-release
-NAME=LumeBSD
-VERSION="1.0-FAROL"
-VERSION_ID="1.0"
-VERSION_CODENAME=farol
-ID=lumebsd
-ID_LIKE=freebsd
-ANSI_COLOR="0;33"
-PRETTY_NAME="LumeBSD 1.0-FAROL (Farol)"
-root@farol:~ # lume
-
-  LumeBSD 1.0 "Farol"  @ farol
-  ----------------------------------------------
-  kernel     LumeBSD 1.0-FAROL (base FreeBSD 15.0)
-  cpu        QEMU Virtual CPU version 2.5+ (2 núcleos)
-  memória    [##..................] 101.8 MiB / 989.5 MiB
-  disco /    [####................] 581.6 MiB / 2.9 GiB (ufs)
-  carga      0.64  0.20  0.08
-  ligado há  0 h 0 min 59 s
-
-root@farol:~ # lume dica
-dica: man hier explica a organização de diretórios do sistema.
-root@farol:~ # service -e | tail -3
-/etc/rc.d/lume_farol
-/etc/rc.d/cron
-/etc/rc.d/bgfsck
-root@farol:~ # shutdown -p now
-```
-
-Logs completos em [`docs/boot-bios.log`](docs/boot-bios.log) e
-[`docs/boot-uefi.log`](docs/boot-uefi.log).
 
 ## Licença
 
 As mudanças do LumeBSD são distribuídas sob a licença BSD de 2 cláusulas
 (veja `LICENSE`). O FreeBSD é distribuído sob suas próprias licenças.
 "FreeBSD" é marca registrada da FreeBSD Foundation; o LumeBSD é um projeto
-independente, sem afiliação com o FreeBSD Project.
+independente, sem afiliação com o FreeBSD Project. NVIDIA, Intel e KDE são
+marcas de seus donos.

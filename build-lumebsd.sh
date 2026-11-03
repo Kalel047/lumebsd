@@ -1,20 +1,24 @@
 #!/bin/sh
-# Constrói o LumeBSD 1.0 "Farol" a partir do código-fonte do FreeBSD 15.0.
+# Constrói o pendrive do LumeBSD 1.1 "Farol" (ao vivo + instalador) a partir
+# do código-fonte do FreeBSD 15.1.
 # Roda em Linux (cross-build com LLVM) ou FreeBSD. Uso: sh build-lumebsd.sh
+#
+# Precisa de: git, curl, python3, bsdtar; no Linux também clang/lld 19 (o mesmo LLVM do FreeBSD 15.1),
+# libarchive-dev, libbz2-dev, zlib1g-dev, bison, flex e time.
 set -e
 
-TOP=$(pwd)
+TOP=$(cd "$(dirname "$0")" && pwd)
 SRC=$TOP/src
 OBJ=$TOP/obj
 STAGE=$TOP/stage
-IMG=$TOP/LumeBSD-1.0-Farol-amd64.img
+PACOTES=$TOP/pacotes
+IMG=$TOP/LumeBSD-1.1-Farol-pendrive.img
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
-MODULES="tmpfs nullfs fusefs if_bridge if_epair pf pflog acpi/acpi_video"
 
-# 1. Código-fonte do FreeBSD + identidade LumeBSD
-[ -d "$SRC" ] || git clone --depth 1 --branch releng/15.0 \
+# 1. Código-fonte do FreeBSD 15.1 + mudanças do LumeBSD
+[ -d "$SRC" ] || git clone --depth 1 --branch releng/15.1 \
     https://github.com/freebsd/freebsd-src.git "$SRC"
-if [ ! -d "$SRC/usr.bin/lume" ]; then
+if [ ! -d "$SRC/usr.sbin/vigia" ]; then
 	for p in "$TOP"/patches/*.patch; do
 		(cd "$SRC" && git apply "$p")
 	done
@@ -23,79 +27,37 @@ fi
 mkdir -p "$OBJ"
 export MAKEOBJDIRPREFIX=$OBJ
 mk() {
-	"$SRC/tools/build/make.py" \
-	    --cross-bindir="${LLVM_BIN:-/usr/lib/llvm-18/bin}" \
-	    --host-bindir="${HOST_BIN:-/usr/bin}" -j"$JOBS" \
-	    SRCCONF="$TOP/conf/src.conf" TARGET=amd64 TARGET_ARCH=amd64 \
-	    KERNCONF=LUME MODULES_OVERRIDE="$MODULES" "$@"
+	if [ "$(uname -s)" = FreeBSD ]; then
+		make -C "$SRC" -j"$JOBS" SRCCONF="$TOP/conf/src.conf" \
+		    KERNCONF=LUME "$@"
+	else
+		"$SRC/tools/build/make.py" \
+		    --cross-bindir="${LLVM_BIN:-/usr/lib/llvm-19/bin}" \
+		    --host-bindir="${HOST_BIN:-/usr/bin}" -j"$JOBS" \
+		    SRCCONF="$TOP/conf/src.conf" TARGET=amd64 TARGET_ARCH=amd64 \
+		    KERNCONF=LUME "$@"
+	fi
 }
 
-# 2. Userland e kernel
+# 2. Userland (com clang, ZFS e DTrace) e kernel LUME com todos os módulos
 mk buildworld
 mk buildkernel
 
-# 3. Instalação em diretório de staging, sem root (gera METALOG)
+# 3. Instalação num diretório, sem root (gera o METALOG)
 rm -rf "$STAGE" && mkdir -p "$STAGE"
 mk -DNO_ROOT DESTDIR="$STAGE" installworld distribution installkernel
 
-# 4. Configuração padrão da imagem
-cat > "$STAGE/etc/rc.conf" <<EOF
-hostname="farol"
-ifconfig_DEFAULT="DHCP"
-lume_farol_enable="YES"
-lume_configurar_enable="YES"
-growfs_enable="YES"
-growfs_swap_size="0"
-dumpdev="NO"
-EOF
-printf '/dev/gpt/lumeroot\t/\tufs\trw\t1\t1\n/dev/gpt/swap\tnone\tswap\tsw\t0\t0\n' \
-    > "$STAGE/etc/fstab"
-# /firstboot: no primeiro boot o growfs expande a raiz até o fim do disco.
-: > "$STAGE/firstboot"
-cat > "$STAGE/boot/loader.conf" <<EOF
-boot_multicons="YES"
-console="comconsole,vidconsole"
-autoboot_delay="3"
-EOF
+# 4. Pacotes que vão no pendrive: gerenciador de pacotes, vídeo Intel e NVIDIA,
+#    firmwares de vídeo e Wi-Fi e microcódigo da CPU
+python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
+    'gpu-firmware-intel-kmod-*' wifi-firmware-iwlwifi-kmod \
+    cpu-microcode-intel
 
-# METALOG: registra os arquivos acima e cria entradas para diretórios
-# que o installworld deixou sem registro (ex.: /usr/share/pkg).
-python3 - "$STAGE/METALOG" <<'PY'
-import sys
-p = sys.argv[1]
-extra = {"./etc/rc.conf", "./etc/fstab", "./boot/loader.conf", "./firstboot"}
-L = [l for l in open(p).read().splitlines() if l.split()[:1] not in [[e] for e in extra]]
-L += [f"{e} type=file uname=root gname=wheel mode=0644" for e in sorted(extra)]
-seen = {l.split()[0] for l in L if l.startswith(".")}
-out = []
-for l in L:
-    if l.startswith("./"):
-        parts = l.split()[0].split("/")
-        for i in range(2, len(parts)):
-            d = "/".join(parts[:i])
-            if d not in seen:
-                seen.add(d)
-                out.append(f"{d} type=dir uname=root gname=wheel mode=0755")
-    out.append(l)
-open(p, "w").write("\n".join(out) + "\n")
-PY
+# 5. Imagem do pendrive (UEFI e BIOS)
+python3 "$TOP/ferramentas/montar-pendrive.py" "$STAGE" "$PACOTES" \
+    "$OBJ$SRC/amd64.amd64/tmp/legacy/bin" "$IMG"
 
-# 5. Imagem de disco GPT bootável (BIOS + UEFI)
-TOOLS=$OBJ$SRC/amd64.amd64/tmp/legacy/bin
-rm -f "$TOP/root.ufs" "$TOP/efi.fat" "$IMG"
-(cd "$STAGE" && "$TOOLS/makefs" -t ffs -B little \
-    -o version=2,label=lumeroot,softupdates=1 -s 3g \
-    -F METALOG -N etc "$TOP/root.ufs" .)
-rm -rf "$TOP/efi" && mkdir -p "$TOP/efi/EFI/BOOT"
-cp "$STAGE/boot/loader.efi" "$TOP/efi/EFI/BOOT/BOOTX64.EFI"
-"$TOOLS/makefs" -t msdos -o fat_type=32,sectors_per_cluster=1,volume_label=EFISYS \
-    -s 64m "$TOP/efi.fat" "$TOP/efi"
-"$TOOLS/mkimg" -s gpt -f raw -b "$STAGE/boot/pmbr" \
-    -p freebsd-boot/bootfs:="$STAGE/boot/gptboot" \
-    -p efi/efiboot:="$TOP/efi.fat" \
-    -p freebsd-swap/swap::512M \
-    -p freebsd-ufs/lumeroot:="$TOP/root.ufs" \
-    -o "$IMG"
-
+echo
 echo "Pronto: $IMG"
-echo "Teste: qemu-system-x86_64 -m 1024 -nographic -drive file=$(basename "$IMG"),format=raw,if=virtio"
+echo "Grave num pendrive de 8 GB ou mais (no Windows: Rufus, modo DD;"
+echo "no Linux/FreeBSD: dd if=$(basename "$IMG") of=/dev/SEU_PENDRIVE bs=1m)."
