@@ -47,15 +47,15 @@ jobs:
               qemu-system-x86 ovmf xz-utils
 
       - name: Build (world, kernel LUME, pacotes, imagem)
+        # Em primeiro plano: um processo em segundo plano (&) herda o
+        # SIGINT ignorado, e os testes do bmake que o make.py roda no
+        # bootstrap (Ctrl-C) falham. O log inteiro vai como artefato.
         run: |
-          JOBS=$(nproc) sh build-lumebsd.sh > build.log 2>&1 &
-          pid=$!
-          # Sinal de vida a cada 5 min (o log inteiro vai como artefato).
-          while kill -0 $pid 2>/dev/null; do
-            sleep 300
-            echo "$(date +%H:%M) $(grep -a '^>>>' build.log | tail -1)"
-          done
-          wait $pid
+          if ! JOBS=$(nproc) sh build-lumebsd.sh > build.log 2>&1; then
+            tail -60 build.log
+            exit 1
+          fi
+          grep -a '^>>>' build.log | tail -20
           tail -5 build.log
 
       - name: KVM para o QEMU
