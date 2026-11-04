@@ -1,4 +1,4 @@
-# LumeBSD 1.1 "Farol"
+# LumeBSD 1.1.1 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -32,10 +32,11 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
    ~~   ~~~~   ~~
 ```
 
-## Novidades da 1.1
+## Novidades
 
 | | |
 |---|---|
+| **Atualizações que não quebram** (1.1.1) | `lume atualizar` instala a versão nova num ambiente de boot à parte, testa no boot seguinte e só então a torna padrão; se algo der errado, o computador volta sozinho para o sistema anterior |
 | **Pendrive ao vivo + instalador** | boota sem tocar no disco; `lume hardware` diz o que funciona; `lume instalar` instala no disco inteiro |
 | **PCs Intel + NVIDIA** | o driver NVIDIA certo para a geração da placa (Turing/GTX 16xx em diante, 580 para Maxwell–Volta, 470 para Kepler), Intel em notebooks e híbridos, e volta sozinho ao modo sem aceleração se um driver travar |
 | **ZFS criptografado** | GELI AES-256-XTS com senha no boot, swap criptografada, ambientes de boot (`bectl`) |
@@ -122,6 +123,51 @@ Depois da senha do disco, o assistente em português pergunta o essencial:
 
 e o sistema sobe direto na tela de login gráfica.
 
+## Atualizações que não quebram
+
+Como fica (exemplo de uma versão 1.1.2 futura):
+
+```
+root@farol:~ # lume atualizar
+  ✓ versão nova: 1.1.2 (você tem a 1.1.1)
+
+  Instalar agora? O sistema atual fica guardado. [S/n]:
+  ✓ pacote conferido (SHA256)
+  Instalando o LumeBSD 1.1.2 no ambiente de boot lume-1.1.2
+  (o sistema em uso, lume-1.1.1, não é tocado)
+  ✓ LumeBSD 1.1.2 instalado em lume-1.1.2
+
+  Reinicie para entrar nele (shutdown -r now).
+  Se o boot falhar, o computador volta sozinho para o lume-1.1.1.
+  Se der tudo certo, a atualização é confirmada no fim do boot.
+```
+
+No FreeBSD, o `freebsd-update` troca os arquivos do sistema em uso; se a
+atualização der errado no meio, ou o sistema novo não subir, quem conserta
+é você. No LumeBSD:
+
+1. a versão nova vai para um **ambiente de boot novo** (uma cópia do
+   sistema no ZFS); o sistema em uso não é tocado;
+2. ele é ativado **só para o próximo boot** (`bectl activate -t`);
+3. no fim desse boot, o `rc.d/lume_saude` confere o sistema: a raiz veio
+   do ambiente certo, os programas básicos existem, o vigia responde, a
+   tela de login subiu. Passou: a atualização vira o **padrão**;
+4. não passou, o kernel entrou em pânico ou o computador travou: o boot
+   seguinte volta **sozinho** para o sistema anterior, intacto. O motivo
+   fica em `/var/log/lume-atualizar.log`.
+
+Suas configurações ficam como estão; quando a versão nova traz uma
+diferente, ela aparece ao lado, com o final `.lume-novo`. Usuários e senhas
+nunca são tocados. Outros comandos: `lume atualizar estado`, `voltar`
+(o sistema de antes vira o padrão de novo), `confirmar` e `limpar`.
+
+As versões saem nas [Releases](https://github.com/Kalel047/lumebsd/releases):
+o índice `atualizacao.txt` diz a versão e o SHA256 do pacote do sistema.
+
+> Quem instalou a 1.1.0 (o primeiro pendrive) ainda não tem o comando; ele
+> vem na própria atualização:
+> `fetch -o /tmp/lume-atualizar https://raw.githubusercontent.com/Kalel047/lumebsd/main/fonte/usr.sbin/lume-configurar/lume-atualizar.sh && sh /tmp/lume-atualizar aplicar`
+
 ## Vídeo: Intel + NVIDIA
 
 `lume video` decide a cada boot (`rc.d/lume_video`):
@@ -200,6 +246,7 @@ aplica de novo.
 | `lume wifi` | conecta no Wi-Fi |
 | `lume desktop` | instala o KDE Plasma e os drivers |
 | `lume instalar` | instala no disco inteiro (ZFS + GELI) |
+| `lume atualizar` | atualiza o sistema num ambiente de boot, com volta automática |
 | `lume tema [papel\|padrao]` | visual do KDE |
 | `lume configurar` | assistente de configuração |
 | `vigia` | gerenciador de serviços (abaixo) |
@@ -314,8 +361,9 @@ python3 tests/teste-pendrive.py forja     forja.log      # binário, compilaçã
 Tudo abaixo foi testado de ponta a ponta no QEMU (UEFI/OVMF, sem KVM),
 com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
-- [x] **Build do zero**: FreeBSD 15.1 + 20 patches, world com LLVM, kernel
-  `LUME` completo (847 módulos) com LLVM 19
+- [x] **Build do zero**: FreeBSD 15.1 + 24 patches, world com LLVM, kernel
+  `LUME` completo (847 módulos) com LLVM 19 — também no GitHub Actions
+  (2h12 de build, imagem bootada no QEMU), a partir deste repositório
 - [x] **Pendrive ao vivo**: boot até o login em ~1 min (emulado), `lume
   hardware`, `lume video`, drivers do pendrive carregando
 - [x] **Instalação**: GPT + EFI + swap GELI + ZFS sobre GELI AES-256-XTS,
@@ -331,8 +379,16 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
   `nano` da árvore de ports com as dependências diretas em binário
   (`nano --version` → `--disable-nls`), `forja mundo`/`info`, `forja
   atualizar` com ambiente de boot antes e recompilação ao mudar opção
+- [x] **Atualização**: 1.1.0 → 1.1.1 num sistema instalado pela 1.1.0,
+  confirmada sozinha no boot; uma 1.1.2 com o `vigiad` quebrado (checagem
+  reprovada, motivo no log, reboot de volta à 1.1.1); uma 1.1.2 com o
+  `init` quebrado (pânico, reboot automático, de volta à 1.1.1); boot
+  interrompido no meio (de volta ao anterior)
+- [x] **Ambientes de boot**: numa instalação nova, bootar outro ambiente
+  roda de fato aquele ambiente
 - Sessões completas: [instalação pelo pendrive](docs/pendrive-instalacao.log),
-  [primeiro boot](docs/primeiro-boot-instalado.log), [forja](docs/forja-sessao.log)
+  [primeiro boot](docs/primeiro-boot-instalado.log), [forja](docs/forja-sessao.log),
+  [atualizações e volta automática](docs/atualizacao-sessao.log)
 - [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA
   (precisa da placa) — no pendrive, rode `lume hardware` e
   `lume video testar` antes de instalar
@@ -350,6 +406,9 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 | Baloo (indexador do KDE) caindo em loop; arquivos `.core` na pasta do usuário | Baloo desligado por padrão; cores em `/var/crash` |
 | Ports recusavam compilar (`uname` diz LumeBSD 1.1) | a forja e o `/etc/make.conf` passam FreeBSD 15.1 aos ports |
 | forja passava a origem como alvo do make; dependências de dependências em fonte | corrigido; dependências diretas em binário |
+| Bootar outro ambiente de boot (inclusive os da forja) montava o antigo por cima | `ROOT/default` com `canmount=noauto` e sem `vfs.root.mountfrom` fixo no `loader.conf`; o `lume atualizar` conserta instalações antigas |
+| Atualização trocaria `pwd.db`/`spwd.db` (usuários e senhas) pelos do build | bancos derivados nunca vêm do pacote |
+| `rc.d` tem a tag `config` no METALOG e não seria atualizado | `rc.d`, `periodic` e `defaults` são do sistema |
 
 ### Compilando programas à mão
 

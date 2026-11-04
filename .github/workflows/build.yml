@@ -14,7 +14,7 @@ on:
       tag:
         description: "Tag da Release"
         type: string
-        default: "v1.1"
+        default: "v1.1.1"
   schedule:
     - cron: "23 5 1 * *"
 
@@ -71,7 +71,7 @@ jobs:
       - name: Compactar e calcular os SHA256
         run: |
           xz -T0 -6 -k "$IMG"
-          sha256sum "$IMG.xz" "$IMG" | tee SHA256SUMS
+          sha256sum "$IMG.xz" "$IMG" atualizacao/*.tar.zst | tee SHA256SUMS
 
       - uses: actions/upload-artifact@v4
         with:
@@ -79,6 +79,14 @@ jobs:
           path: |
             LumeBSD-1.1-Farol-pendrive.img.xz
             SHA256SUMS
+          compression-level: 0
+          retention-days: 14
+
+      # Para o "lume atualizar": o índice e o sistema base.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atualizacao
+          path: atualizacao/
           compression-level: 0
           retention-days: 14
 
@@ -100,6 +108,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # atualizacao.txt fica em releases/latest/download/, de onde o
+          # "lume atualizar" lê a versão nova.
           gh release create "${{ inputs.tag }}" "$IMG.xz" SHA256SUMS \
-              --target "$GITHUB_SHA" --title 'LumeBSD 1.1 "Farol"' \
+              atualizacao/atualizacao.txt atualizacao/*.tar.zst \
+              --target "$GITHUB_SHA" --title "LumeBSD $(cat VERSAO) \"Farol\"" \
               --notes-file docs/release-1.1.md

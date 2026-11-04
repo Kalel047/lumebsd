@@ -13,6 +13,7 @@
  *   lume wifi       conecta a uma rede Wi-Fi
  *   lume desktop    instala o desktop KDE Plasma
  *   lume instalar   instala o LumeBSD no disco (a partir do pendrive)
+ *   lume atualizar  atualiza o sistema num novo ambiente de boot
  */
 
 #include <sys/param.h>
@@ -21,6 +22,8 @@
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #include <sys/un.h>
+
+#include <kenv.h>
 
 #include <err.h>
 #include <stdint.h>
@@ -35,11 +38,15 @@
 #define	LUME_CODENAME	"Farol"
 #define	LUME_MARCA	"/var/db/lume/configurado"
 #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+/* Versão completa do sistema (1.1.0, 1.1.1...), gravada no build. */
+#define	LUME_VERSAO_ARQ	"/usr/share/lume/versao"
+/* Atualização instalada que ainda não passou pela checagem de saúde. */
+#define	LUME_PENDENTE	"/var/db/lume/atualizacao-pendente"
 
 /* Subcomandos que são scripts em /usr/sbin/lume-<nome>. */
 static const char *scripts[] = {
 	"configurar", "hardware", "video", "wifi", "desktop", "instalar",
-	"tema",
+	"tema", "atualizar",
 };
 #define	VIGIA_SOCKET	"/var/run/vigia.sock"
 
@@ -207,6 +214,44 @@ servicos(void)
 	row("serviços", txt);
 }
 
+/* Versão do build (1.1.1) ou, sem o arquivo, a da distribuição (1.1). */
+static const char *
+versao(void)
+{
+	static char v[32];
+	FILE *f;
+
+	if ((f = fopen(LUME_VERSAO_ARQ, "r")) != NULL) {
+		if (fgets(v, sizeof(v), f) != NULL) {
+			v[strcspn(v, "\n")] = '\0';
+			fclose(f);
+			if (v[0] != '\0')
+				return (v);
+		} else
+			fclose(f);
+	}
+	return (LUME_VERSION);
+}
+
+/* Linha "sistema": versão e ambiente de boot em uso. */
+static void
+sistema(void)
+{
+	char raiz[128], txt[192];
+	const char *be;
+
+	if (kenv(KENV_GET, "vfs.root.mountfrom", raiz, sizeof(raiz)) > 0 &&
+	    strncmp(raiz, "zfs:", 4) == 0 && (be = strrchr(raiz, '/')) != NULL)
+		snprintf(txt, sizeof(txt), "%s (ambiente de boot %s)", versao(),
+		    be + 1);
+	else
+		snprintf(txt, sizeof(txt), "%s", versao());
+	row("sistema", txt);
+	if (access(LUME_PENDENTE, F_OK) == 0)
+		printf("  %s!%s atualização em teste: ainda não confirmada "
+		    "(%slume atualizar estado%s)\n", RED, RESET, AMBER, RESET);
+}
+
 static void
 painel(void)
 {
@@ -284,6 +329,7 @@ painel(void)
 		row("ligado há", buf);
 	}
 	servicos();
+	sistema();
 	if (access(LUME_MARCA, F_OK) != 0)
 		printf("\n  %s!%s sistema ainda não configurado: rode %slume "
 		    "configurar%s como root\n", RED, RESET, AMBER, RESET);
@@ -297,7 +343,8 @@ usage(void)
 	    "uso: lume [farol | dica | versao]\n"
 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
 	    "     lume tema [papel | padrao]\n"
-	    "     lume video [testar | auto | intel | scfb]\n");
+	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
+	    "     lume atualizar [verificar | aplicar | estado | voltar]\n");
 	exit(1);
 }
 
@@ -331,7 +378,7 @@ main(int argc, char *argv[])
 		    tips[arc4random_uniform(nitems(tips))]);
 	else if (strcmp(argv[1], "versao") == 0 ||
 	    strcmp(argv[1], "-v") == 0)
-		printf("%s %s \"%s\"\n", LUME_NAME, LUME_VERSION,
+		printf("%s %s \"%s\"\n", LUME_NAME, versao(),
 		    LUME_CODENAME);
 	else
 		usage();

@@ -1,4 +1,12 @@
-LumeBSD 1.1 "Farol" — pendrive ao vivo + instalador, sobre o FreeBSD 15.1.
+LumeBSD 1.1.1 "Farol" — pendrive ao vivo + instalador, sobre o FreeBSD 15.1.
+
+## Novo na 1.1.1
+
+- **`lume atualizar`**: atualizações num ambiente de boot à parte, testadas no boot seguinte e confirmadas por uma checagem de saúde. Se o boot falhar, travar ou a checagem reprovar, o computador volta sozinho para o sistema anterior.
+- Instalador: ambientes de boot funcionando de fato (`canmount=noauto`, sem raiz fixa no `loader.conf`).
+- Quem tem a 1.1.0 instalada atualiza com: `fetch -o /tmp/lume-atualizar https://raw.githubusercontent.com/Kalel047/lumebsd/main/fonte/usr.sbin/lume-configurar/lume-atualizar.sh && sh /tmp/lume-atualizar aplicar`
+
+Os arquivos `atualizacao.txt` e `LumeBSD-1.1.1-sistema.tar.zst` desta Release são o que o `lume atualizar` baixa.
 
 ## O que tem
 

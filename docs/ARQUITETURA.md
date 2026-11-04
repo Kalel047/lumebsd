@@ -37,10 +37,10 @@ eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
 | Caminho (árvore do FreeBSD) | O que é |
 |---|---|
 | `usr.bin/lume/` | `lume(1)`, em C: painel, emblema, dicas, e o despachante dos subcomandos `lume configurar/hardware/video/wifi/desktop/instalar/tema` |
-| `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh) e o tema Papel (`tema/`) |
+| `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh, inclusive `lume-atualizar`) e o tema Papel (`tema/`) |
 | `usr.sbin/vigia/` | o gerenciador de serviços, em C (`vigiad` e o cliente `vigia`) |
 | `usr.sbin/forja/` | a forja (sh), `forja.conf` e `forja(8)` |
-| `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, vigia |
+| `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), vigia |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
 | `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=1.1`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
@@ -153,6 +153,64 @@ desktop, pula em 120 s. Além de senha, usuário, máquina, fuso e idioma, ele
 leva o teclado para o console, para o Xorg (`00-lume-teclado.conf`), para a
 tela de login (`sddm_xkb_layout`) e para o KDE (`kxkbrc`).
 
+## Atualizações (`lume atualizar`)
+
+### O pacote
+
+`ferramentas/montar-atualizacao.py` gera, a partir do mesmo stage do
+pendrive, o `LumeBSD-<versão>-sistema.tar.zst`: o sistema base inteiro,
+lido do `METALOG` original (donos, permissões e flags `schg` vão no tar), mais
+`/usr/share/lume/versao` e `/usr/share/lume/sistema.mtree`. Ao lado vai o
+índice `atualizacao.txt` (`versao=`, `arquivo=`, `sha256=`, `tamanho=`).
+O CI publica os dois na Release; o padrão do sistema é
+`releases/latest/download/atualizacao.txt` (`lume_atualizar_url` no
+`rc.conf` muda isso). O índice é lido como dados (`chave=valor`), nunca
+executado, e cada campo é validado.
+
+### Aplicar
+
+1. confere o SHA256 do pacote (baixado por HTTPS) e se a versão é mais
+   nova e da mesma série (`1.1.x`: o mesmo FreeBSD por baixo);
+2. garante `canmount=noauto` em todos os ambientes de `ROOT/` (o
+   instalador da 1.1.0 criava o `default` com `on`, e o `zfs mount -a` do
+   boot montava o ambiente antigo por cima do novo);
+3. `bectl create` a partir do ambiente em uso e `bectl mount`;
+4. extrai o pacote no ambiente novo, menos:
+   - **configurações**: arquivos com a tag `config` no METALOG, fora
+     `etc/rc.d`, `etc/periodic` e `etc/defaults` (que têm a tag mas são
+     do sistema). Se já existem, ficam; a versão nova vai para
+     `<arquivo>.lume-novo` quando é diferente;
+   - **bancos derivados**: `pwd.db`, `spwd.db`, `passwd`, `login.conf.db`,
+     `services.db` nunca vêm do pacote (são gerados das configurações que
+     ficaram; trocá-los desencontraria usuários e senhas);
+5. apaga o que estava na lista antiga e saiu da nova; tira o
+   `vfs.root.mountfrom` fixo do `loader.conf`; `kldxref`;
+6. grava `/var/db/lume/atualizacao-pendente` **dentro** do ambiente novo e
+   o ativa com `bectl activate -t` (só o próximo boot).
+
+Se qualquer passo falha, o ambiente novo é destruído e nada mudou.
+
+### Confirmar ou voltar
+
+O loader usa o `bootonce` do pool uma vez e o apaga. No boot do ambiente
+novo, `rc.d/lume_saude` vê a marca e, solto do rc por `daemon(8)`, confere:
+raiz vinda do ambiente certo, `/var/db` gravável, `sh`, `init`, `login`,
+`sshd` e `lume` presentes, vigia respondendo pelo socket e, com desktop, o
+SDDM de pé (espera até 2 min). Passou: `bectl activate` (permanente) e a
+marca some. Não passou: avisa no console, no syslog e em
+`/var/log/lume-atualizar.log`, e não confirma.
+
+Em todos os casos de falha — checagem reprovada, pânico, travamento, falta
+de energia no meio do boot — o padrão do pool ainda é o ambiente anterior,
+e o próximo boot volta para ele sozinho. `lume atualizar voltar` faz o
+mesmo depois de uma atualização já confirmada.
+
+Testado no QEMU, num sistema instalado pela 1.1.0: atualização 1.1.0 →
+1.1.1 confirmada no boot; uma 1.1.2 com o `vigiad` quebrado (checagem
+reprovada, motivo registrado, reboot de volta à 1.1.1); uma 1.1.2 com o
+`init` quebrado (pânico, reboot automático, volta à 1.1.1); e um boot
+interrompido no meio (volta ao anterior).
+
 ## Identidade e compatibilidade
 
 `uname -s` diz `LumeBSD` e `uname -r` diz `1.1-FAROL`. O ABI dos binários
@@ -214,6 +272,7 @@ QEMU (UEFI/OVMF, disco NVMe de destino):
 | Fase | O que faz |
 |---|---|
 | `fumaca` | boota o pendrive sem gravar nada nele e confere os comandos |
+| `ajustar` | entra como root no sistema instalado e roda comandos (`AJUSTES`); com `LUME_REINICIAR=1` atravessa reboots e pânicos (usado nos testes de atualização) |
 | `aovivo` | `lume hardware`, `lume video`, instalação completa com desktop |
 | `instalado` | senha do disco, assistente, ZFS/GELI/bectl, SDDM |
 | `desktop` | login gráfico, teclado, fotos da tela (Plasma, Konsole, Dolphin) |

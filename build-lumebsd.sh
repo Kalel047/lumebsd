@@ -15,6 +15,8 @@ STAGE=$TOP/stage
 PACOTES=$TOP/pacotes
 IMG=$TOP/LumeBSD-1.1-Farol-pendrive.img
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
+VERSAO=$(cat "$TOP/VERSAO")
+ATUALIZACAO=$TOP/atualizacao
 
 # Commit do releng/15.1 em que os patches foram testados (FREEBSD_COMMIT=...
 # para outro; o CI semanal confere o topo do ramo).
@@ -64,9 +66,13 @@ python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
 
 # 5. Imagem do pendrive (UEFI e BIOS)
 python3 "$TOP/ferramentas/montar-pendrive.py" "$STAGE" "$PACOTES" \
-    "$OBJ$SRC/amd64.amd64/tmp/legacy/bin" "$IMG"
+    "$OBJ$SRC/amd64.amd64/tmp/legacy/bin" "$IMG" "$VERSAO"
+
+# 6. Pacote de atualização (lume atualizar): o sistema base inteiro e o índice
+python3 "$TOP/ferramentas/montar-atualizacao.py" "$STAGE" "$VERSAO" "$ATUALIZACAO"
 
 echo
-echo "Pronto: $IMG"
+echo "Pronto: $IMG (LumeBSD $VERSAO)"
+echo "Atualização: $ATUALIZACAO/ (publique atualizacao.txt e o .tar.zst juntos)"
 echo "Grave num pendrive de 8 GB ou mais (no Windows: Rufus, modo DD;"
 echo "no Linux/FreeBSD: dd if=$(basename "$IMG") of=/dev/SEU_PENDRIVE bs=1m)."

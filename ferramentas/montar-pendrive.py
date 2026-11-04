@@ -19,19 +19,23 @@ computador. Ele leva:
     vivo (lume hardware, lume video testar, lume wifi).
 """
 import os
-import re
 import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sistema import RAIZ, extras_lume, linhas_do_build  # noqa: E402
+
 stage, pacotes, ferramentas, imagem = (os.path.abspath(a) for a in sys.argv[1:5])
+if len(sys.argv) > 5:
+    VERSAO = sys.argv[5]
+else:
+    VERSAO = open(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "VERSAO")).read().strip()
 METALOG = os.path.join(stage, "METALOG")
 # Sempre parte do METALOG do build, mesmo se o script rodar de novo.
-ORIGINAL = METALOG + ".build"
-if not os.path.exists(ORIGINAL):
-    shutil.copy(METALOG, ORIGINAL)
-shutil.copy(ORIGINAL, METALOG)
-RAIZ = "uname=root gname=wheel"
+linhas_do_build(stage)
+shutil.copy(METALOG + ".build", METALOG)
 
 
 def ler_metalog():
@@ -54,12 +58,10 @@ def escrever(rel, conteudo, modo="0644"):
 
 cabecalho, linhas = ler_metalog()
 
-# 1. Lista do sistema para o instalador: o METALOG sem tamanhos e hashes
-#    (alguns arquivos de configuração mudam no pendrive).
-sistema = [cabecalho] + [re.sub(r" (size|sha256digest|md5digest)=\S+", "", l)
-                         for l in linhas]
-novas = [escrever("usr/share/lume/sistema.mtree", "\n".join(sistema) + "\n",
-                  "0444")]
+# 1. Lista do sistema para o instalador e o "lume atualizar" (o METALOG sem
+#    tamanhos e hashes, incluindo a própria lista) e a versão completa:
+#    /usr/share/lume/sistema.mtree e /usr/share/lume/versao.
+novas = extras_lume(stage, cabecalho, linhas, VERSAO)
 # A mensagem de boas-vindas do sistema instalado (a do stage é trocada pela
 # do pendrive no passo 4; guarda a original na primeira vez).
 MOTD = os.path.join(stage, "etc/motd.template")

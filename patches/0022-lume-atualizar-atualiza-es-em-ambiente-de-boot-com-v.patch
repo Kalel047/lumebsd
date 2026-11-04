@@ -1,0 +1,757 @@
+From 437ee1db739925e0bfe43c27973752ad70371411 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 00:45:32 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20atualizar:=20atualiza=C3=A7=C3=B5es=20em?=
+ =?UTF-8?q?=20ambiente=20de=20boot,=20com=20volta=20autom=C3=A1tica?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- lume-atualizar: instala a versão nova num ambiente de boot novo (o
+  sistema em uso não é tocado) e o ativa só para o próximo boot
+  (bectl activate -t). Pacote .tar.zst conferido pelo SHA256 do índice.
+  Configurações do usuário (tag config do METALOG, fora rc.d, periodic e
+  defaults) são mantidas e a versão nova fica como .lume-novo; bancos
+  derivados (pwd.db, spwd.db, passwd, login.conf.db, services.db) nunca
+  vêm do pacote. Arquivos que saíram do sistema são apagados. Comandos:
+  verificar, aplicar, estado, confirmar, voltar, limpar.
+- rc.d/lume_saude: no fim do boot confere raiz, programas básicos, vigia
+  e tela de login; se estiver tudo bem, torna a atualização permanente.
+  Se o boot falhar, o seguinte volta sozinho para o sistema anterior.
+- lume: subcomando atualizar; "lume versao" usa /usr/share/lume/versao;
+  o painel mostra versão, ambiente de boot e atualização em teste.
+- lume instalar: ROOT/default com canmount=noauto (com "on", o zfs mount
+  -a montava o ambiente antigo por cima do escolhido no boot) e sem
+  vfs.root.mountfrom fixo no loader.conf, que prendia o boot no default.
+  O atualizador conserta as duas coisas em sistemas já instalados.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ libexec/rc/rc.d/Makefile                   |   1 +
+ libexec/rc/rc.d/lume_saude                 |  83 +++++
+ usr.bin/lume/lume.1                        |  48 +++
+ usr.bin/lume/lume.c                        |  53 ++-
+ usr.sbin/lume-configurar/Makefile          |   2 +-
+ usr.sbin/lume-configurar/lume-atualizar.sh | 390 +++++++++++++++++++++
+ usr.sbin/lume-configurar/lume-instalar.sh  |   6 +-
+ 7 files changed, 577 insertions(+), 6 deletions(-)
+ create mode 100644 libexec/rc/rc.d/lume_saude
+ create mode 100644 usr.sbin/lume-configurar/lume-atualizar.sh
+
+diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
+index d4e1026b6..ff28a8642 100644
+--- a/libexec/rc/rc.d/Makefile
++++ b/libexec/rc/rc.d/Makefile
+@@ -39,6 +39,7 @@ CONFS=	DAEMON \
+ 	lume_configurar \
+ 	lume_farol \
+ 	lume_notebook \
++	lume_saude \
+ 	lume_video \
+ 	motd \
+ 	mountcritlocal \
+diff --git a/libexec/rc/rc.d/lume_saude b/libexec/rc/rc.d/lume_saude
+new file mode 100644
+index 000000000..4d35db793
+--- /dev/null
++++ b/libexec/rc/rc.d/lume_saude
+@@ -0,0 +1,83 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: confirma uma atualização em teste depois de um boot saudável.
++#
++# "lume atualizar" instala a versão nova num ambiente de boot que vale só
++# para um boot. Se este boot chegou até aqui e o sistema está de pé, o
++# ambiente vira o padrão. Se não, nada muda, e o próximo boot volta para o
++# sistema anterior.
++#
++
++# PROVIDE: lume_saude
++# REQUIRE: LOGIN vigia
++# KEYWORD: nojail
++
++. /etc/rc.subr
++
++name="lume_saude"
++desc="Confirma a atualização do LumeBSD depois de um boot saudável"
++rcvar="lume_saude_enable"
++start_cmd="lume_saude_start"
++stop_cmd=":"
++
++PENDENTE=/var/db/lume/atualizacao-pendente
++
++campo()
++{
++	awk -F= -v k="$2" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$1"
++}
++
++# checar: imprime o primeiro problema encontrado; nada se está tudo bem
++checar()
++{
++	be=$1
++	case "$(kenv -q vfs.root.mountfrom)" in
++	*/"$be") ;;
++	*)	echo "a raiz não veio do ambiente $be"; return ;;
++	esac
++	# Sistema de arquivos e programas básicos.
++	touch /var/db/lume/.saude 2>/dev/null && rm -f /var/db/lume/.saude ||
++	    { echo "não dá para gravar em /var/db"; return; }
++	for p in /bin/sh /sbin/init /usr/bin/login /usr/sbin/sshd /usr/bin/lume; do
++		[ -x "$p" ] || { echo "falta $p"; return; }
++	done
++	# Serviços que estão ligados precisam estar rodando. O SDDM sobe em
++	# segundo plano; dá um tempo para ele.
++	if checkyesno vigia_enable && ! service vigia status >/dev/null 2>&1; then
++		echo "o vigia não está rodando"; return
++	fi
++	if [ -x /usr/local/etc/rc.d/sddm ] && checkyesno sddm_enable; then
++		i=0
++		until pgrep -q -x sddm; do
++			i=$((i + 1))
++			[ $i -ge 30 ] && { echo "a tela de login (sddm) não subiu"; return; }
++			sleep 2
++		done
++	fi
++}
++
++lume_saude_start()
++{
++	[ -f "$PENDENTE" ] || return 0
++	versao=$(campo "$PENDENTE" versao)
++	be=$(campo "$PENDENTE" ambiente)
++	anterior=$(campo "$PENDENTE" anterior)
++	problema=$(checar "$be")
++	if [ -z "$problema" ]; then
++		if /usr/sbin/lume-atualizar confirmar >/dev/null 2>&1; then
++			echo "LumeBSD $versao: boot saudável, atualização confirmada."
++			logger -t lume "atualização $versao confirmada ($be)"
++			return 0
++		fi
++		problema="não deu para tornar $be o padrão"
++	fi
++	echo "LumeBSD $versao: a atualização NÃO foi confirmada: $problema."
++	echo "  Reinicie para voltar ao $anterior (nada foi perdido)."
++	logger -t lume "atualização $versao não confirmada ($be): $problema"
++}
++
++load_rc_config $name
++: ${lume_saude_enable:="YES"}
++run_rc_command "$1"
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index 22028f720..23954693e 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -18,6 +18,9 @@
+ .Nm
+ .Cm tema
+ .Op Cm papel | padrao
++.Nm
++.Cm atualizar
++.Op Cm verificar | aplicar Oo Ar índice | arquivo Oc | estado | confirmar | voltar | limpar
+ .Sh DESCRIPTION
+ Sem argumentos,
+ .Nm
+@@ -70,6 +73,41 @@ tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem animações,
+ sombras nem transparência, e o farol em traço como papel de parede.
+ .Cm padrao
+ volta ao visual original do KDE.
++.It Cm atualizar
++Atualiza o sistema base sem risco.
++A versão nova é instalada num ambiente de boot novo
++.Pq Xr bectl 8 ,
++nunca no sistema em uso, e ativada só para o próximo boot.
++No fim desse boot,
++.Pa rc.d/lume_saude
++confere o sistema (raiz no ambiente certo, programas básicos, vigia e tela
++de login de pé) e torna a atualização permanente.
++Se o computador travar, entrar em pânico ou a checagem falhar, o boot
++seguinte volta sozinho para o sistema anterior.
++.Pp
++Sem argumentos, procura uma versão nova, pergunta e instala.
++.Cm verificar
++só procura;
++.Cm aplicar
++instala a partir do índice
++.Pq Va lume_atualizar_url
++ou de um pacote
++.Pa .tar.zst ;
++.Cm estado
++mostra versão, ambientes e o que está em teste;
++.Cm confirmar
++torna permanente a atualização em teste;
++.Cm voltar
++faz o sistema anterior ser o padrão de novo;
++.Cm limpar
++apaga ambientes de atualizações antigas, menos o atual e o anterior.
++.Pp
++Os arquivos de configuração que você tem são mantidos; quando a versão nova
++traz um diferente, ele fica ao lado, com o final
++.Pa .lume-novo .
++O pacote é conferido pelo SHA256 do índice, baixado por HTTPS.
++Só atualiza dentro da mesma série (1.1.x): mudar a versão do FreeBSD por
++baixo pede uma instalação nova.
+ .It Cm instalar
+ Instala o LumeBSD num disco inteiro, a partir do pendrive: ZFS com
+ ambientes de boot, criptografia GELI pedindo senha no boot, swap
+@@ -83,7 +121,17 @@ Enquanto o sistema não tiver sido configurado, o painel mostra um aviso.
+ .It Ev NO_COLOR
+ Se definida, desativa as cores.
+ .El
++.Sh FILES
++.Bl -tag -width "/var/db/lume/atualizacao-pendente" -compact
++.It Pa /usr/share/lume/versao
++versão completa do sistema (por exemplo, 1.1.1)
++.It Pa /var/db/lume/atualizacao-pendente
++atualização instalada que ainda não foi confirmada
++.It Pa /var/log/lume-atualizar.log
++registro das atualizações
++.El
+ .Sh SEE ALSO
++.Xr bectl 8 ,
+ .Xr freebsd-version 1 ,
+ .Xr lume-configurar 8 ,
+ .Xr sysctl 8 ,
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index a9e361e23..2abf438d6 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -13,6 +13,7 @@
+  *   lume wifi       conecta a uma rede Wi-Fi
+  *   lume desktop    instala o desktop KDE Plasma
+  *   lume instalar   instala o LumeBSD no disco (a partir do pendrive)
++ *   lume atualizar  atualiza o sistema num novo ambiente de boot
+  */
+ 
+ #include <sys/param.h>
+@@ -22,6 +23,8 @@
+ #include <sys/time.h>
+ #include <sys/un.h>
+ 
++#include <kenv.h>
++
+ #include <err.h>
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -35,11 +38,15 @@
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
++/* Versão completa do sistema (1.1.0, 1.1.1...), gravada no build. */
++#define	LUME_VERSAO_ARQ	"/usr/share/lume/versao"
++/* Atualização instalada que ainda não passou pela checagem de saúde. */
++#define	LUME_PENDENTE	"/var/db/lume/atualizacao-pendente"
+ 
+ /* Subcomandos que são scripts em /usr/sbin/lume-<nome>. */
+ static const char *scripts[] = {
+ 	"configurar", "hardware", "video", "wifi", "desktop", "instalar",
+-	"tema",
++	"tema", "atualizar",
+ };
+ #define	VIGIA_SOCKET	"/var/run/vigia.sock"
+ 
+@@ -207,6 +214,44 @@ servicos(void)
+ 	row("serviços", txt);
+ }
+ 
++/* Versão do build (1.1.1) ou, sem o arquivo, a da distribuição (1.1). */
++static const char *
++versao(void)
++{
++	static char v[32];
++	FILE *f;
++
++	if ((f = fopen(LUME_VERSAO_ARQ, "r")) != NULL) {
++		if (fgets(v, sizeof(v), f) != NULL) {
++			v[strcspn(v, "\n")] = '\0';
++			fclose(f);
++			if (v[0] != '\0')
++				return (v);
++		} else
++			fclose(f);
++	}
++	return (LUME_VERSION);
++}
++
++/* Linha "sistema": versão e ambiente de boot em uso. */
++static void
++sistema(void)
++{
++	char raiz[128], txt[192];
++	const char *be;
++
++	if (kenv(KENV_GET, "vfs.root.mountfrom", raiz, sizeof(raiz)) > 0 &&
++	    strncmp(raiz, "zfs:", 4) == 0 && (be = strrchr(raiz, '/')) != NULL)
++		snprintf(txt, sizeof(txt), "%s (ambiente de boot %s)", versao(),
++		    be + 1);
++	else
++		snprintf(txt, sizeof(txt), "%s", versao());
++	row("sistema", txt);
++	if (access(LUME_PENDENTE, F_OK) == 0)
++		printf("  %s!%s atualização em teste: ainda não confirmada "
++		    "(%slume atualizar estado%s)\n", RED, RESET, AMBER, RESET);
++}
++
+ static void
+ painel(void)
+ {
+@@ -284,6 +329,7 @@ painel(void)
+ 		row("ligado há", buf);
+ 	}
+ 	servicos();
++	sistema();
+ 	if (access(LUME_MARCA, F_OK) != 0)
+ 		printf("\n  %s!%s sistema ainda não configurado: rode %slume "
+ 		    "configurar%s como root\n", RED, RESET, AMBER, RESET);
+@@ -297,7 +343,8 @@ usage(void)
+ 	    "uso: lume [farol | dica | versao]\n"
+ 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
+ 	    "     lume tema [papel | padrao]\n"
+-	    "     lume video [testar | auto | intel | scfb]\n");
++	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
++	    "     lume atualizar [verificar | aplicar | estado | voltar]\n");
+ 	exit(1);
+ }
+ 
+@@ -331,7 +378,7 @@ main(int argc, char *argv[])
+ 		    tips[arc4random_uniform(nitems(tips))]);
+ 	else if (strcmp(argv[1], "versao") == 0 ||
+ 	    strcmp(argv[1], "-v") == 0)
+-		printf("%s %s \"%s\"\n", LUME_NAME, LUME_VERSION,
++		printf("%s %s \"%s\"\n", LUME_NAME, versao(),
+ 		    LUME_CODENAME);
+ 	else
+ 		usage();
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index 9d01c0193..18cc6f68a 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -1,5 +1,5 @@
+ SCRIPTS=	lume-configurar.sh lume-hardware.sh lume-video.sh lume-wifi.sh \
+-	lume-desktop.sh lume-instalar.sh lume-tema.sh
++	lume-desktop.sh lume-instalar.sh lume-tema.sh lume-atualizar.sh
+ MAN=	lume-configurar.8
+ 
+ FILESGROUPS=	FILES TEMA
+diff --git a/usr.sbin/lume-configurar/lume-atualizar.sh b/usr.sbin/lume-configurar/lume-atualizar.sh
+new file mode 100644
+index 000000000..570be410d
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-atualizar.sh
+@@ -0,0 +1,390 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-atualizar - atualiza o sistema base do LumeBSD sem risco.
++#
++#   lume atualizar             procura, pergunta, instala e pede para reiniciar
++#   lume atualizar verificar   só diz se há versão nova
++#   lume atualizar aplicar [ÍNDICE|ARQUIVO]
++#                              instala (de um índice .txt ou de um .tar.zst)
++#   lume atualizar estado      versão, ambiente de boot, atualização em teste
++#   lume atualizar confirmar   torna permanente a atualização em teste
++#   lume atualizar voltar      volta para o sistema de antes da atualização
++#   lume atualizar limpar      apaga ambientes de atualizações antigas
++#
++# Como funciona: a versão nova é instalada num ambiente de boot novo (uma
++# cópia do sistema atual no ZFS), nunca no sistema em uso. Esse ambiente é
++# ativado só para o próximo boot (bectl activate -t). Se o boot terminar e
++# a checagem de saúde passar (rc.d/lume_saude), ele vira o padrão. Se o
++# computador travar, entrar em pânico ou a checagem falhar, o boot seguinte
++# volta sozinho para o sistema anterior, intacto.
++#
++# Configurações (/etc/rc.conf): lume_atualizar_url, o índice das versões.
++#
++
++INDICE_PADRAO="https://github.com/Kalel047/lumebsd/releases/latest/download/atualizacao.txt"
++DB=/var/db/lume
++PENDENTE=$DB/atualizacao-pendente
++ANTERIOR=$DB/ambiente-anterior
++VERSAO_ARQ=/usr/share/lume/versao
++CACHE=/var/tmp/lume-atualizar
++LOG=/var/log/lume-atualizar.log
++
++if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
++	VERDE='\033[32;1m'; AMARELO='\033[33;1m'; VERMELHO='\033[31;1m'
++	FRACO='\033[2m'; NEGRITO='\033[1m'; FIM='\033[0m'
++else
++	VERDE=; AMARELO=; VERMELHO=; FRACO=; NEGRITO=; FIM=
++fi
++msg()	{ printf "  %b\n" "$*"; }
++ok()	{ printf "  ${VERDE}✓${FIM} %b\n" "$*"; }
++aviso()	{ printf "  ${AMARELO}!${FIM} %b\n" "$*"; }
++erro()	{ printf "  ${VERMELHO}✗${FIM} %b\n" "$*" >&2; exit 1; }
++registrar() { echo "$(date '+%F %T') $*" >> "$LOG" 2>/dev/null; }
++
++raiz()	{ [ "$(id -u)" -eq 0 ] || erro "precisa ser root (su -)"; }
++
++# Gerados a partir de configurações (pwd_mkdb, cap_mkdb, services_mkdb):
++# nunca vêm do pacote, para não desencontrar das configurações mantidas.
++DERIVADOS="etc/pwd.db etc/spwd.db etc/passwd etc/login.conf.db var/db/services.db"
++
++# Condição do awk para "arquivo de configuração do usuário" numa linha do
++# METALOG: a tag config sozinha (não "bsdconfig"), fora dos scripts do sistema.
++E_CONFIG='(/ tags=([^ ]*,)?config(,| |$)/ && $1 !~ /^\.\/etc\/(rc\.d|defaults|periodic)\//)'
++
++# --- versões ---------------------------------------------------------------
++
++versao_atual()
++{
++	v=$(head -1 "$VERSAO_ARQ" 2>/dev/null)
++	# O 1.1 lançado antes deste arquivo existir é o 1.1.0.
++	echo "${v:-1.1.0}"
++}
++
++# maior A B: verdadeiro se a versão A (x.y.z) é maior que B
++maior()
++{
++	echo "$1 $2" | awk '{
++		split($1, a, "."); split($2, b, ".")
++		for (i = 1; i <= 3; i++) {
++			if (a[i] + 0 > b[i] + 0) exit 0
++			if (a[i] + 0 < b[i] + 0) exit 1
++		}
++		exit 1
++	}'
++}
++
++# mesma_serie A B: 1.1.x só atualiza para 1.1.y (mesmo FreeBSD por baixo)
++mesma_serie()
++{
++	[ "${1%.*}" = "${2%.*}" ]
++}
++
++# --- ambientes de boot -------------------------------------------------------
++
++raiz_zfs()
++{
++	m=$(kenv -q vfs.root.mountfrom)
++	case "$m" in zfs:*) ;; *) return 1 ;; esac
++	command -v bectl >/dev/null && bectl list >/dev/null 2>&1
++}
++
++# ambiente em uso agora (N) e o padrão do próximo boot (R)
++be_agora()	{ bectl list -H | awk '$2 ~ /N/ { print $1 }'; }
++be_padrao()	{ bectl list -H | awk '$2 ~ /R/ { print $1 }'; }
++
++be_livre()
++{
++	nome=$1; n=2
++	while bectl list -H | awk '{print $1}' | grep -qx "$nome"; do
++		nome="$1-$n"; n=$((n + 1))
++	done
++	echo "$nome"
++}
++
++# --- índice ------------------------------------------------------------------
++
++# campo ARQUIVO CHAVE: valor de "chave=valor" (sem executar nada do arquivo)
++campo()
++{
++	awk -F= -v k="$2" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$1"
++}
++
++url_indice()
++{
++	u=${LUME_ATUALIZAR_URL:-$(sysrc -n lume_atualizar_url 2>/dev/null)}
++	echo "${u:-$INDICE_PADRAO}"
++}
++
++# baixar_indice URL -> grava $CACHE/indice.txt e confere os campos
++baixar_indice()
++{
++	mkdir -p "$CACHE"
++	fetch -q -o "$CACHE/indice.txt" "$1" 2>/dev/null ||
++	    erro "não deu para ler o índice de atualizações:\n    $1\n    Tem internet? (cabo ou: lume wifi)"
++	I_VERSAO=$(campo "$CACHE/indice.txt" versao)
++	I_ARQUIVO=$(campo "$CACHE/indice.txt" arquivo)
++	I_SHA256=$(campo "$CACHE/indice.txt" sha256)
++	echo "$I_VERSAO" | grep -Eqx '[0-9]+\.[0-9]+\.[0-9]+' &&
++	    echo "$I_ARQUIVO" | grep -Eqx '[A-Za-z0-9._-]+\.tar\.zst' &&
++	    echo "$I_SHA256" | grep -Eqx '[0-9a-f]{64}' ||
++	    erro "índice de atualizações inválido ($1)"
++	I_URL="${1%/*}/$I_ARQUIVO"
++}
++
++# --- aplicar -----------------------------------------------------------------
++
++# instalar_em PACOTE MONTAGEM: põe o sistema novo dentro do ambiente montado
++instalar_em()
++{
++	pacote=$1; mnt=$2
++	novo_mtree=$CACHE/sistema-novo.mtree
++	: > "$CACHE/derivados.txt"
++	for rel in $DERIVADOS; do echo "./$rel"; done > "$CACHE/derivados-pontos.txt"
++	velho_mtree=$CACHE/sistema-velho.mtree
++	bsdtar -xOf "$pacote" ./usr/share/lume/sistema.mtree > "$novo_mtree" ||
++	    erro "o pacote não tem a lista do sistema"
++	cp "$mnt/usr/share/lume/sistema.mtree" "$velho_mtree" 2>/dev/null ||
++	    : > "$velho_mtree"
++
++	# Configurações (tag "config" do METALOG): a sua versão fica; a nova, se
++	# for diferente, vai ao lado como .lume-novo. Os scripts de rc.d,
++	# periodic e defaults também têm a tag, mas são do sistema: atualizam.
++	awk "$E_CONFIG"' && / type=file/ { sub(/^\.\//, "", $1); print $1 }' \
++	    "$novo_mtree" > "$CACHE/config.txt"
++	: > "$CACHE/manter.txt"
++	while read -r rel; do
++		[ -e "$mnt/$rel" ] && echo "$rel" >> "$CACHE/manter.txt"
++	done < "$CACHE/config.txt"
++	# Bancos gerados a partir das configurações (usuários e senhas, classes
++	# de login, serviços): ficam os do sistema, que batem com as suas.
++	for rel in $DERIVADOS; do
++		[ -e "$mnt/$rel" ] && echo "$rel" >> "$CACHE/derivados.txt"
++	done
++
++	# Arquivos protegidos (schg) do sistema antigo não deixariam o tar
++	# gravar por cima; o pacote traz as proteções de volta.
++	chflags -R noschg "$mnt" 2>/dev/null
++
++	sed 's|^|./|' "$CACHE/manter.txt" > "$CACHE/excluir.txt"
++	cat "$CACHE/excluir.txt" > "$CACHE/nao-extrair.txt"
++	sed 's|^|./|' "$CACHE/derivados.txt" >> "$CACHE/nao-extrair.txt"
++	bsdtar -xpf "$pacote" -C "$mnt" --fflags -X "$CACHE/nao-extrair.txt" \
++	    >> "$LOG" 2>&1 || return 1
++
++	# As versões novas das configurações mantidas, de uma vez só.
++	rm -rf "$CACHE/configs" && mkdir -p "$CACHE/configs"
++	if [ -s "$CACHE/excluir.txt" ]; then
++		bsdtar -xpf "$pacote" -C "$CACHE/configs" -T "$CACHE/excluir.txt" \
++		    >> "$LOG" 2>&1
++	fi
++	while read -r rel; do
++		[ -f "$CACHE/configs/$rel" ] || continue
++		cmp -s "$mnt/$rel" "$CACHE/configs/$rel" && continue
++		cp -p "$CACHE/configs/$rel" "$mnt/$rel.lume-novo"
++		echo "/$rel.lume-novo" >> "$CACHE/configs-novas.txt"
++	done < "$CACHE/manter.txt"
++	rm -rf "$CACHE/configs"
++
++	# O que saiu do sistema na versão nova (fora as configurações) é apagado.
++	awk '/ type=(file|link)/ && !('"$E_CONFIG"') { print $1 }' "$velho_mtree" |
++	    grep -vxF -f "$CACHE/derivados-pontos.txt" | sort > "$CACHE/velhos.txt"
++	awk '/ type=(file|link)/ { print $1 }' "$novo_mtree" | sort > "$CACHE/novos.txt"
++	comm -23 "$CACHE/velhos.txt" "$CACHE/novos.txt" | while read -r rel; do
++		rm -f "$mnt/${rel#./}"
++	done
++
++	# O ambiente de boot escolhido no loader tem que valer: nada de raiz fixa.
++	[ -f "$mnt/boot/loader.conf" ] &&
++	    sed -i '' '/^vfs\.root\.mountfrom=/d' "$mnt/boot/loader.conf"
++	kldxref "$mnt/boot/kernel" 2>/dev/null
++	return 0
++}
++
++cmd_aplicar()
++{
++	raiz
++	[ -f /etc/lume-ao-vivo ] && erro "no pendrive não há o que atualizar: use lume instalar"
++	raiz_zfs || erro "a atualização precisa do sistema instalado com ZFS (lume instalar)"
++	[ -f "$PENDENTE" ] && erro "já há uma atualização em teste: reinicie, ou rode lume atualizar confirmar"
++	mkdir -p "$CACHE" "$DB"
++	rm -f "$CACHE/configs-novas.txt"
++
++	alvo=${1:-$(url_indice)}
++	case "$alvo" in
++	*.tar.zst)
++		pacote=$alvo
++		[ -f "$pacote" ] || erro "não achei $pacote"
++		;;
++	*)
++		baixar_indice "$alvo"
++		pacote=$CACHE/$I_ARQUIVO
++		if [ ! -f "$pacote" ] || [ "$(sha256 -q "$pacote")" != "$I_SHA256" ]; then
++			msg "Baixando ${NEGRITO}$I_ARQUIVO${FIM}..."
++			fetch -o "$pacote" "$I_URL" || erro "o download falhou"
++		fi
++		[ "$(sha256 -q "$pacote")" = "$I_SHA256" ] ||
++		    { rm -f "$pacote"; erro "o arquivo baixado não confere com o índice (SHA256)"; }
++		ok "pacote conferido (SHA256)"
++		;;
++	esac
++
++	nova=$(bsdtar -xOf "$pacote" ./usr/share/lume/versao 2>/dev/null | head -1)
++	echo "$nova" | grep -Eqx '[0-9]+\.[0-9]+\.[0-9]+' ||
++	    erro "isto não é um pacote de atualização do LumeBSD"
++	atual=$(versao_atual)
++	mesma_serie "$nova" "$atual" ||
++	    erro "$atual -> $nova muda a versão do FreeBSD por baixo; isso pede uma instalação nova"
++	maior "$nova" "$atual" || [ -n "${LUME_ATUALIZAR_REINSTALAR:-}" ] ||
++	    erro "a versão $nova não é mais nova que a $atual"
++
++	agora=$(be_agora)
++	# Ambientes de boot precisam de canmount=noauto: com "on", o
++	# "zfs mount -a" do boot monta o ambiente antigo por cima do novo. (O
++	# instalador do LumeBSD 1.1.0 criava o default assim; isto conserta.)
++	pool=$(kenv -q vfs.root.mountfrom | sed 's|^zfs:||; s|/.*||')
++	for ds in $(zfs list -H -o name -d 1 "$pool/ROOT" | tail -n +2); do
++		[ "$(zfs get -H -o value canmount "$ds")" = noauto ] ||
++		    zfs set canmount=noauto "$ds"
++	done
++	be=$(be_livre "lume-$nova")
++	msg "Instalando o LumeBSD $nova no ambiente de boot ${NEGRITO}$be${FIM}"
++	msg "${FRACO}(o sistema em uso, $agora, não é tocado)${FIM}"
++	registrar "aplicar $atual -> $nova em $be (a partir de $agora)"
++	bectl create -e "$agora" "$be" || erro "não deu para criar o ambiente $be"
++	mnt=$(mktemp -d /tmp/lume-atualizar.XXXXXX)
++	if ! bectl mount "$be" "$mnt" >/dev/null; then
++		bectl destroy -F "$be"
++		erro "não deu para montar o ambiente $be"
++	fi
++	if ! instalar_em "$pacote" "$mnt"; then
++		bectl umount -f "$be"; bectl destroy -F "$be"
++		erro "a instalação falhou; nada mudou (detalhes em $LOG)"
++	fi
++	mkdir -p "$mnt$DB"
++	cat > "$mnt$PENDENTE" <<-EOF
++	versao=$nova
++	ambiente=$be
++	anterior=$agora
++	data=$(date '+%F %T')
++	EOF
++	echo "$agora" > "$mnt$ANTERIOR"
++	bectl umount "$be"
++	rmdir "$mnt" 2>/dev/null
++
++	# Só para o próximo boot: se ele falhar, o seguinte volta para o atual.
++	bectl activate -t "$be" >/dev/null || erro "não deu para ativar $be"
++	registrar "pronto: $be ativado para o próximo boot"
++	ok "LumeBSD $nova instalado em $be"
++	if [ -f "$CACHE/configs-novas.txt" ]; then
++		aviso "configurações suas foram mantidas; as versões novas ficaram ao lado:"
++		sed 's/^/      /' "$CACHE/configs-novas.txt"
++	fi
++	echo
++	msg "Reinicie para entrar nele (${NEGRITO}shutdown -r now${FIM})."
++	msg "Se o boot falhar, o computador volta sozinho para o $agora."
++	msg "Se der tudo certo, a atualização é confirmada no fim do boot."
++}
++
++# --- outros comandos ---------------------------------------------------------
++
++cmd_verificar()
++{
++	baixar_indice "$(url_indice)"
++	atual=$(versao_atual)
++	if maior "$I_VERSAO" "$atual"; then
++		if mesma_serie "$I_VERSAO" "$atual"; then
++			ok "versão nova: ${NEGRITO}$I_VERSAO${FIM} (você tem a $atual)"
++			return 0
++		fi
++		aviso "saiu o LumeBSD $I_VERSAO; da $atual para ela é preciso instalar de novo"
++		return 1
++	fi
++	ok "o sistema está em dia ($atual)"
++	return 1
++}
++
++cmd_estado()
++{
++	msg "versão: ${NEGRITO}$(versao_atual)${FIM}"
++	if raiz_zfs; then
++		msg "ambiente em uso: $(be_agora)   padrão no boot: $(be_padrao)"
++	fi
++	if [ -f "$PENDENTE" ]; then
++		aviso "atualização em teste: $(campo "$PENDENTE" versao), ainda não confirmada"
++		msg "  confirme com ${NEGRITO}lume atualizar confirmar${FIM}, ou reinicie para voltar a $(campo "$PENDENTE" anterior)"
++	fi
++	if raiz_zfs; then
++		echo
++		bectl list | sed 's/^/    /'
++	fi
++	[ -f "$LOG" ] && { echo; msg "${FRACO}últimos registros ($LOG):${FIM}"; tail -5 "$LOG" | sed 's/^/    /'; }
++}
++
++cmd_confirmar()
++{
++	raiz
++	[ -f "$PENDENTE" ] || { ok "nada em teste"; return 0; }
++	be=$(campo "$PENDENTE" ambiente)
++	[ "$(be_agora)" = "$be" ] ||
++	    erro "a atualização em teste é a $be, mas o sistema em uso é $(be_agora)"
++	bectl activate "$be" >/dev/null || erro "não deu para tornar $be o padrão"
++	rm -f "$PENDENTE"
++	registrar "confirmado: $be agora é o padrão"
++	ok "LumeBSD $(versao_atual) confirmado ($be é o padrão)"
++}
++
++cmd_voltar()
++{
++	raiz
++	raiz_zfs || erro "sem ambientes de boot (precisa do sistema instalado com ZFS)"
++	if [ -f "$PENDENTE" ]; then
++		ant=$(campo "$PENDENTE" anterior)
++	else
++		ant=$(cat "$ANTERIOR" 2>/dev/null)
++	fi
++	[ -n "$ant" ] && bectl list -H | awk '{print $1}' | grep -qx "$ant" ||
++	    erro "não sei para onde voltar (veja: bectl list)"
++	bectl activate "$ant" >/dev/null || erro "não deu para ativar $ant"
++	registrar "voltar: $ant é o padrão de novo"
++	ok "$ant é o padrão de novo. Reinicie para voltar (${NEGRITO}shutdown -r now${FIM})."
++}
++
++cmd_limpar()
++{
++	raiz
++	raiz_zfs || erro "sem ambientes de boot"
++	agora=$(be_agora); padrao=$(be_padrao); ant=$(cat "$ANTERIOR" 2>/dev/null)
++	n=0
++	for be in $(bectl list -H | awk '$1 ~ /^lume-/ { print $1 }'); do
++		case "$be" in "$agora"|"$padrao"|"$ant") continue ;; esac
++		bectl destroy -o "$be" && n=$((n + 1)) && msg "apagado: $be"
++	done
++	ok "$n ambiente(s) antigo(s) apagado(s); o atual e o anterior ficaram"
++}
++
++cmd_padrao()
++{
++	raiz
++	cmd_verificar || return 0
++	printf "\n  Instalar agora? O sistema atual fica guardado. [S/n]: "
++	read -r r
++	case "$r" in [nN]*) return 0 ;; esac
++	cmd_aplicar "$(url_indice)"
++	printf "\n  Reiniciar agora? [s/N]: "
++	read -r r
++	case "$r" in [sS]*) shutdown -r now ;; esac
++}
++
++case "${1:-}" in
++"")		cmd_padrao ;;
++verificar)	cmd_verificar ;;
++aplicar)	shift; cmd_aplicar "$@" ;;
++estado)		cmd_estado ;;
++confirmar)	cmd_confirmar ;;
++voltar)		cmd_voltar ;;
++limpar)		cmd_limpar ;;
++*)		echo "uso: lume atualizar [verificar | aplicar [ÍNDICE|ARQUIVO] | estado | confirmar | voltar | limpar]" >&2
++		exit 2 ;;
++esac
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 5344375f7..4993be2a4 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -190,7 +190,10 @@ mkdir -p "$ALVO"
+ roda zpool create -f -o altroot="$ALVO" -O compress=zstd -O atime=off \
+     -O mountpoint=none "$POOL" /dev/gpt/zfs0.eli || morrer "zpool create falhou"
+ roda zfs create -o mountpoint=none "$POOL/ROOT" &&
+-roda zfs create -o mountpoint=/ "$POOL/ROOT/default" &&
++# canmount=noauto: cada ambiente de boot só é montado quando é o escolhido
++# no boot (com "on", o zfs mount -a montaria um por cima do outro).
++roda zfs create -o mountpoint=/ -o canmount=noauto "$POOL/ROOT/default" &&
++roda zfs mount "$POOL/ROOT/default" &&
+ roda zfs create -o mountpoint=/home "$POOL/home" &&
+ roda zfs create -o mountpoint=/tmp -o exec=on -o setuid=off "$POOL/tmp" &&
+ roda zfs create -o mountpoint=/usr -o canmount=off "$POOL/usr" &&
+@@ -238,7 +241,6 @@ cat > "$ALVO/boot/loader.conf" <<EOF
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+-vfs.root.mountfrom="zfs:$POOL/ROOT/default"
+ kern.geom.label.disk_ident.enable="0"
+ kern.geom.label.gptid.enable="0"
+ autoboot_delay="3"

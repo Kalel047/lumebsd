@@ -1,0 +1,105 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: confirma uma atualização em teste depois de um boot saudável.
+#
+# "lume atualizar" instala a versão nova num ambiente de boot que vale só
+# para um boot. Se este boot chegou até aqui e o sistema está de pé, o
+# ambiente vira o padrão. Se não, nada muda, e o próximo boot volta para o
+# sistema anterior.
+#
+
+# PROVIDE: lume_saude
+# REQUIRE: LOGIN vigia
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_saude"
+desc="Confirma a atualização do LumeBSD depois de um boot saudável"
+rcvar="lume_saude_enable"
+start_cmd="lume_saude_start"
+extra_commands="checar"
+checar_cmd="lume_saude_checar"
+stop_cmd=":"
+
+PENDENTE=/var/db/lume/atualizacao-pendente
+LOG=/var/log/lume-atualizar.log
+
+campo()
+{
+	awk -F= -v k="$2" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$1"
+}
+
+# checar: imprime o primeiro problema encontrado; nada se está tudo bem
+checar()
+{
+	be=$1
+	case "$(kenv -q vfs.root.mountfrom)" in
+	*/"$be") ;;
+	*)	echo "a raiz não veio do ambiente $be"; return ;;
+	esac
+	# Sistema de arquivos e programas básicos.
+	touch /var/db/lume/.saude 2>/dev/null && rm -f /var/db/lume/.saude ||
+	    { echo "não dá para gravar em /var/db"; return; }
+	for p in /bin/sh /sbin/init /usr/bin/login /usr/sbin/sshd /usr/bin/lume; do
+		[ -x "$p" ] || { echo "falta $p"; return; }
+	done
+	# Serviços que estão ligados precisam estar rodando. O SDDM sobe em
+	# segundo plano; dá um tempo para ele.
+	# O vigia pelo socket dele (um pidfile velho, copiado do sistema
+	# anterior, enganaria o "service status").
+	if checkyesno vigia_enable && ! /usr/sbin/vigia >/dev/null 2>&1; then
+		echo "o vigia não está respondendo"; return
+	fi
+	if [ -x /usr/local/etc/rc.d/sddm ] && checkyesno sddm_enable; then
+		i=0
+		until pgrep -q -x sddm; do
+			i=$((i + 1))
+			[ $i -ge 60 ] && { echo "a tela de login (sddm) não subiu"; return; }
+			sleep 2
+		done
+	fi
+}
+
+confirmar_ou_avisar()
+{
+	versao=$(campo "$PENDENTE" versao)
+	be=$(campo "$PENDENTE" ambiente)
+	anterior=$(campo "$PENDENTE" anterior)
+	problema=$(checar "$be")
+	if [ -z "$problema" ]; then
+		if /usr/sbin/lume-atualizar confirmar >/dev/null 2>&1; then
+			echo "LumeBSD $versao: boot saudável, atualização confirmada."
+			echo "$(date '+%F %T') lume_saude: boot saudável" >> "$LOG"
+			logger -t lume "atualização $versao confirmada ($be)"
+			return 0
+		fi
+		problema="não deu para tornar $be o padrão"
+	fi
+	echo "LumeBSD $versao: a atualização NÃO foi confirmada: $problema."
+	echo "  Reinicie para voltar ao $anterior (nada foi perdido)."
+	logger -t lume "atualização $versao não confirmada ($be): $problema"
+	echo "$(date '+%F %T') não confirmado: $be ($problema)" >> "$LOG"
+}
+
+lume_saude_start()
+{
+	[ -f "$PENDENTE" ] || return 0
+	# Em segundo plano: serviços que sobem depois deste (a tela de login)
+	# também entram na checagem, e o boot não espera por ela.
+	echo "LumeBSD: atualização em teste; conferindo o sistema em segundo plano."
+	# daemon(8) solta a checagem do rc, que acaba antes dela.
+	daemon -f /bin/sh /etc/rc.d/lume_saude checar
+}
+
+lume_saude_checar()
+{
+	[ -f "$PENDENTE" ] || return 0
+	confirmar_ou_avisar > /dev/console 2>&1
+}
+
+load_rc_config $name
+: ${lume_saude_enable:="YES"}
+run_rc_command "$1"

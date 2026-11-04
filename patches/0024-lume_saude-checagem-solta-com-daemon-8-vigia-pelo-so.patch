@@ -1,0 +1,82 @@
+From 3f083a3bcc87963f52a6f3a9f541bcf1f5f643a2 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 01:22:03 -0300
+Subject: [PATCH] lume_saude: checagem solta com daemon(8), vigia pelo socket,
+ registro no log
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A checagem em segundo plano morria junto com o rc; agora roda via
+daemon(8) como "lume_saude checar". O vigia é conferido pelo cliente
+(um pidfile velho copiado do sistema anterior enganava o service
+status). O resultado vai também para /var/log/lume-atualizar.log.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ libexec/rc/rc.d/lume_saude | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/libexec/rc/rc.d/lume_saude b/libexec/rc/rc.d/lume_saude
+index c7f0c8086..7eaf77101 100644
+--- a/libexec/rc/rc.d/lume_saude
++++ b/libexec/rc/rc.d/lume_saude
+@@ -20,9 +20,12 @@ name="lume_saude"
+ desc="Confirma a atualização do LumeBSD depois de um boot saudável"
+ rcvar="lume_saude_enable"
+ start_cmd="lume_saude_start"
++extra_commands="checar"
++checar_cmd="lume_saude_checar"
+ stop_cmd=":"
+ 
+ PENDENTE=/var/db/lume/atualizacao-pendente
++LOG=/var/log/lume-atualizar.log
+ 
+ campo()
+ {
+@@ -45,8 +48,10 @@ checar()
+ 	done
+ 	# Serviços que estão ligados precisam estar rodando. O SDDM sobe em
+ 	# segundo plano; dá um tempo para ele.
+-	if checkyesno vigia_enable && ! service vigia status >/dev/null 2>&1; then
+-		echo "o vigia não está rodando"; return
++	# O vigia pelo socket dele (um pidfile velho, copiado do sistema
++	# anterior, enganaria o "service status").
++	if checkyesno vigia_enable && ! /usr/sbin/vigia >/dev/null 2>&1; then
++		echo "o vigia não está respondendo"; return
+ 	fi
+ 	if [ -x /usr/local/etc/rc.d/sddm ] && checkyesno sddm_enable; then
+ 		i=0
+@@ -67,6 +72,7 @@ confirmar_ou_avisar()
+ 	if [ -z "$problema" ]; then
+ 		if /usr/sbin/lume-atualizar confirmar >/dev/null 2>&1; then
+ 			echo "LumeBSD $versao: boot saudável, atualização confirmada."
++			echo "$(date '+%F %T') lume_saude: boot saudável" >> "$LOG"
+ 			logger -t lume "atualização $versao confirmada ($be)"
+ 			return 0
+ 		fi
+@@ -75,6 +81,7 @@ confirmar_ou_avisar()
+ 	echo "LumeBSD $versao: a atualização NÃO foi confirmada: $problema."
+ 	echo "  Reinicie para voltar ao $anterior (nada foi perdido)."
+ 	logger -t lume "atualização $versao não confirmada ($be): $problema"
++	echo "$(date '+%F %T') não confirmado: $be ($problema)" >> "$LOG"
+ }
+ 
+ lume_saude_start()
+@@ -83,7 +90,14 @@ lume_saude_start()
+ 	# Em segundo plano: serviços que sobem depois deste (a tela de login)
+ 	# também entram na checagem, e o boot não espera por ela.
+ 	echo "LumeBSD: atualização em teste; conferindo o sistema em segundo plano."
+-	confirmar_ou_avisar > /dev/console 2>&1 &
++	# daemon(8) solta a checagem do rc, que acaba antes dela.
++	daemon -f /bin/sh /etc/rc.d/lume_saude checar
++}
++
++lume_saude_checar()
++{
++	[ -f "$PENDENTE" ] || return 0
++	confirmar_ou_avisar > /dev/console 2>&1
+ }
+ 
+ load_rc_config $name

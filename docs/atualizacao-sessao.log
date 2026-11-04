@@ -1,0 +1,132 @@
+### 1. Atualização 1.1.0 -> 1.1.1 (sistema instalado pela 1.1.0)
+root@thinkpad:~ # zfs get -H -o name,value canmount zroot/ROOT/default zroot/ROO T/lume-1.1.1
+zroot/ROOT/default      on
+zroot/ROOT/lume-1.1.1   noauto
+root@thinkpad:~ # bectl destroy -F lume-1.1.1; fetch -q -o /tmp/lume-atualizar h ttp://10.0.2.2:8000/ajuste/lume-atualizar
+root@thinkpad:~ # time sh /tmp/lume-atualizar aplicar http://10.0.2.2:8000/atual izacao/atualizacao.txt 2>&1 | grep -v "%"
+  ✓ pacote conferido (SHA256)
+  Instalando o LumeBSD 1.1.1 no ambiente de boot lume-1.1.1
+  (o sistema em uso, default, não é tocado)
+  ✓ LumeBSD 1.1.1 instalado em lume-1.1.1
+  ! configurações suas foram mantidas; as versões novas ficaram ao lado:
+      /etc/group.lume-novo
+      /etc/master.passwd.lume-novo
+      /etc/shells.lume-novo
+      /etc/sysctl.conf.lume-novo
+      /etc/login.conf.lume-novo
+  Reinicie para entrar nele (shutdown -r now).
+  Se o boot falhar, o computador volta sozinho para o default.
+  Se der tudo certo, a atualização é confirmada no fim do boot.
+      465,42 real        80,18 user        97,87 sys
+root@thinkpad:~ # zfs get -H -o name,value canmount -r zroot/ROOT; bectl list
+zroot/ROOT      on
+zroot/ROOT/default      noauto
+zroot/ROOT/default@2026-11-04-00:47:47-0        -
+zroot/ROOT/lume-1.1.1   noauto
+BE         Active Mountpoint Space Created
+default    NR     /          5.91G 2026-11-03 05:03
+lume-1.1.1 T      -          462M  2026-11-04 00:47
+root@thinkpad:~ # shutdown -p now
+
+### 2. Boot da 1.1.1 em teste (antes da checagem rodar em segundo plano)
+zfs bootonce: zfs:zroot/ROOT/lume-1.1.1:
+Trying to mount root from zfs:zroot/ROOT/lume-1.1.1 []...
+root@thinkpad:~ # lume versao
+LumeBSD 1.1.1 "Farol"
+root@thinkpad:~ # lume | tail -8
+  memória    [##..................] 357.2 MiB / 3.9 GiB
+  disco /    [####................] 5.9 GiB / 29.8 GiB (zfs)
+  carga      0.56  0.33  0.14
+  ligado há  0 h 2 min 27 s
+  serviços   1 de 1 ativos (vigia)
+  sistema    1.1.1 (ambiente de boot lume-1.1.1)
+  ! atualização em teste: ainda não confirmada (lume atualizar estado)
+root@thinkpad:~ # bectl list
+BE         Active Mountpoint Space Created
+default    R      -          5.91G 2026-11-03 05:03
+lume-1.1.1 N      /          462M  2026-11-04 00:47
+root@thinkpad:~ # lume atualizar estado
+  versão: 1.1.1
+  ambiente em uso: lume-1.1.1   padrão no boot: default
+  ! atualização em teste: 1.1.1, ainda não confirmada
+    confirme com lume atualizar confirmar, ou reinicie para voltar a default
+    BE         Active Mountpoint Space Created
+    default    R      -          5.91G 2026-11-03 05:03
+    lume-1.1.1 N      /          462M  2026-11-04 00:47
+  últimos registros (/var/log/lume-atualizar.log):
+    2026-11-04 00:01:18 aplicar 1.1.0 -> 1.1.1 em lume-1.1.1 (a partir de default)
+    2026-11-04 00:08:13 aplicar 1.1.0 -> 1.1.1 em lume-1.1.1 (a partir de default)
+    2026-11-04 00:15:20 pronto: lume-1.1.1 ativado para o próximo boot
+    2026-11-04 00:47:47 aplicar 1.1.0 -> 1.1.1 em lume-1.1.1 (a partir de default)
+    2026-11-04 00:54:51 pronto: lume-1.1.1 ativado para o próximo boot
+root@thinkpad:~ # id fabiano
+uid=1001(fabiano) gid=1001(fabiano) groups=1001(fabiano),0(wheel),5(operator),44(video),145(webcamd)
+root@thinkpad:~ # shutdown -p now
+
+### 3. Boot seguinte: checagem passou, 1.1.1 confirmada
+root@thinkpad:~ # sleep 60; bectl list
+BE         Active Mountpoint Space Created
+default    -      -          461M  2026-11-03 05:03
+lume-1.1.1 NR     /          6.36G 2026-11-04 00:47
+root@thinkpad:~ # lume atualizar estado | head -4
+  versão: 1.1.1
+  ambiente em uso: lume-1.1.1   padrão no boot: lume-1.1.1
+    BE         Active Mountpoint Space Created
+root@thinkpad:~ # lume | tail -3
+  serviços   1 de 1 ativos (vigia)
+  sistema    1.1.1 (ambiente de boot lume-1.1.1)
+root@thinkpad:~ # shutdown -p now
+
+### 4. 1.1.2 com o vigiad quebrado: checagem reprovada
+zfs bootonce: zfs:zroot/ROOT/lume-1.1.2:
+Trying to mount root from zfs:zroot/ROOT/lume-1.1.2 []...
+vigiad de teste: falhando de propósito
+root@thinkpad:~ # sleep 30; tail -3 /var/log/lume-atualizar.log; grep "lume" /va r/log/messages | tail -2
+2026-11-04 01:07:48 aplicar 1.1.1 -> 1.1.2 em lume-1.1.2 (a partir de lume-1.1.1)
+2026-11-04 01:14:37 pronto: lume-1.1.2 ativado para o próximo boot
+2026-11-04 01:25:52 não confirmado: lume-1.1.2 (o vigia não está respondendo)
+Nov  4 01:25:37 thinkpad kernel: Trying to mount root from zfs:zroot/ROOT/lume-1.1.2 []...
+Nov  4 01:25:52 thinkpad lume[1502]: atualização 1.1.2 não confirmada (lume-1.1.2): o vigia não está respondendo
+root@thinkpad:~ # bectl list
+BE         Active Mountpoint Space Created
+default    -      -          461M  2026-11-03 05:03
+lume-1.1.1 R      -          6.36G 2026-11-04 00:47
+lume-1.1.2 N      /          462M  2026-11-04 01:07
+root@thinkpad:~ # shutdown -p now
+
+### 5. Reboot: de volta à 1.1.1
+root@thinkpad:~ # lume versao; bectl list; tail -3 /var/log/lume-atualizar.log
+LumeBSD 1.1.1 "Farol"
+BE         Active Mountpoint Space Created
+default    -      -          461M  2026-11-03 05:03
+lume-1.1.1 NR     /          6.36G 2026-11-04 00:47
+lume-1.1.2 -      -          462M  2026-11-04 01:07
+2026-11-04 01:03:47 confirmado: lume-1.1.1 agora é o padrão
+2026-11-04 01:07:48 aplicar 1.1.1 -> 1.1.2 em lume-1.1.2 (a partir de lume-1.1.1)
+2026-11-04 01:14:37 pronto: lume-1.1.2 ativado para o próximo boot
+root@thinkpad:~ # shutdown -p now
+
+### 6. 1.1.2 com o init quebrado: pânico e volta automática
+zfs bootonce: zfs:zroot/ROOT/lume-1.1.2:
+Trying to mount root from zfs:zroot/ROOT/lume-1.1.2 []...
+exec /sbin/init: error 8
+exec /rescue/init: error 8
+init: not found in path /sbin/init:/sbin/oinit:/sbin/init.bak:/rescue/init
+panic: no init
+#1 0xffffffff80b878f6 at vpanic+0x136
+#2 0xffffffff80b877b3 at panic+0x43
+Automatic reboot in 15 seconds - press a key on the console to abort
+Trying to mount root from zfs:zroot/ROOT/lume-1.1.1 []...
+root@thinkpad:~ # lume versao; bectl list
+LumeBSD 1.1.1 "Farol"
+BE         Active Mountpoint Space Created
+default    -      -          461M  2026-11-03 05:03
+lume-1.1.1 NR     /          6.36G 2026-11-04 00:47
+lume-1.1.2 -      -          461M  2026-11-04 01:29
+root@thinkpad:~ # lume atualizar estado | head -3; tail -3 /var/log/lume-atualiz ar.log
+  versão: 1.1.1
+  ambiente em uso: lume-1.1.1   padrão no boot: lume-1.1.1
+2026-11-04 01:25:52 não confirmado: lume-1.1.2 (o vigia não está respondendo)
+2026-11-04 01:29:42 aplicar 1.1.1 -> 1.1.2 em lume-1.1.2 (a partir de lume-1.1.1)
+2026-11-04 01:36:35 pronto: lume-1.1.2 ativado para o próximo boot
+root@thinkpad:~ # shutdown -p now

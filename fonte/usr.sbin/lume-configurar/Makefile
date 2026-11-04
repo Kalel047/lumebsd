@@ -1,5 +1,5 @@
 SCRIPTS=	lume-configurar.sh lume-hardware.sh lume-video.sh lume-wifi.sh \
-	lume-desktop.sh lume-instalar.sh lume-tema.sh
+	lume-desktop.sh lume-instalar.sh lume-tema.sh lume-atualizar.sh
 MAN=	lume-configurar.8
 
 FILESGROUPS=	FILES TEMA

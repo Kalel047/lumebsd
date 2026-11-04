@@ -54,6 +54,9 @@ args = ["qemu-system-x86_64", "-machine", "q35", "-m", "4096", "-smp", "2",
         "-vga", "std", "-display", "none",
         "-serial", "stdio", "-monitor", f"unix:{MON},server,nowait",
         "-no-reboot"]
+if os.environ.get("LUME_REINICIAR"):
+    # Deixa o QEMU reiniciar (pânico -> reboot), para testar a volta automática.
+    args.remove("-no-reboot")
 if os.environ.get("LUME_KVM"):
     args += ["-enable-kvm", "-cpu", "host"]
 if fase in ("aovivo", "fumaca"):
@@ -175,7 +178,7 @@ if fase == "aovivo":
         comando(c, P, 180)
     marca("instalando no NVMe")
     enviar(f"env LUME_DISCO=nda0 LUME_CONFIRMA=APAGAR LUME_SENHA_DISCO={SENHA_DISCO}"
-           f" LUME_DESKTOP=s LUME_CONSOLE_SERIAL=1 LUME_REPO_URL={REPO}"
+           f" LUME_DESKTOP={os.environ.get('LUME_TESTE_DESKTOP', 's')} LUME_CONSOLE_SERIAL=1 LUME_REPO_URL={REPO}"
            " lume instalar")
     esperar("LumeBSD instalado em", 7200)
     marca("instalação concluída")
@@ -240,15 +243,25 @@ elif fase == "instalado":
 
 elif fase == "ajustar":
     # Entra como root pelo serial e roda os comandos de AJUSTES (um por linha).
-    senha_do_disco("login: ")
+    # Responde a senha do disco quantas vezes ela for pedida (um pânico com
+    # LUME_REINICIAR=1 faz o computador reiniciar e pedir de novo).
+    boots = 0
+    while esperar_um(["GELI Passphrase", "login: "], 1800) != "login: ":
+        boots += 1
+        marca(f"boot {boots}: senha do disco")
+        time.sleep(1)
+        enviar(SENHA_DISCO)
+    marca(f"login depois de {boots} boot(s)")
+    # O prompt inteiro: saídas como a do getfacl também têm "# ".
+    P = os.environ.get("PROMPT", "root@thinkpad:~ # ")
     enviar("root")
-    r = esperar_um(["Password:", "# "], 60)
+    r = esperar_um(["Password:", P], 60)
     if r == "Password:":
         enviar(os.environ.get("SENHA_ROOT", "farol123"))
-        esperar("# ", 60)
+        esperar(P, 60)
     for c in os.environ["AJUSTES"].splitlines():
         if c.strip():
-            comando(c, "# ", 300)
+            comando(c, P, int(os.environ.get("AJUSTES_TEMPO", "300")))
     enviar("shutdown -p now")
     esperar("Uptime", 300)
 

@@ -190,7 +190,10 @@ mkdir -p "$ALVO"
 roda zpool create -f -o altroot="$ALVO" -O compress=zstd -O atime=off \
     -O mountpoint=none "$POOL" /dev/gpt/zfs0.eli || morrer "zpool create falhou"
 roda zfs create -o mountpoint=none "$POOL/ROOT" &&
-roda zfs create -o mountpoint=/ "$POOL/ROOT/default" &&
+# canmount=noauto: cada ambiente de boot só é montado quando é o escolhido
+# no boot (com "on", o zfs mount -a montaria um por cima do outro).
+roda zfs create -o mountpoint=/ -o canmount=noauto "$POOL/ROOT/default" &&
+roda zfs mount "$POOL/ROOT/default" &&
 roda zfs create -o mountpoint=/home "$POOL/home" &&
 roda zfs create -o mountpoint=/tmp -o exec=on -o setuid=off "$POOL/tmp" &&
 roda zfs create -o mountpoint=/usr -o canmount=off "$POOL/usr" &&
@@ -238,7 +241,6 @@ cat > "$ALVO/boot/loader.conf" <<EOF
 zfs_load="YES"
 aesni_load="YES"
 geom_eli_load="YES"
-vfs.root.mountfrom="zfs:$POOL/ROOT/default"
 kern.geom.label.disk_ident.enable="0"
 kern.geom.label.gptid.enable="0"
 autoboot_delay="3"

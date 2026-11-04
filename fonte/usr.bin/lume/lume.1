@@ -18,6 +18,9 @@
 .Nm
 .Cm tema
 .Op Cm papel | padrao
+.Nm
+.Cm atualizar
+.Op Cm verificar | aplicar Oo Ar índice | arquivo Oc | estado | confirmar | voltar | limpar
 .Sh DESCRIPTION
 Sem argumentos,
 .Nm
@@ -70,6 +73,41 @@ tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem animações,
 sombras nem transparência, e o farol em traço como papel de parede.
 .Cm padrao
 volta ao visual original do KDE.
+.It Cm atualizar
+Atualiza o sistema base sem risco.
+A versão nova é instalada num ambiente de boot novo
+.Pq Xr bectl 8 ,
+nunca no sistema em uso, e ativada só para o próximo boot.
+No fim desse boot,
+.Pa rc.d/lume_saude
+confere o sistema (raiz no ambiente certo, programas básicos, vigia e tela
+de login de pé) e torna a atualização permanente.
+Se o computador travar, entrar em pânico ou a checagem falhar, o boot
+seguinte volta sozinho para o sistema anterior.
+.Pp
+Sem argumentos, procura uma versão nova, pergunta e instala.
+.Cm verificar
+só procura;
+.Cm aplicar
+instala a partir do índice
+.Pq Va lume_atualizar_url
+ou de um pacote
+.Pa .tar.zst ;
+.Cm estado
+mostra versão, ambientes e o que está em teste;
+.Cm confirmar
+torna permanente a atualização em teste;
+.Cm voltar
+faz o sistema anterior ser o padrão de novo;
+.Cm limpar
+apaga ambientes de atualizações antigas, menos o atual e o anterior.
+.Pp
+Os arquivos de configuração que você tem são mantidos; quando a versão nova
+traz um diferente, ele fica ao lado, com o final
+.Pa .lume-novo .
+O pacote é conferido pelo SHA256 do índice, baixado por HTTPS.
+Só atualiza dentro da mesma série (1.1.x): mudar a versão do FreeBSD por
+baixo pede uma instalação nova.
 .It Cm instalar
 Instala o LumeBSD num disco inteiro, a partir do pendrive: ZFS com
 ambientes de boot, criptografia GELI pedindo senha no boot, swap
@@ -83,7 +121,17 @@ Enquanto o sistema não tiver sido configurado, o painel mostra um aviso.
 .It Ev NO_COLOR
 Se definida, desativa as cores.
 .El
+.Sh FILES
+.Bl -tag -width "/var/db/lume/atualizacao-pendente" -compact
+.It Pa /usr/share/lume/versao
+versão completa do sistema (por exemplo, 1.1.1)
+.It Pa /var/db/lume/atualizacao-pendente
+atualização instalada que ainda não foi confirmada
+.It Pa /var/log/lume-atualizar.log
+registro das atualizações
+.El
 .Sh SEE ALSO
+.Xr bectl 8 ,
 .Xr freebsd-version 1 ,
 .Xr lume-configurar 8 ,
 .Xr sysctl 8 ,
