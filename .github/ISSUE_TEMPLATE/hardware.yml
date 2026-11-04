@@ -1,0 +1,22 @@
+name: Relato de hardware
+description: Conte em que computador o LumeBSD rodou (funcionando ou não)
+labels: [hardware]
+body:
+  - type: input
+    id: modelo
+    attributes:
+      label: Computador
+      placeholder: "ex.: desktop i5-10400F + GTX 1650, ThinkPad P16v Gen 2"
+    validations:
+      required: true
+  - type: textarea
+    id: saida
+    attributes:
+      label: Saída de "lume hardware" e "lume video testar"
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: notas
+    attributes:
+      label: O que funcionou e o que não

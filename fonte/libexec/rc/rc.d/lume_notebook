@@ -1,0 +1,44 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: ajustes de notebook no boot.
+#  - fechar a tampa suspende, se o computador tiver S3;
+#  - teclas da ThinkPad (acpi_ibm) mandam brilho e volume ao devd;
+#  - CPU Intel com Speed Shift: equilíbrio entre desempenho e bateria.
+#
+
+# PROVIDE: lume_notebook
+# REQUIRE: FILESYSTEMS kld
+# BEFORE: LOGIN
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_notebook"
+desc="Ajustes de notebook (tampa, teclas, energia)"
+rcvar="lume_notebook_enable"
+start_cmd="lume_notebook_start"
+stop_cmd=":"
+
+lume_notebook_start()
+{
+	case "$(sysctl -n hw.acpi.supported_sleep_state 2>/dev/null)" in
+	*S3*)	sysctl -q hw.acpi.lid_switch_state=S3 >/dev/null ;;
+	esac
+	if [ "$(kenv -q smbios.system.maker)" = "LENOVO" ]; then
+		kldstat -q -m acpi_ibm || kldload -n acpi_ibm 2>/dev/null
+		# Eventos de brilho (0x10, 0x11) para o devd e para o desktop.
+		sysctl -q dev.acpi_ibm.0.handlerevents="0x10 0x11" >/dev/null 2>&1
+	fi
+	# Intel Speed Shift: 50 = equilíbrio (0 desempenho, 100 economia).
+	for cpu in $(sysctl -N dev.hwpstate_intel 2>/dev/null |
+	    grep '\.epp$'); do
+		sysctl -q "$cpu=${lume_notebook_epp:-50}" >/dev/null
+	done
+	return 0
+}
+
+load_rc_config $name
+: ${lume_notebook_enable:="YES"}
+run_rc_command "$1"

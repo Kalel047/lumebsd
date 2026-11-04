@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: assistente de primeiro boot. Roda até o sistema ser configurado.
+#
+
+# PROVIDE: lume_configurar
+# REQUIRE: DAEMON
+# BEFORE: LOGIN lume_farol
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_configurar"
+desc="Assistente de configuração do primeiro boot do LumeBSD"
+rcvar="lume_configurar_enable"
+start_cmd="lume_configurar_start"
+stop_cmd=":"
+
+lume_configurar_start()
+{
+	[ -e /var/db/lume/configurado ] && return 0
+	[ -x /usr/sbin/lume-configurar ] || return 0
+	/usr/sbin/lume-configurar --boot
+}
+
+load_rc_config $name
+: ${lume_configurar_enable:="YES"}
+run_rc_command "$1"

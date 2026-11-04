@@ -1,5 +1,9 @@
 # LumeBSD 1.1 "Farol"
 
+[![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
+[![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
+[![Licença BSD-2-Clause](https://img.shields.io/badge/licen%C3%A7a-BSD--2--Clause-blue)](LICENSE)
+
 > Luz firme sobre fundação BSD.
 
 LumeBSD é uma distribuição BSD independente construída a partir do código-fonte
@@ -43,9 +47,11 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 ### 1. Gravar
 
-Pegue a imagem `LumeBSD-1.1-Farol-pendrive.img` (gerada pelo
-`build-lumebsd.sh`; a versão compactada `.img.xz` se abre com o 7-Zip) e
-grave num pendrive de 8 GB ou mais:
+Baixe `LumeBSD-1.1-Farol-pendrive.img.xz` das
+[Releases](https://github.com/Kalel047/lumebsd/releases) (ou do último
+[Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml),
+em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
+(7-Zip no Windows) e grave num pendrive de 8 GB ou mais:
 
 - **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
   perguntar, **modo DD**.
@@ -235,23 +241,32 @@ Manuais: `man vigia` e `man vigia.conf`. Sessões reais em
 ## Estrutura
 
 ```
-patches/0001..0004     identidade, assistente, vigia (da 1.0)
-patches/0005           base FreeBSD 15.1, kernel LUME completo
-patches/0006           pendrive: lume hardware, video, wifi, desktop, instalar
-patches/0007..0009     pkg trimestral, espelho local, kernel com CTF
-patches/0010           vídeo Intel + NVIDIA por geração
-patches/0011           forja
-patches/0012           tema Papel
-patches/0013..0020     correções dos testes: compilador, instalador, primeiro boot,
-                       desktop, forja
-conf/src.conf          seleção da userland
-conf/LUME              configuração do kernel
-build-lumebsd.sh       do clone até a imagem do pendrive
-ferramentas/           pacotes.py (baixa e confere pacotes), montar-pendrive.py,
+patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
+  0001..0004           identidade, assistente, vigia (da 1.0)
+  0005                 base FreeBSD 15.1, kernel LUME completo
+  0006                 pendrive: lume hardware, video, wifi, desktop, instalar
+  0007..0009           pkg trimestral, espelho local, kernel com CTF
+  0010                 vídeo Intel + NVIDIA por geração
+  0011                 forja
+  0012                 tema Papel
+  0013..               correções que os testes pegaram
+fonte/                 os mesmos arquivos em texto puro, para ler e navegar
+                       (forja, lume, vigia, lume-configurar, rc.d, tema...)
+conf/                  src.conf (userland) e LUME (kernel)
+build-lumebsd.sh       do FreeBSD fixado até a imagem do pendrive
+ferramentas/           pacotes.py, montar-pendrive.py, fonte.py,
                        papel-de-parede.py
 tests/                 testes no QEMU pelo console serial
-docs/                  logs reais
+docs/ARQUITETURA.md    como tudo funciona por dentro
+docs/                  sessões reais e capturas de tela
+.github/               CI (Verificar e Build completo) e modelos de issue
 ```
+
+Para mudar o código: edite a árvore do FreeBSD com os patches aplicados,
+faça commit, gere os patches de novo
+(`git format-patch -N --no-signature <commit fixado>..HEAD -o patches/`) e rode
+`python3 ferramentas/fonte.py gerar src`. O CI recusa `fonte/` diferente dos
+patches.
 
 ## Construindo
 
@@ -346,10 +361,22 @@ ports que não reconheça o sistema:
 env UNAME_s=FreeBSD UNAME_r=15.1-RELEASE ./configure
 ```
 
+## Bugs e hardware
+
+Abra uma [issue](https://github.com/Kalel047/lumebsd/issues/new/choose):
+há modelos para bugs e para relatar em que computador o LumeBSD rodou
+(com a saída de `lume hardware`).
+
 ## Licença
 
-As mudanças do LumeBSD são distribuídas sob a licença BSD de 2 cláusulas
-(veja `LICENSE`). O FreeBSD é distribuído sob suas próprias licenças.
+Tudo o que está neste repositório é distribuído sob a licença BSD de 2
+cláusulas (veja `LICENSE`): os patches, a forja, o `lume`, o vigia, os
+scripts, o tema Papel, os papéis de parede e o emblema do farol.
+
+A imagem do pendrive junta isso ao FreeBSD (licenças BSD e outras, veja
+`/usr/share/doc/legal` no sistema) e a pacotes de terceiros com as próprias
+licenças, como o KDE, o Firefox e o driver da NVIDIA (proprietário,
+redistribuído como no repositório oficial do FreeBSD).
 "FreeBSD" é marca registrada da FreeBSD Foundation; o LumeBSD é um projeto
 independente, sem afiliação com o FreeBSD Project. NVIDIA, Intel e KDE são
 marcas de seus donos.

@@ -1,0 +1,39 @@
+name: Algo não funciona
+description: Um bug no LumeBSD (instalação, vídeo, forja, vigia, desktop...)
+labels: [bug]
+body:
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu
+      description: O que você fez, o que esperava e o que aconteceu.
+    validations:
+      required: true
+  - type: dropdown
+    id: onde
+    attributes:
+      label: Onde
+      options:
+        - Pendrive ao vivo
+        - Instalação (lume instalar)
+        - Primeiro boot / assistente
+        - Vídeo (NVIDIA, Intel, scfb)
+        - Desktop / tema Papel
+        - forja
+        - vigia
+        - Build (build-lumebsd.sh)
+        - Outro
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Saída de "lume hardware" e "lume video"
+      description: Rode os dois (no pendrive ou no sistema instalado) e cole aqui.
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "Se tiver: /tmp/lume-instalar.log, /var/log/forja/<pacote>.log, vigia log <serviço>, /var/log/Xorg.0.log"
+      render: text

@@ -1,0 +1,51 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 2, 2026
+.Dt LUME-CONFIGURAR 8
+.Os
+.Sh NAME
+.Nm lume-configurar
+.Nd assistente de configuração do LumeBSD
+.Sh SYNOPSIS
+.Nm
+.Op Fl -boot
+.Sh DESCRIPTION
+.Nm
+é um assistente interativo, em português, que deixa o sistema pronto para
+uso.
+Em seis passos ele define a senha do root, cria um usuário administrador
+(membro do grupo
+.Dq wheel ) ,
+ajusta o nome da máquina, o fuso horário, o teclado do console
+(ABNT2 por padrão) e o idioma do sistema
+.Pq Cm lang No da classe Dq default No em Xr login.conf 5 .
+Antes de aplicar, mostra um resumo e pede confirmação.
+.Pp
+Com
+.Fl -boot ,
+usado por
+.Pa /etc/rc.d/lume_configurar ,
+o assistente só roda se o sistema ainda não foi configurado e se houver
+um terminal; se ninguém responder em 120 segundos, o boot continua e o
+assistente volta a aparecer no próximo boot.
+.Pp
+Também pode ser executado a qualquer momento com
+.Dl lume configurar
+.Sh FILES
+.Bl -tag -width "/var/db/lume/configurado"
+.It Pa /var/db/lume/configurado
+Criado ao final da configuração; enquanto não existir, o assistente roda
+a cada boot.
+.El
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr login.conf 5 ,
+.Xr rc.conf 5 ,
+.Xr kbdcontrol 1 ,
+.Xr pw 8 ,
+.Xr tzsetup 8
+.Sh HISTORY
+.Nm
+surgiu no LumeBSD 1.0
+.Dq Farol .

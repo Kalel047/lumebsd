@@ -1,8 +1,8 @@
 From 77a8ef68c596998ff03515b69b4473750415ebc3 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 06:23:52 -0300
-Subject: [PATCH 20/20] =?UTF-8?q?Teclado=20escolhido=20vale=20tamb=C3=A9m?=
- =?UTF-8?q?=20na=20tela=20de=20login=20e=20no=20KDE?=
+Subject: [PATCH] =?UTF-8?q?Teclado=20escolhido=20vale=20tamb=C3=A9m=20na?=
+ =?UTF-8?q?=20tela=20de=20login=20e=20no=20KDE?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -54,6 +54,3 @@ index 5f1988faa..37a9754fb 100644
  	echo ok
  
  	printf '      idioma ................ '
--- 
-2.43.0
-

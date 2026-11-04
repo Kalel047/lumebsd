@@ -1,9 +1,8 @@
 From c47ec18fdea1047006579a6d9f24fcb0fae09b41 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 16:27:34 -0300
-Subject: [PATCH 05/20] =?UTF-8?q?LumeBSD=201.1=20sobre=20FreeBSD=2015.1;?=
- =?UTF-8?q?=20kernel=20LUME=20completo=20(DTrace,=20todos=20os=20m=C3=B3du?=
- =?UTF-8?q?los)?=
+Subject: [PATCH] =?UTF-8?q?LumeBSD=201.1=20sobre=20FreeBSD=2015.1;=20kerne?=
+ =?UTF-8?q?l=20LUME=20completo=20(DTrace,=20todos=20os=20m=C3=B3dulos)?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -117,6 +116,3 @@ index 7b826a196..49971db47 100644
  	echo "  ============================================================"
  	echo
  }
--- 
-2.43.0
-

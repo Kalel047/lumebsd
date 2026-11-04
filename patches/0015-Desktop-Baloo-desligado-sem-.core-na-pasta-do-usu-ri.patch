@@ -1,9 +1,8 @@
 From 852b3430174fa54c7b1b5a309fa80c70d2902aa3 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 01:10:35 -0300
-Subject: [PATCH 15/20] =?UTF-8?q?Desktop:=20Baloo=20desligado,=20sem=20.co?=
- =?UTF-8?q?re=20na=20pasta=20do=20usu=C3=A1rio,=20=C3=ADcone=20do=20navega?=
- =?UTF-8?q?dor?=
+Subject: [PATCH] =?UTF-8?q?Desktop:=20Baloo=20desligado,=20sem=20.core=20n?=
+ =?UTF-8?q?a=20pasta=20do=20usu=C3=A1rio,=20=C3=ADcone=20do=20navegador?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -102,6 +101,3 @@ index 000000000..6f06aaef9
 +    <path d="M5 24h38M8 14h32M8 34h32M24 5v38"/>
 +  </g>
 +</svg>
--- 
-2.43.0
-

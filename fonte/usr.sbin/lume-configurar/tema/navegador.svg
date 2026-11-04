@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- Navegador no tema Papel: um globo em traço de tinta. -->
+  <g fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round">
+    <circle cx="24" cy="24" r="19" fill="#f4f2ec"/>
+    <ellipse cx="24" cy="24" rx="8" ry="19"/>
+    <path d="M5 24h38M8 14h32M8 34h32M24 5v38"/>
+  </g>
+</svg>

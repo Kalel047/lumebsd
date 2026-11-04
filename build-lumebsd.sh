@@ -3,8 +3,9 @@
 # do código-fonte do FreeBSD 15.1.
 # Roda em Linux (cross-build com LLVM) ou FreeBSD. Uso: sh build-lumebsd.sh
 #
-# Precisa de: git, curl, python3, bsdtar; no Linux também clang/lld 19 (o mesmo LLVM do FreeBSD 15.1),
-# libarchive-dev, libbz2-dev, zlib1g-dev, bison, flex e time.
+# Precisa de: git, python3, bsdtar (libarchive-tools); no Linux também
+# clang/lld/llvm 19 (o mesmo LLVM do FreeBSD 15.1), libarchive-dev,
+# libbz2-dev, zlib1g-dev, bison, flex e time. Veja docs/ARQUITETURA.md.
 set -e
 
 TOP=$(cd "$(dirname "$0")" && pwd)
@@ -15,9 +16,17 @@ PACOTES=$TOP/pacotes
 IMG=$TOP/LumeBSD-1.1-Farol-pendrive.img
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
 
+# Commit do releng/15.1 em que os patches foram testados (FREEBSD_COMMIT=...
+# para outro; o CI semanal confere o topo do ramo).
+FREEBSD_COMMIT=${FREEBSD_COMMIT:-95719d8a895bf8170851e9844d9b4092b1d2b6fe}
+
 # 1. Código-fonte do FreeBSD 15.1 + mudanças do LumeBSD
-[ -d "$SRC" ] || git clone --depth 1 --branch releng/15.1 \
-    https://github.com/freebsd/freebsd-src.git "$SRC"
+if [ ! -d "$SRC" ]; then
+	git init -q "$SRC"
+	git -C "$SRC" fetch -q --depth 1 \
+	    https://github.com/freebsd/freebsd-src.git "$FREEBSD_COMMIT"
+	git -C "$SRC" checkout -q FETCH_HEAD
+fi
 if [ ! -d "$SRC/usr.sbin/vigia" ]; then
 	for p in "$TOP"/patches/*.patch; do
 		(cd "$SRC" && git apply "$p")

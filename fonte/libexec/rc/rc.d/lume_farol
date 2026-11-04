@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: acende o farol ao final do boot - imprime o emblema e um
+# resumo curto do sistema no console.
+#
+
+# PROVIDE: lume_farol
+# REQUIRE: LOGIN
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_farol"
+desc="Exibe o emblema do LumeBSD ao final do boot"
+rcvar="lume_farol_enable"
+start_cmd="lume_farol_start"
+stop_cmd=":"
+
+lume_farol_start()
+{
+	if [ -x /usr/bin/lume ]; then
+		echo
+		/usr/bin/lume farol
+		/usr/bin/lume
+		echo
+	fi
+}
+
+load_rc_config $name
+: ${lume_farol_enable:="YES"}
+run_rc_command "$1"

@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: escolhe o driver de vídeo no boot, com proteção contra travamento
+# (veja lume-video(8)).
+#
+
+# PROVIDE: lume_video
+# REQUIRE: FILESYSTEMS kld
+# BEFORE: LOGIN dbus sddm
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_video"
+desc="Escolhe o driver de vídeo (Intel ou sem aceleração)"
+rcvar="lume_video_enable"
+start_cmd="lume_video_start"
+stop_cmd=":"
+
+lume_video_start()
+{
+	[ -x /usr/sbin/lume-video ] && /usr/sbin/lume-video --boot
+}
+
+load_rc_config $name
+: ${lume_video_enable:="YES"}
+run_rc_command "$1"

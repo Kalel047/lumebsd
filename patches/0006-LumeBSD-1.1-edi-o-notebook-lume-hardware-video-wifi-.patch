@@ -1,9 +1,9 @@
 From 6f01f458611dd031bd1664091fb53bcc7521dd74 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 16:37:52 -0300
-Subject: [PATCH 06/20] =?UTF-8?q?LumeBSD=201.1:=20edi=C3=A7=C3=A3o=20noteb?=
- =?UTF-8?q?ook=20(lume=20hardware,=20video,=20wifi,=20desktop,=20instalar;?=
- =?UTF-8?q?=20rc.d=20lume=5Fvideo=20e=20lume=5Fnotebook)?=
+Subject: [PATCH] =?UTF-8?q?LumeBSD=201.1:=20edi=C3=A7=C3=A3o=20notebook=20?=
+ =?UTF-8?q?(lume=20hardware,=20video,=20wifi,=20desktop,=20instalar;=20rc.?=
+ =?UTF-8?q?d=20lume=5Fvideo=20e=20lume=5Fnotebook)?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -1177,6 +1177,3 @@ index 000000000..85053ca9a
 +	echo "  ✗ Não conectou. Confira a senha e tente de novo."
 +	exit 1
 +fi
--- 
-2.43.0
-

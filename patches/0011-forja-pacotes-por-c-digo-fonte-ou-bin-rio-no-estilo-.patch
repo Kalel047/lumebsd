@@ -1,8 +1,8 @@
 From b649d2bce99ce829d6c5f4e661e195172f71db3a Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 21:06:17 -0300
-Subject: [PATCH 11/20] =?UTF-8?q?forja:=20pacotes=20por=20c=C3=B3digo-font?=
- =?UTF-8?q?e=20ou=20bin=C3=A1rio,=20no=20estilo=20Portage?=
+Subject: [PATCH] =?UTF-8?q?forja:=20pacotes=20por=20c=C3=B3digo-fonte=20ou?=
+ =?UTF-8?q?=20bin=C3=A1rio,=20no=20estilo=20Portage?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -639,6 +639,3 @@ index 000000000..bce8cc77a
 +arvore|árvore|sync)	cmd_arvore ;;
 +*)			uso ;;
 +esac
--- 
-2.43.0
-

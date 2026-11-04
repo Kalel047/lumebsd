@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: inicia o vigiad, o gerenciador de serviços (vigia(8)).
+#
+
+# PROVIDE: vigia
+# REQUIRE: DAEMON lume_configurar
+# BEFORE: LOGIN lume_farol
+# KEYWORD: shutdown nojail
+
+. /etc/rc.subr
+
+name="vigia"
+desc="Gerenciador de serviços do LumeBSD"
+rcvar="vigia_enable"
+command="/usr/sbin/vigiad"
+pidfile="/var/run/vigiad.pid"
+extra_commands="reload"
+sig_reload="HUP"
+
+load_rc_config $name
+: ${vigia_enable:="YES"}
+run_rc_command "$1"

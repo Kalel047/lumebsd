@@ -1,8 +1,8 @@
 From dc393a11b5fe3c44d720a40de6c496ded9af52c9 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 21:21:39 -0300
-Subject: [PATCH 12/20] =?UTF-8?q?Tema=20Papel=20(est=C3=A9tica=20e-ink)=20?=
- =?UTF-8?q?para=20o=20KDE:=20lume=20tema?=
+Subject: [PATCH] =?UTF-8?q?Tema=20Papel=20(est=C3=A9tica=20e-ink)=20para?=
+ =?UTF-8?q?=20o=20KDE:=20lume=20tema?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -2506,6 +2506,3 @@ index 000000000..9bcec5219
 +
 +[General]
 +InputMethod=
--- 
-2.43.0
-

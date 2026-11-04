@@ -1,9 +1,9 @@
 From 1d9744b4f191adad6a45f6841f3976608896a944 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 21:02:13 -0300
-Subject: [PATCH 10/20] =?UTF-8?q?lume=20video/hardware/desktop:=20PCs=20In?=
- =?UTF-8?q?tel=20+=20NVIDIA=20em=20geral=20(driver=20NVIDIA=20por=20gera?=
- =?UTF-8?q?=C3=A7=C3=A3o,=20detec=C3=A7=C3=A3o=20autom=C3=A1tica)?=
+Subject: [PATCH] =?UTF-8?q?lume=20video/hardware/desktop:=20PCs=20Intel=20?=
+ =?UTF-8?q?+=20NVIDIA=20em=20geral=20(driver=20NVIDIA=20por=20gera=C3=A7?=
+ =?UTF-8?q?=C3=A3o,=20detec=C3=A7=C3=A3o=20autom=C3=A1tica)?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -601,6 +601,3 @@ index f74c75ee1..b630f9229 100644
  		echo "  modo de vídeo: $1 (vale a partir do próximo boot)" ;;
  *)		uso ;;
  esac
--- 
-2.43.0
-

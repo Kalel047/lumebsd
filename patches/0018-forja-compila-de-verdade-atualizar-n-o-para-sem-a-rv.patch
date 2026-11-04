@@ -1,8 +1,8 @@
 From 03ec6787c3b06336e5563a23c3f11a290a3cebb1 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 02:50:05 -0300
-Subject: [PATCH 18/20] =?UTF-8?q?forja:=20compila=20de=20verdade;=20atuali?=
- =?UTF-8?q?zar=20n=C3=A3o=20para=20sem=20a=20=C3=A1rvore=20nova?=
+Subject: [PATCH] =?UTF-8?q?forja:=20compila=20de=20verdade;=20atualizar=20?=
+ =?UTF-8?q?n=C3=A3o=20para=20sem=20a=20=C3=A1rvore=20nova?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -139,6 +139,3 @@ index a394dcd5c..e7595035c 100644
  	msg "Atualizando os pacotes binários..."
  	ASSUME_ALWAYS_YES=yes pkg upgrade -q || aviso "pkg upgrade teve problemas"
  	tem_arvore || { ok "pronto (sem árvore de ports, só binários)"; return; }
--- 
-2.43.0
-

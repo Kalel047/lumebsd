@@ -1,8 +1,8 @@
 From 07ef19965cc13c63154d088340a586ed60144233 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 16:57:56 -0300
-Subject: [PATCH 09/20] =?UTF-8?q?kernel=20LUME:=20mant=C3=A9m=20DEBUG=20pa?=
- =?UTF-8?q?ra=20o=20CTF=20do=20DTrace?=
+Subject: [PATCH] =?UTF-8?q?kernel=20LUME:=20mant=C3=A9m=20DEBUG=20para=20o?=
+ =?UTF-8?q?=20CTF=20do=20DTrace?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -35,6 +35,3 @@ index 688ff44a8..889e351b4 100644
  # Contabilidade de recursos ligada: o vigia(8) mede memória, CPU e
  # processos de cada serviço e aplica os limites com o RCTL.
  nooptions	RACCT_DEFAULT_TO_DISABLED
--- 
-2.43.0
-

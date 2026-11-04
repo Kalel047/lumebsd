@@ -1,0 +1,105 @@
+# Build completo: FreeBSD 15.1 + patches -> imagem do pendrive, testada no
+# QEMU. Roda quando você pede (Actions > Build completo > Run workflow) e
+# todo dia 1º do mês. Com "publicar", vira uma Release com a imagem.
+# Leva de 3 a 5 horas num runner do GitHub.
+name: Build completo
+
+on:
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: "Publicar como Release"
+        type: boolean
+        default: false
+      tag:
+        description: "Tag da Release"
+        type: string
+        default: "v1.1"
+  schedule:
+    - cron: "23 5 1 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: bash
+    env:
+      IMG: LumeBSD-1.1-Farol-pendrive.img
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Liberar espaço em disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+              /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      - name: Dependências
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q clang-19 lld-19 llvm-19 libarchive-dev \
+              libarchive-tools libbz2-dev zlib1g-dev bison flex time python3 \
+              qemu-system-x86 ovmf xz-utils
+
+      - name: Build (world, kernel LUME, pacotes, imagem)
+        run: |
+          JOBS=$(nproc) sh build-lumebsd.sh > build.log 2>&1 &
+          pid=$!
+          # Sinal de vida a cada 5 min (o log inteiro vai como artefato).
+          while kill -0 $pid 2>/dev/null; do
+            sleep 300
+            echo "$(date +%H:%M) $(grep -a '^>>>' build.log | tail -1)"
+          done
+          wait $pid
+          tail -5 build.log
+
+      - name: KVM para o QEMU
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+              sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Teste de fumaça (boota o pendrive no QEMU)
+        run: LUME_KVM=1 python3 -u tests/teste-pendrive.py fumaca fumaca.log
+
+      - name: Compactar e calcular os SHA256
+        run: |
+          xz -T0 -6 -k "$IMG"
+          sha256sum "$IMG.xz" "$IMG" | tee SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LumeBSD-1.1-Farol-pendrive
+          path: |
+            LumeBSD-1.1-Farol-pendrive.img.xz
+            SHA256SUMS
+          compression-level: 0
+          retention-days: 14
+
+      - name: Juntar os logs
+        if: always()
+        run: gzip -kf build.log 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: logs
+          path: |
+            build.log.gz
+            fumaca.log
+          retention-days: 14
+
+      - name: Publicar a Release
+        if: ${{ inputs.publicar }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.tag }}" "$IMG.xz" SHA256SUMS \
+              --target "$GITHUB_SHA" --title 'LumeBSD 1.1 "Farol"' \
+              --notes-file docs/release-1.1.md

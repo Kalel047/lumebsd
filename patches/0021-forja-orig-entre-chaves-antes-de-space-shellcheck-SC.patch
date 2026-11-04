@@ -1,0 +1,25 @@
+From 209a7f3590abc09d7ebda2bba3ac836258bca8c4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 3 Nov 2026 21:51:49 -0300
+Subject: [PATCH] forja: ${orig} entre chaves antes de [[:space:]] (shellcheck
+ SC1087)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/forja/forja.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index 70c815d5c..079b8eeac 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -385,7 +385,7 @@ cmd_opcoes()
+ 			novas="$novas $o"
+ 		done
+ 		novas=$(normalizar "$novas")
+-		grep -v "^$orig[[:space:]]" "$OPCOES" > "$OPCOES.tmp" || true
++		grep -v "^${orig}[[:space:]]" "$OPCOES" > "$OPCOES.tmp" || true
+ 		[ -n "$novas" ] && printf '%-24s %s\n' "$orig" "$novas" >> "$OPCOES.tmp"
+ 		mv "$OPCOES.tmp" "$OPCOES"
+ 		ok "$orig: $novas"

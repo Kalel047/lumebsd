@@ -1,8 +1,8 @@
 From 271d0f342ba1273e025d4030d7dbe3b178396c00 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 02:46:05 -0300
-Subject: [PATCH 17/20] =?UTF-8?q?forja=20e=20ports:=20vers=C3=A3o=20do=20F?=
- =?UTF-8?q?reeBSD=20por=20baixo;=20Konsole=20leg=C3=ADvel=20no=20papel?=
+Subject: [PATCH] =?UTF-8?q?forja=20e=20ports:=20vers=C3=A3o=20do=20FreeBSD?=
+ =?UTF-8?q?=20por=20baixo;=20Konsole=20leg=C3=ADvel=20no=20papel?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -117,6 +117,3 @@ index 555a75b9a..844a33027 100644
  
  [General]
  Description=Papel
--- 
-2.43.0
-

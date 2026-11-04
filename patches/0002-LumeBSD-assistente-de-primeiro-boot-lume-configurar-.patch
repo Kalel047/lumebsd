@@ -1,8 +1,8 @@
 From d6859bc58db5424e458c92d7cb3a8943050013dd Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 11:23:32 -0300
-Subject: [PATCH 02/20] LumeBSD: assistente de primeiro boot (lume-configurar),
- lume configurar
+Subject: [PATCH] LumeBSD: assistente de primeiro boot (lume-configurar), lume
+ configurar
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
@@ -505,6 +505,3 @@ index 000000000..7b826a196
 +echo "  Para refazer depois: lume configurar"
 +echo
 +exit 0
--- 
-2.43.0
-

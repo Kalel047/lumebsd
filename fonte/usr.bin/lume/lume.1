@@ -1,0 +1,95 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 1, 2026
+.Dt LUME 1
+.Os
+.Sh NAME
+.Nm lume
+.Nd painel do sistema e identidade do LumeBSD
+.Sh SYNOPSIS
+.Nm
+.Op Cm farol | dica | versao
+.Nm
+.Cm configurar | hardware | wifi | desktop | instalar
+.Nm
+.Cm video
+.Op Cm testar | auto | nvidia | intel | scfb
+.Nm
+.Cm tema
+.Op Cm papel | padrao
+.Sh DESCRIPTION
+Sem argumentos,
+.Nm
+mostra um painel com o nome da distribuição, kernel, CPU, uso de memória,
+uso do disco raiz, carga média e tempo ligado.
+.Bl -tag -width "versao"
+.It Cm farol
+Desenha o emblema da distribuição.
+.It Cm dica
+Mostra uma dica aleatória sobre o sistema.
+.It Cm versao
+Imprime a versão do LumeBSD.
+.It Cm configurar
+Abre o assistente de configuração,
+.Xr lume-configurar 8 .
+Precisa ser executado como root.
+.It Cm hardware
+Diz o que funciona neste computador: placas de vídeo e o driver de cada
+uma, rede cabeada e Wi-Fi, som, discos e, em notebooks, touchpad, teclas,
+bateria e suspensão.
+Feito para rodar no pendrive antes de instalar.
+.It Cm video
+Mostra as placas de vídeo e o driver em uso.
+.Cm auto
+.Pq padrão
+escolhe a cada boot: NVIDIA num desktop, Intel num notebook (inclusive
+híbrido Intel + NVIDIA, em que a tela está ligada na Intel) e o modo sem
+aceleração
+.Pq scfb
+quando não há uma das duas ou o driver falha.
+A geração do driver NVIDIA vem do chip: Turing (GTX 16xx, RTX) em diante
+usa o atual, Maxwell, Pascal e Volta o 580, Kepler o 470.
+.Cm testar
+carrega o driver agora;
+.Cm nvidia ,
+.Cm intel
+e
+.Cm scfb
+fixam um deles.
+Se um driver travar o computador, o boot seguinte percebe e passa para o
+scfb sozinho.
+.It Cm wifi
+Procura redes, pede a senha e conecta; a rede fica salva.
+.It Cm desktop
+Instala o KDE Plasma, o Firefox e os drivers (precisa de internet).
+.It Cm tema
+.Cm papel
+aplica o visual padrão do LumeBSD no KDE, com estética e-ink: papel,
+tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem animações,
+sombras nem transparência, e o farol em traço como papel de parede.
+.Cm padrao
+volta ao visual original do KDE.
+.It Cm instalar
+Instala o LumeBSD num disco inteiro, a partir do pendrive: ZFS com
+ambientes de boot, criptografia GELI pedindo senha no boot, swap
+criptografada e boot UEFI.
+Apaga tudo o que havia no disco, depois de pedir confirmação.
+.El
+.Pp
+Enquanto o sistema não tiver sido configurado, o painel mostra um aviso.
+.Sh ENVIRONMENT
+.Bl -tag -width "NO_COLOR"
+.It Ev NO_COLOR
+Se definida, desativa as cores.
+.El
+.Sh SEE ALSO
+.Xr freebsd-version 1 ,
+.Xr lume-configurar 8 ,
+.Xr sysctl 8 ,
+.Xr rc.conf 5
+.Sh HISTORY
+O utilitário
+.Nm
+surgiu no LumeBSD 1.0
+.Dq Farol .

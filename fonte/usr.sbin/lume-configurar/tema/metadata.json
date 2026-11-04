@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [ { "Name": "LumeBSD" } ],
+        "Description": "Papel: tinta sobre papel, sem animações nem sombras (estética e-ink).",
+        "Id": "org.lumebsd.papel",
+        "License": "BSD-2-Clause",
+        "Name": "Papel (LumeBSD)",
+        "Version": "1.1"
+    },
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "X-Plasma-APIVersion": "2"
+}

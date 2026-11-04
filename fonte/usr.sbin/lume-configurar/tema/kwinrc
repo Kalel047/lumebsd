@@ -1,0 +1,20 @@
+# KWin no tema Papel: sem animações, sem sombras, sem transparência.
+# Sem compositor no X11 a tela só muda quando precisa, como num e-ink,
+# e o desktop fica leve mesmo sem aceleração de vídeo.
+[Compositing]
+Enabled=false
+
+[Plugins]
+blurEnabled=false
+contrastEnabled=false
+slidingpopupsEnabled=false
+translucencyEnabled=false
+kwin4_effect_fadeEnabled=false
+kwin4_effect_scaleEnabled=false
+
+[org.kde.kdecoration2]
+library=org.kde.breeze
+theme=Breeze
+BorderSize=Tiny
+ButtonsOnLeft=
+ButtonsOnRight=IAX

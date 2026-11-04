@@ -1,0 +1,134 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 2, 2026
+.Dt VIGIA.CONF 5
+.Os
+.Sh NAME
+.Nm vigia.conf
+.Nd arquivos de serviço do vigia
+.Sh DESCRIPTION
+Cada serviço é um arquivo
+.Pa /etc/vigia/servicos/ Ns Ar nome Ns Pa .conf .
+O nome usa letras minúsculas, números,
+.Ql -
+e
+.Ql _ .
+Cada linha tem a forma
+.Ql chave = valor ;
+linhas vazias e começadas por
+.Ql #
+são ignoradas.
+.Bl -tag -width "descricao"
+.It Cm comando
+Obrigatório.
+Linha de comando executada por
+.Xr sh 1
+com
+.Ql exec ,
+então o processo do serviço é o próprio comando.
+Ele não deve ir para o segundo plano: o vigia precisa ser o pai dele, e
+quando ele termina os processos que deixou para trás são encerrados.
+.It Cm descricao
+Texto curto mostrado por
+.Nm vigia .
+.It Cm usuario
+Usuário que roda o serviço (padrão: root).
+.It Cm diretorio
+Diretório de trabalho, absoluto (padrão:
+.Pa / ) .
+.It Cm reiniciar
+.Cm sempre ,
+.Cm falha
+(padrão: só quando sai com código diferente de 0 ou morre por sinal) ou
+.Cm nunca .
+.It Cm depende
+Outros serviços, separados por espaço ou vírgula, que precisam estar
+ativos antes deste subir.
+Iniciar este serviço inicia as dependências.
+.It Cm ambiente
+.Ar NOME Ns = Ns Ar valor ;
+pode aparecer até 16 vezes.
+.It Cm ativo
+.Cm sim
+(padrão) ou
+.Cm nao :
+se o serviço sobe no boot.
+.Nm vigia Cm ativar
+e
+.Cm desativar
+têm prioridade sobre esta chave.
+.El
+.Ss Limites
+Valem para a soma de todos os processos do serviço, que rodam na classe
+de login
+.Dq v- Ns Ar nome
+.Pq veja Xr rctl 8 .
+Para usar limites, o nome do serviço precisa ter até 30 caracteres.
+.Bl -tag -width "limite_processos"
+.It Cm limite_memoria
+Memória residente máxima, como
+.Ql 64M
+ou
+.Ql 1G .
+Acima dela, o kernel tira páginas do serviço da memória.
+.It Cm limite_cpu
+Porcentagem de um núcleo, como
+.Ql 50% ;
+.Ql 200%
+são dois núcleos inteiros.
+O serviço é desacelerado, não morto.
+O kernel mede e freia em passos de 1 segundo: o limite é fiel a partir de
+uns 40%, mas um serviço que usa CPU sem parar não fica abaixo de 33\(en40%
+de um núcleo, mesmo com um limite menor.
+.It Cm limite_processos
+Número máximo de processos; acima dele,
+.Xr fork 2
+falha.
+.El
+.Ss Sob demanda
+.Bl -tag -width "max_conexoes"
+.It Cm escutar
+.Ql tcp: Ns Ar porta ,
+.Ql tcp: Ns Ar IP : Ns Ar porta
+ou
+.Ql unix: Ns Ar /caminho .
+O vigia abre o socket (como root, então portas abaixo de 1024
+funcionam mesmo com
+.Cm usuario
+sem privilégios) e, a cada conexão, executa
+.Cm comando
+com a conexão na entrada e na saída padrão, como o
+.Xr inetd 8 .
+A variável
+.Ev VIGIA_CLIENTE
+traz o endereço de quem conectou.
+Sem conexões, nenhum processo do serviço existe.
+.Cm reiniciar
+não se aplica a este modo.
+.It Cm max_conexoes
+Conexões atendidas ao mesmo tempo (padrão 16, máximo 256); as demais
+esperam na fila do kernel.
+.El
+.Sh EXAMPLES
+Um serviço comum, com limites:
+.Bd -literal -offset indent
+descricao = Relógio de exemplo
+comando = sh -c 'while true; do date; sleep 10; done'
+usuario = nobody
+reiniciar = sempre
+limite_memoria = 16M
+limite_cpu = 10%
+.Ed
+.Pp
+Um serviço sob demanda, que responde a cada conexão na porta 7777:
+.Bd -literal -offset indent
+descricao = Diz a hora para quem conectar
+escutar = tcp:7777
+comando = date
+usuario = nobody
+.Ed
+.Sh SEE ALSO
+.Xr inetd 8 ,
+.Xr rctl 8 ,
+.Xr vigia 8

@@ -1,8 +1,8 @@
 From f8b66a5fb8be6b36de83c46eb11cee14b6de3275 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 3 Nov 2026 01:13:43 -0300
-Subject: [PATCH 16/20] =?UTF-8?q?forja=20arvore:=20espelho=20expl=C3=ADcit?=
- =?UTF-8?q?o=20primeiro;=20git=20que=20falha=20cai=20no=20tarball?=
+Subject: [PATCH] =?UTF-8?q?forja=20arvore:=20espelho=20expl=C3=ADcito=20pr?=
+ =?UTF-8?q?imeiro;=20git=20que=20falha=20cai=20no=20tarball?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -87,6 +87,3 @@ index bce8cc77a..0ea5521fc 100644
  	fi
  	ok "árvore de ports pronta em $PORTS ($(ls -d "$PORTS"/*/*/Makefile 2>/dev/null | wc -l | tr -d ' ') ports)"
  }
--- 
-2.43.0
-

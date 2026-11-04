@@ -1,12 +1,21 @@
-"""Testa o pendrive do LumeBSD no QEMU como se fosse o notebook.
+"""Testa o pendrive do LumeBSD no QEMU como se fosse um PC.
 
-UEFI (OVMF), pendrive como USB (da0), disco de destino NVMe (nda0),
-vídeo VGA com framebuffer UEFI, console serial para conversar.
+UEFI (OVMF), pendrive ligado em SATA, disco de destino NVMe (nda0), vídeo
+VGA com framebuffer UEFI, console serial para conversar.
 
-uso: python3 pendrive-test.py FASE LOG
+uso: python3 tests/teste-pendrive.py FASE LOG
+  fumaca     boota o pendrive sem gravar nada nele e confere os comandos
   aovivo     boota o pendrive, roda lume hardware/video, instala no NVMe
   instalado  boota o NVMe: senha do disco, assistente, verificações
-  desktop    (depois de instalado) confere o SDDM e tira fotos da tela
+  desktop    (depois de instalado) login gráfico, fotos da tela
+  forja      (depois de instalado) binário, compilação com opções, atualizar
+  ajustar    entra como root no instalado e roda os comandos de $AJUSTES
+
+Variáveis: LUME_IMG (a imagem), LUME_TESTE_DIR (onde ficam disco NVMe,
+fotos e o socket do monitor), OVMF_CODE/OVMF_VARS, LUME_KVM=1 para usar
+aceleração, LUME_REPO_URL (espelho de pacotes para "aovivo").
+O pendrive vai em SATA porque o USB emulado do QEMU dá erros de leitura
+sob carga; para o sistema é o mesmo disco.
 """
 import os
 import select
@@ -16,24 +25,27 @@ import subprocess
 import sys
 import time
 
-DIR = "/home/claude/lume/teste-pendrive"
-PEN = "/home/claude/lume/LumeBSD-1.1-Farol-pendrive.img"
+TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DIR = os.environ.get("LUME_TESTE_DIR", os.path.join(TOPO, "teste-pendrive"))
+PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.1-Farol-pendrive.img"))
+OVMF_CODE = os.environ.get("OVMF_CODE", "/usr/share/OVMF/OVMF_CODE_4M.fd")
+OVMF_VARS = os.environ.get("OVMF_VARS", "/usr/share/OVMF/OVMF_VARS_4M.fd")
 NVME = f"{DIR}/nvme.img"
 VARS = f"{DIR}/OVMF_VARS.fd"
 MON = f"{DIR}/monitor.sock"
 SENHA_DISCO = "farol-cripto-2026"
-REPO = "http://10.0.2.2:8000"
+REPO = os.environ.get("LUME_REPO_URL", "http://10.0.2.2:8000")
 
 fase, logpath = sys.argv[1], sys.argv[2]
 os.makedirs(DIR, exist_ok=True)
-if fase == "aovivo":
+if fase == "aovivo" or not os.path.exists(NVME):
     if os.path.exists(NVME):
         os.remove(NVME)
     subprocess.run(["truncate", "-s", "40G", NVME], check=True)
-    shutil.copy("/usr/share/OVMF/OVMF_VARS_4M.fd", VARS)
+    shutil.copy(OVMF_VARS, VARS)
 
 args = ["qemu-system-x86_64", "-machine", "q35", "-m", "4096", "-smp", "2",
-        "-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd",
+        "-drive", f"if=pflash,format=raw,readonly=on,file={OVMF_CODE}",
         "-drive", f"if=pflash,format=raw,file={VARS}",
         "-drive", f"if=none,id=nv,format=raw,file={NVME}",
         "-device", "nvme,serial=LUMENVME,drive=nv",
@@ -42,6 +54,8 @@ args = ["qemu-system-x86_64", "-machine", "q35", "-m", "4096", "-smp", "2",
         "-vga", "std", "-display", "none",
         "-serial", "stdio", "-monitor", f"unix:{MON},server,nowait",
         "-no-reboot"]
+if os.environ.get("LUME_KVM"):
+    args += ["-enable-kvm", "-cpu", "host"]
 if fase in ("aovivo", "fumaca"):
     # fumaca: boota a imagem sem gravar nada nela (snapshot do QEMU).
     extra = ",snapshot=on" if fase == "fumaca" else ""

@@ -1,0 +1,78 @@
+# Confere, a cada push, que os patches aplicam no FreeBSD 15.1, que fonte/
+# é igual ao que eles criam, e que scripts, Python e manuais estão bons.
+# Leva poucos minutos; o build inteiro fica em build.yml.
+name: Verificar
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * 1"   # toda segunda: o releng/15.1 andou?
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Patches no FreeBSD (${{ matrix.base }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # fixado: o commit testado (FREEBSD_COMMIT no build-lumebsd.sh)
+        # topo: o releng/15.1 de hoje; se falhar, os patches precisam de
+        # atualização, mas o build fixado continua valendo
+        base: [fixado, topo]
+    continue-on-error: ${{ matrix.base == 'topo' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ferramentas
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q shellcheck mandoc
+
+      - name: FreeBSD releng/15.1
+        run: |
+          if [ "${{ matrix.base }}" = fixado ]; then
+            alvo=$(sed -n 's/^FREEBSD_COMMIT=\${FREEBSD_COMMIT:-\([0-9a-f]*\)}$/\1/p' build-lumebsd.sh)
+          else
+            alvo=refs/heads/releng/15.1
+          fi
+          test -n "$alvo"
+          git init -q src
+          git -C src fetch -q --depth 1 https://github.com/freebsd/freebsd-src.git "$alvo"
+          git -C src checkout -q FETCH_HEAD
+          git -C src log -1 --format='base: %H %s'
+
+      - name: Aplicar os patches
+        run: |
+          for p in patches/*.patch; do
+            echo "::group::$p"
+            (cd src && git apply --verbose "$p")
+            echo "::endgroup::"
+          done
+
+      - name: fonte/ igual aos patches
+        run: python3 ferramentas/fonte.py conferir src
+
+      - name: Scripts (sh -n e shellcheck)
+        run: |
+          set -e
+          for f in build-lumebsd.sh fonte/usr.sbin/forja/forja.sh \
+                   fonte/usr.sbin/lume-configurar/*.sh fonte/libexec/rc/rc.d/*; do
+            echo "$f"
+            sh -n "$f"
+            shellcheck -s sh -S error "$f"
+          done
+
+      - name: Python
+        run: python3 -m py_compile ferramentas/*.py tests/*.py
+
+      - name: Manuais (mandoc)
+        run: |
+          for m in $(find fonte -name '*.[1-8]'); do
+            mandoc -T lint -W error "$m"
+          done

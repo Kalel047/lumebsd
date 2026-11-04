@@ -1,8 +1,8 @@
 From 0647185fba55cce60fb59bedde1c5d275dd4e3f0 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 14:32:57 -0300
-Subject: [PATCH 04/20] =?UTF-8?q?vigia:=20limites=20por=20servi=C3=A7o=20(?=
- =?UTF-8?q?RACCT/RCTL),=20modo=20sob=20demanda=20e=20parada=20em=20cascata?=
+Subject: [PATCH] =?UTF-8?q?vigia:=20limites=20por=20servi=C3=A7o=20(RACCT/?=
+ =?UTF-8?q?RCTL),=20modo=20sob=20demanda=20e=20parada=20em=20cascata?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -1704,6 +1704,3 @@ index 01e56cc7d..667c48b5a 100644
 -reiniciar = sempre
 +limite_memoria = 64M
 +limite_processos = 20
--- 
-2.43.0
-

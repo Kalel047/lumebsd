@@ -1,0 +1,173 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 2, 2026
+.Dt VIGIA 8
+.Os
+.Sh NAME
+.Nm vigia ,
+.Nm vigiad
+.Nd gerenciador de serviços do LumeBSD
+.Sh SYNOPSIS
+.Nm
+.Op Cm estado
+.Nm
+.Cm iniciar | parar | reiniciar
+.Ar serviço
+.Nm
+.Cm ativar | desativar
+.Ar serviço
+.Nm
+.Cm info
+.Ar serviço
+.Nm
+.Cm log
+.Ar serviço
+.Op Fl n Ar linhas
+.Op Fl f
+.Nm
+.Cm recarregar
+.Nm vigiad
+.Op Fl f
+.Sh DESCRIPTION
+.Nm vigiad
+supervisiona serviços descritos em arquivos simples em
+.Pa /etc/vigia/servicos
+.Pq veja Xr vigia.conf 5 .
+Ele inicia cada serviço na ordem das dependências, guarda a saída do
+processo em
+.Pa /var/log/vigia/ Ns Ar serviço Ns Pa .log
+e, se o processo cair, reinicia com espera crescente
+(1, 2, 4, 8 segundos, até 30).
+Se um serviço cair 5 vezes seguidas sem ficar 10 segundos de pé, ele vai
+para
+.Dq manutenção
+e o
+.Nm vigiad
+para de tentar até alguém pedir.
+.Pp
+Cada serviço roda numa classe de login própria
+.Pq Dq v- Ns Ar nome ,
+herdada por tudo o que ele criar.
+Quando o processo principal termina, o que sobrou na classe é encerrado,
+e parar um serviço alcança até processos que saíram do grupo.
+Pela classe o vigia também soma a memória, a CPU e os processos do
+serviço inteiro; a tabela do
+.Nm
+mostra a memória, e
+.Nm Cm info
+mostra tudo, com os limites definidos no arquivo
+.Pq veja Xr vigia.conf 5 .
+.Pp
+Serviços com
+.Cm escutar
+ficam
+.Dq ouvindo :
+o vigia segura o socket e cria um processo para cada conexão.
+.Pp
+Ao contrário dos scripts de
+.Xr rc 8 ,
+que só iniciam o daemon e o esquecem,
+.Nm vigiad
+é o pai de cada serviço e fica sabendo na hora quando um deles termina.
+Todo o trabalho acontece num único laço
+.Xr kqueue 2 .
+.Pp
+Estados de um serviço:
+.Bl -tag -width "reiniciando"
+.It parado
+Não está rodando.
+.It desativado
+Não está rodando e não sobe no boot.
+.It aguardando
+Esperando as dependências ficarem ativas.
+.It iniciando
+Processo criado, ainda no primeiro segundo de vida.
+.It ativo
+Rodando.
+.It ouvindo
+Serviço sob demanda pronto para atender; a coluna PID mostra as conexões
+em andamento.
+.It parando
+Recebeu SIGTERM; recebe SIGKILL se não terminar em 10 segundos.
+.It reiniciando
+Caiu; esperando para tentar de novo.
+.It manutenção
+Caiu demais ou não pôde iniciar.
+Use
+.Nm Cm log
+para ver o motivo e
+.Nm Cm reiniciar
+para tentar de novo.
+.It erro
+O arquivo do serviço é inválido.
+.El
+.Pp
+Comandos:
+.Bl -tag -width "recarregar"
+.It Cm estado
+Tabela com todos os serviços (padrão sem argumentos).
+.It Cm iniciar , Cm parar , Cm reiniciar
+Agem agora, sem mudar o que acontece no boot.
+Iniciar um serviço inicia as dependências dele; parar ou reiniciar um
+serviço também para ou reinicia quem depende dele.
+.It Cm ativar , Cm desativar
+Iniciam ou param o serviço e guardam a escolha para os próximos boots
+.Pq em Pa /var/db/vigia .
+.It Cm info
+Todos os detalhes de um serviço.
+.It Cm log
+Últimas linhas do log;
+.Fl f
+acompanha em tempo real.
+.It Cm recarregar
+Relê
+.Pa /etc/vigia/servicos :
+serviços novos sobem, os apagados param.
+Mudanças num serviço valem a partir do próximo início.
+.El
+.Pp
+Qualquer usuário pode consultar; só o root pode mudar o estado dos
+serviços.
+Os logs podem ser lidos pelo root e pelo grupo
+.Dq wheel .
+.Pp
+.Nm vigiad
+é iniciado no boot por
+.Pa /etc/rc.d/vigia
+.Pq Va vigia_enable ;
+com
+.Fl f
+roda em primeiro plano.
+Ao receber SIGTERM, para todos os serviços antes de sair; SIGHUP equivale
+a
+.Cm recarregar .
+.Sh FILES
+.Bl -tag -width "/usr/share/examples/vigia" -compact
+.It Pa /etc/vigia/servicos
+arquivos de serviço
+.It Pa /usr/share/examples/vigia
+exemplos
+.It Pa /var/log/vigia
+saída de cada serviço e eventos do vigia
+.It Pa /var/db/vigia
+escolhas de ativar/desativar
+.It Pa /var/run/vigia.sock
+socket de controle
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+cp /usr/share/examples/vigia/*.conf /etc/vigia/servicos/
+vigia recarregar
+vigia
+vigia log relogio -f
+.Ed
+.Sh SEE ALSO
+.Xr vigia.conf 5 ,
+.Xr lume 1 ,
+.Xr kqueue 2 ,
+.Xr rc 8
+.Sh HISTORY
+.Nm
+surgiu no LumeBSD 1.0
+.Dq Farol .

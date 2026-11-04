@@ -1,0 +1,12 @@
+# Decoração e estilo Breeze sem sombras e com fios finos.
+[Common]
+OutlineIntensity=OutlineHigh
+ShadowSize=ShadowNone
+
+[Windeco]
+DrawBorderOnMaximizedWindows=false
+DrawTitleBarSeparator=true
+TitleAlignment=AlignCenterFullWidth
+
+[Style]
+MenuOpacity=100

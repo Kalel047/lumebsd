@@ -1,0 +1,114 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 2, 2026
+.Dt FORJA 8
+.Os
+.Sh NAME
+.Nm forja
+.Nd pacotes por código-fonte ou binário, no estilo Portage
+.Sh SYNOPSIS
+.Nm
+.Cm instalar | remover
+.Ar pacote ...
+.Nm
+.Cm opcoes
+.Ar pacote
+.Op Cm + Ns Ar OPÇÃO | Cm - Ns Ar OPÇÃO ...
+.Nm
+.Cm atualizar | mundo | arvore
+.Nm
+.Cm info | buscar
+.Ar pacote
+.Sh DESCRIPTION
+.Nm
+junta os dois jeitos de instalar programas no FreeBSD: os pacotes binários
+oficiais
+.Pq Xr pkg 8
+e a árvore de ports, que compila do código-fonte.
+Cada programa vem em binário até você mudar uma opção dele; a partir daí
+.Nm
+o compila com as suas opções, guarda com quais opções foi feito e o
+protege das atualizações binárias.
+.Pp
+As opções são as OPTIONS dos ports, o equivalente às USE flags do Gentoo.
+.Nm Cm opcoes Ar pacote
+mostra todas, com descrição, quais estão ligadas e quais foram escolha sua.
+.Pp
+O arquivo
+.Pa /var/db/forja/mundo
+guarda o que você pediu de propósito, como o @world do Portage;
+dependências não entram.
+.Nm Cm remover
+apaga o pacote e as dependências que ficaram órfãs.
+.Pp
+.Nm Cm atualizar
+cria um ambiente de boot
+.Pq Xr bectl 8 ,
+atualiza a árvore de ports e os pacotes binários, e recompila o que tiver
+versão nova na árvore ou opções diferentes das que foram usadas (o
+.Dq --newuse
+do Portage).
+Se algo der errado, escolha o ambiente de boot anterior no menu do boot.
+.Pp
+Dependências de um programa compilado vêm em binário, exceto as que também
+tiverem opções próprias, que são compiladas antes.
+.Pp
+A árvore vem do git do FreeBSD; se não houver git ou ele falhar, de um
+tarball
+.Po
+.Va arvore_url
+no
+.Pa forja.conf ,
+ou a variável
+.Ev FORJA_ARVORE_URL
+.Pc .
+Se a árvore não puder ser atualizada,
+.Cm atualizar
+segue com a que já existe.
+.Pp
+A árvore de ports confere a versão do sistema; como o
+.Xr uname 1
+do LumeBSD diz
+.Dq 1.1-FAROL ,
+a forja passa a ela a versão do FreeBSD por baixo
+.Pq Va _OSRELEASE ,
+tirada de
+.Va kern.osreldate .
+.Sh ENVIRONMENT
+.Bl -tag -width "FORJA_ARVORE_URL"
+.It Ev FORJA_ARVORE_URL
+tarball .tar.gz da árvore de ports (um espelho local, por exemplo).
+.El
+.Sh FILES
+.Bl -tag -width "/var/db/forja/mundo" -compact
+.It Pa /etc/forja/forja.conf
+opções globais, ramo da árvore, trabalhos em paralelo
+.It Pa /etc/forja/opcoes
+opções por pacote, uma linha por port:
+.Dl editors/nano  -NLS +DOCS
+.It Pa /var/db/forja/mundo
+o que você instalou de propósito
+.It Pa /var/log/forja
+um log por compilação
+.It Pa /usr/ports
+a árvore de ports
+.El
+.Sh EXAMPLES
+.Bd -literal -offset indent
+forja arvore                 # baixa a árvore de ports (uma vez)
+forja instalar firefox       # binário: rápido
+forja opcoes nano            # vê as opções do nano
+forja opcoes nano -NLS       # sem traduções
+forja instalar nano          # agora compila, sem NLS
+forja mundo                  # o que você instalou e como
+forja atualizar              # mantém tudo em dia
+.Ed
+.Sh SEE ALSO
+.Xr pkg 8 ,
+.Xr ports 7 ,
+.Xr bectl 8
+.Sh HISTORY
+.Nm
+surgiu no LumeBSD 1.1
+.Dq Farol .

@@ -1,8 +1,8 @@
 From fa31eb0e392b87bb99c78ad2ff6eb73f99de9f68 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 2 Nov 2026 12:06:17 -0300
-Subject: [PATCH 03/20] =?UTF-8?q?LumeBSD:=20vigia,=20gerenciador=20de=20se?=
- =?UTF-8?q?rvi=C3=A7os=20com=20supervis=C3=A3o=20via=20kqueue?=
+Subject: [PATCH] =?UTF-8?q?LumeBSD:=20vigia,=20gerenciador=20de=20servi?=
+ =?UTF-8?q?=C3=A7os=20com=20supervis=C3=A3o=20via=20kqueue?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -2152,6 +2152,3 @@ index 000000000..01e56cc7d
 +usuario = nobody
 +depende = relogio
 +reiniciar = sempre
--- 
-2.43.0
-
