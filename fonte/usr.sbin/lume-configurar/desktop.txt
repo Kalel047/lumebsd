@@ -68,6 +68,8 @@ plasma6-xdg-desktop-portal-kde
 sddm
 konsole
 dolphin
+# A janela "Versões anteriores" do Dolphin (lume tempo)
+kdialog
 kate
 ark
 gwenview

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/allfiles;inode/directory;
+Actions=versoesAnteriores;
+X-KDE-Priority=TopLevel
+X-KDE-Protocols=file
+
+[Desktop Action versoesAnteriores]
+Name=Previous versions
+Name[pt_BR]=Versões anteriores
+Name[pt]=Versões anteriores
+Icon=document-open-recent
+Exec=/usr/sbin/lume-tempo gui %f

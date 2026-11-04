@@ -1,4 +1,14 @@
-LumeBSD 1.1.1 "Farol" — pendrive ao vivo + instalador, sobre o FreeBSD 15.1.
+LumeBSD 1.1.2 "Farol" — pendrive ao vivo + instalador, sobre o FreeBSD 15.1.
+
+## Novo na 1.1.2: a máquina do tempo
+
+- **`lume tempo`**: uma foto do disco por hora (snapshots do ZFS), das pastas pessoais e do sistema, só quando algo mudou. Ficam todas das últimas 24 horas, uma por dia por 30 dias e uma por semana por 6 meses.
+- Recupere um arquivo apagado ou a versão de ontem de um documento, sem ser root: `lume tempo versoes ARQUIVO` e `lume tempo recuperar ARQUIVO [quando]`. No Dolphin: botão direito, **Versões anteriores**.
+- Volte o sistema inteiro para antes de uma instalação: `lume tempo voltar N` (as pastas pessoais não mudam; o sistema de agora fica guardado).
+- `forja instalar/remover/atualizar` e `lume atualizar` tiram uma foto antes de mexer.
+- O painel do `lume` mostra a última foto.
+
+Quem tem a 1.1.1: `lume atualizar` (a máquina do tempo liga sozinha, pelo `cron`, em até 15 minutos). Para a janela do Dolphin, `pkg install kdialog`.
 
 ## Novo na 1.1.1
 
@@ -6,7 +16,7 @@ LumeBSD 1.1.1 "Farol" — pendrive ao vivo + instalador, sobre o FreeBSD 15.1.
 - Instalador: ambientes de boot funcionando de fato (`canmount=noauto`, sem raiz fixa no `loader.conf`).
 - Quem tem a 1.1.0 instalada atualiza com: `fetch -o /tmp/lume-atualizar https://raw.githubusercontent.com/Kalel047/lumebsd/main/fonte/usr.sbin/lume-configurar/lume-atualizar.sh && sh /tmp/lume-atualizar aplicar`
 
-Os arquivos `atualizacao.txt` e `LumeBSD-1.1.1-sistema.tar.zst` desta Release são o que o `lume atualizar` baixa.
+Os arquivos `atualizacao.txt` e `LumeBSD-1.1.2-sistema.tar.zst` desta Release são o que o `lume atualizar` baixa.
 
 ## O que tem
 

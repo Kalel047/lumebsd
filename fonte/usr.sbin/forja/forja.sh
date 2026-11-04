@@ -332,10 +332,19 @@ instalar_um()
 
 # --- comandos ------------------------------------------------------------------
 
+# Foto do disco antes de mexer nos pacotes (lume tempo): se der problema,
+# "lume tempo voltar" devolve o sistema como estava.
+foto_antes()
+{
+	[ "$snapshot" = sim ] && [ -x /usr/sbin/lume-tempo ] || return 0
+	/usr/sbin/lume-tempo antes "forja $*"
+}
+
 cmd_instalar()
 {
 	raiz
 	[ $# -gt 0 ] || erro "diga o que instalar: forja instalar nano"
+	foto_antes instalar "$@"
 	for a in "$@"; do
 		instalar_um "$a"
 	done
@@ -345,6 +354,7 @@ cmd_remover()
 {
 	raiz
 	[ $# -gt 0 ] || erro "diga o que remover"
+	foto_antes remover "$@"
 	for a in "$@"; do
 		orig=$(origem "$a") || orig=$a
 		nome=$(pacote_da_origem "$orig")
@@ -433,7 +443,9 @@ cmd_mundo()
 cmd_atualizar()
 {
 	raiz
-	if [ "$snapshot" = sim ] && command -v bectl >/dev/null &&
+	if [ "$snapshot" = sim ] && [ -x /usr/sbin/lume-tempo ]; then
+		foto_antes atualizar
+	elif [ "$snapshot" = sim ] && command -v bectl >/dev/null &&
 	    bectl list >/dev/null 2>&1; then
 		be="forja-$(date +%Y%m%d-%H%M)"
 		bectl create "$be" &&

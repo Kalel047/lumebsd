@@ -1,0 +1,4 @@
+# Máquina do tempo do LumeBSD (lume tempo): a cada 15 minutos confere se já
+# passou uma hora desde a última foto e se algo mudou; apaga as vencidas.
+# Desligar: sysrc lume_tempo_enable=NO
+*/15	*	*	*	*	root	/usr/sbin/lume-tempo automatico

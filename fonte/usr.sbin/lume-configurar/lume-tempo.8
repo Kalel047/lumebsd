@@ -1,0 +1,227 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 4, 2026
+.Dt LUME-TEMPO 8
+.Os
+.Sh NAME
+.Nm lume-tempo
+.Nd máquina do tempo do LumeBSD: fotos automáticas do disco e o caminho de volta
+.Sh SYNOPSIS
+.Nm lume tempo
+.Nm lume tempo
+.Cm linha
+.Op Ar N
+.Nm lume tempo
+.Cm versoes
+.Ar arquivo
+.Nm lume tempo
+.Cm recuperar
+.Ar arquivo
+.Op Ar quando
+.Op Fl -substituir
+.Nm lume tempo
+.Cm foto
+.Op Ar descrição
+.Nm lume tempo
+.Cm mudou
+.Op Ar quando
+.Nm lume tempo
+.Cm voltar
+.Ar quando
+.Nm lume tempo
+.Cm apagar
+.Ar quando
+.Nm lume tempo
+.Cm ligar | desligar
+.Op Ar pasta
+.Nm lume tempo
+.Cm automatico | antes Ar motivo | gui Ar arquivo
+.Sh DESCRIPTION
+.Nm
+tira fotos
+.Pq snapshots do ZFS
+das pastas pessoais e do sistema em uso, uma por hora quando algo mudou,
+e traz de volta qualquer arquivo, pasta ou o sistema inteiro como estava
+numa delas.
+As fotos são instantâneas e só ocupam o espaço do que mudou depois delas.
+.Pp
+O
+.Xr cron 8
+roda
+.Cm automatico
+a cada 15 minutos
+.Pq Pa /etc/cron.d/lume-tempo :
+se já passou uma hora desde a última foto automática e algo mudou, tira
+uma nova; depois apaga as vencidas.
+Assim um notebook que passou a hora cheia desligado não perde a vez.
+.Pp
+Quanto tempo cada foto fica:
+.Bl -tag -width "automáticas"
+.It automáticas
+todas das últimas 24 horas, a primeira de cada dia por 30 dias e a
+primeira de cada semana por 26 semanas
+.It antes de mudanças
+as que
+.Xr forja 8 ,
+.Nm lume atualizar
+e
+.Cm recuperar Fl -substituir
+tiram antes de mexer no sistema: 30 dias
+.It manuais
+as de
+.Cm foto :
+até serem apagadas
+.El
+.Pp
+Com o disco acima de 85% cheio, as automáticas mais velhas são apagadas
+primeiro, até sobrar espaço.
+.Pp
+Entram nas fotos os sistemas de arquivos ZFS com a propriedade
+.Va lume:tempo=on .
+O instalador liga a propriedade em
+.Pa /home
+e nos ambientes de boot
+.Pq do sistema, só o que está em uso entra .
+Num sistema atualizado da 1.1, a primeira execução liga o mesmo.
+.Pp
+Não há máquina do tempo no pendrive ao vivo: ela vem com o sistema
+instalado.
+.Ss Comandos
+.Bl -tag -width "recuperar"
+.It sem comando
+Resumo: o que entra nas fotos, quantas há, quanto ocupam e as mais novas.
+.It Cm linha Op Ar N
+A linha do tempo, das fotos mais novas para as mais velhas, com o
+número de cada uma, o tipo, as áreas
+.Pq /home, sistema
+e o espaço que só ela ocupa.
+.It Cm versoes Ar arquivo
+As versões diferentes de um arquivo ou pasta guardadas nas fotos.
+Versões iguais em fotos seguidas aparecem uma vez só.
+Funciona também para arquivos apagados.
+Não precisa ser root: cada um vê nas fotos o que já podia ler.
+.It Cm recuperar Ar arquivo Op Ar quando Op Fl -substituir
+Traz de volta a versão de
+.Ar quando
+.Pq sem Ar quando , a mais nova que é diferente da atual .
+Um arquivo apagado volta para o lugar.
+Se o arquivo existe, a versão antiga é gravada ao lado, com a data no
+nome:
+.Pa relatorio (de 03-11 14.00).odt .
+Com
+.Fl -substituir ,
+ela toma o lugar do atual; o atual fica guardado ao lado
+.Pq ou, como root, numa foto .
+.It Cm foto Op Ar descrição
+Tira uma foto agora, que fica até ser apagada.
+.It Cm mudou Op Ar quando
+O que foi criado, apagado, mudado ou renomeado desde a foto
+.Pq padrão: a mais nova ,
+via
+.Xr zfs-diff 8 .
+.It Cm voltar Ar quando
+Cria um ambiente de boot com o sistema como estava
+.Pq Xr bectl 8
+e o ativa para os próximos boots.
+As pastas pessoais não mudam.
+O sistema de antes fica guardado como ambiente de boot, para desfazer
+com
+.Nm bectl activate .
+.It Cm apagar Ar quando
+Apaga uma foto.
+.It Cm ligar | desligar Op Ar pasta
+Põe ou tira das fotos o sistema de arquivos da
+.Ar pasta
+.Pq padrão: Pa /home .
+Desligar não apaga as fotos que já existem.
+.It Cm automatico
+O que o cron roda.
+.It Cm antes Ar motivo
+Tira uma foto
+.Dq antes de mudança ,
+com o motivo como descrição.
+.It Cm gui Ar arquivo
+A janela
+.Dq Versões anteriores
+do Dolphin
+.Pq botão direito num arquivo ou pasta ,
+feita com
+.Xr kdialog 1 :
+escolhe a versão e abre, recupera ao lado ou substitui a atual.
+.El
+.Ss Quando
+.Ar quando
+pode ser o número da foto na linha do tempo
+.Pq 1 é a mais nova ,
+o nome dela
+.Pq Li lume-2026-11-03_14.00.07 ,
+.Li hoje ,
+.Li ontem ,
+uma data
+.Pq Li 2026-11-03 ,
+data e hora
+.Pq Li \&"2026-11-03 14:00\&"
+ou só a hora de hoje
+.Pq Li 14:00 .
+Vale a última foto até aquele momento.
+.Sh CONFIGURAÇÃO
+Em
+.Xr rc.conf 5 :
+.Bl -tag -width "lume_tempo_antes_dias"
+.It Va lume_tempo_enable
+.Li NO
+desliga as fotos automáticas e as de antes de mudanças
+.It Va lume_tempo_horas
+horas em que todas as automáticas ficam
+.Pq 24
+.It Va lume_tempo_dias
+dias em que fica uma por dia
+.Pq 30
+.It Va lume_tempo_semanas
+semanas em que fica uma por semana
+.Pq 26
+.It Va lume_tempo_antes_dias
+dias das fotos de antes de mudanças
+.Pq 30
+.It Va lume_tempo_limite
+quanto o disco pode encher, em %, antes de apagar as automáticas mais
+velhas
+.Pq 85
+.El
+.Sh FILES
+.Bl -tag -width "/usr/local/share/kio/servicemenus/lume-tempo.desktop" -compact
+.It Pa /etc/cron.d/lume-tempo
+a execução a cada 15 minutos
+.It Pa /var/log/lume-tempo.log
+fotos tiradas, apagadas e recuperações
+.It Pa /var/db/lume/tempo-estado
+resumo para o painel do
+.Xr lume 1
+.It Pa /usr/local/share/kio/servicemenus/lume-tempo.desktop
+o
+.Dq Versões anteriores
+do Dolphin
+.It Pa <montagem>/.zfs/snapshot/
+as fotos de cada sistema de arquivos, para abrir direto
+.El
+.Sh EXAMPLES
+Um arquivo apagado por engano hoje de manhã:
+.Dl $ lume tempo recuperar ~/Documentos/contrato.odt
+.Pp
+Como estava a pasta de projetos ontem:
+.Dl $ lume tempo versoes ~/projetos
+.Dl $ ls /home/.zfs/snapshot/
+.Pp
+Um programa instalado com o forja quebrou o sistema:
+.Dl # lume tempo linha
+.Dl # lume tempo voltar 2
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr bectl 8 ,
+.Xr cron 8 ,
+.Xr forja 8 ,
+.Xr zfs-snapshot 8
+.Sh HISTORY
+.Nm
+apareceu no LumeBSD 1.1.2.

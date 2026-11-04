@@ -36,8 +36,8 @@ eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
 
 | Caminho (árvore do FreeBSD) | O que é |
 |---|---|
-| `usr.bin/lume/` | `lume(1)`, em C: painel, emblema, dicas, e o despachante dos subcomandos `lume configurar/hardware/video/wifi/desktop/instalar/tema` |
-| `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh, inclusive `lume-atualizar`) e o tema Papel (`tema/`) |
+| `usr.bin/lume/` | `lume(1)`, em C: painel, emblema, dicas, e o despachante dos subcomandos `lume configurar/hardware/video/wifi/desktop/instalar/tema/atualizar/tempo` |
+| `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh, inclusive `lume-atualizar` e `lume-tempo`), o tema Papel (`tema/`, com o menu "Versões anteriores" do Dolphin) e o `cron` da máquina do tempo |
 | `usr.sbin/vigia/` | o gerenciador de serviços, em C (`vigiad` e o cliente `vigia`) |
 | `usr.sbin/forja/` | a forja (sh), `forja.conf` e `forja(8)` |
 | `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), vigia |
@@ -210,6 +210,78 @@ Testado no QEMU, num sistema instalado pela 1.1.0: atualização 1.1.0 →
 reprovada, motivo registrado, reboot de volta à 1.1.1); uma 1.1.2 com o
 `init` quebrado (pânico, reboot automático, volta à 1.1.1); e um boot
 interrompido no meio (volta ao anterior).
+
+## Máquina do tempo (`lume tempo`)
+
+`usr.sbin/lume-configurar/lume-tempo.sh`, um script `sh` sobre o ZFS e o
+`bectl`. Sem daemon: o `cron` roda `lume-tempo automatico` a cada 15
+minutos (`/etc/cron.d/lume-tempo`, um arquivo novo, que o `lume atualizar`
+instala mesmo em quem tem a 1.1.x).
+
+### O que entra
+
+Os sistemas de arquivos com a propriedade de usuário `lume:tempo=on`. O
+instalador a liga em `zroot/home` e em `zroot/ROOT` (herdada por todos os
+ambientes de boot; dos ambientes, só o que está em uso entra). Num sistema
+sem a propriedade em lugar nenhum — atualizado da 1.1 — o padrão vale
+igual e a primeira execução grava a propriedade. `usr/src`, `usr/ports`,
+`tmp`, `var/log`, `var/tmp` e `var/crash` ficam de fora.
+
+### As fotos
+
+- Nome `lume-AAAA-MM-DD_HH.MM.SS`, uma foto **atômica** de todos os
+  sistemas de arquivos que mudaram (`zfs snapshot a@n b@n` num só
+  comando), com as propriedades `lume:tipo` (`auto`, `manual`, `antes`) e
+  `lume:descricao`.
+- Automática: só se já passou uma hora da última automática **e** o
+  `written` do sistema de arquivos (o que mudou desde a foto anterior) não
+  é zero. A conferência a cada 15 minutos faz um notebook que estava
+  desligado na hora cheia não perder a vez.
+- `antes`: o `forja` (instalar, remover, atualizar), o `lume atualizar` e o
+  `recuperar --substituir` (como root) tiram uma antes de mexer.
+
+### Limpeza
+
+Por sistema de arquivos, das mais velhas para as mais novas: automáticas
+das últimas 24 h ficam todas; até 30 dias, a primeira de cada dia; até 26
+semanas, a primeira de cada semana (semana começando na segunda, no fuso
+local). `antes` ficam 30 dias; manuais, até alguém apagar. Tudo
+configurável no `rc.conf` (`lume_tempo_horas`, `_dias`, `_semanas`,
+`_antes_dias`). Com o pool acima de `lume_tempo_limite` (85%), as
+automáticas mais velhas saem até baixar. O espaço mostrado é o que
+`zfs destroy -nvp ds@a,b,c` diz que voltaria apagando todas as fotos.
+
+### De volta
+
+- **Versões de um arquivo**: o caminho vira (sistema de arquivos,
+  montagem, caminho relativo) pela montagem mais longa que o contém; cada
+  foto é lida em `<montagem>/.zfs/snapshot/<foto>/<relativo>`, das mais
+  novas para as mais velhas, e só entram as versões diferentes da
+  seguinte (`cmp`; pastas por data e tamanho). Funciona sem root: o
+  usuário só lê nas fotos o que já podia ler.
+- **Recuperar** copia (`cp -Rp`) para o lugar se o arquivo sumiu, ou ao
+  lado, `nome (de 03-11 14.00).ext`, se ele existe. `--substituir` guarda o
+  atual antes (numa foto, como root; ao lado, como usuário).
+- **Mudou**: `zfs diff -FH` da foto ao estado atual, sem o que todo boot
+  recria (`/var/run`, entropia) e com os nomes `\0NNN` decodificados.
+- **Voltar o sistema**: acha a foto do sistema mais nova até o momento
+  pedido, em qualquer ambiente de boot (depois de uma atualização, as
+  fotos de antes dela estão no ambiente anterior), e faz
+  `bectl create -e <ambiente>@<foto> volta-<data>`, com `canmount=noauto`
+  e sem raiz fixa no `loader.conf`, como o `lume atualizar`. Ativa de vez
+  (`bectl activate`); `/home` não muda. O ambiente de antes continua lá.
+
+### No KDE
+
+`/usr/local/share/kio/servicemenus/lume-tempo.desktop` põe "Versões
+anteriores" no botão direito do Dolphin (arquivos e pastas). Ele chama
+`lume-tempo gui ARQUIVO`, que monta as janelas com o `kdialog` (no tema
+do Plasma, portanto no Papel): a lista das versões, depois abrir (só
+leitura, `xdg-open` direto da foto), recuperar ao lado ou substituir; no
+fim abre o Dolphin com o arquivo recuperado selecionado. O `lume tema`
+instala o menu, e o `automatico` também, para quem atualizou com o KDE já
+instalado. O painel do `lume` lê `/var/db/lume/tempo-estado` (gravado pelo
+script) e mostra a idade da última foto, em vermelho com mais de 2 dias.
 
 ## Identidade e compatibilidade
 

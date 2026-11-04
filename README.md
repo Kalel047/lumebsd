@@ -1,4 +1,4 @@
-# LumeBSD 1.1.1 "Farol"
+# LumeBSD 1.1.2 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -36,6 +36,7 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 | | |
 |---|---|
+| **Máquina do tempo** (1.1.2) | `lume tempo` tira uma foto do disco por hora (snapshots do ZFS) e guarda por dias e semanas; traz de volta um arquivo apagado, a versão de ontem de um documento ou o sistema inteiro de antes de uma instalação. No Dolphin: botão direito, **Versões anteriores** |
 | **Atualizações que não quebram** (1.1.1) | `lume atualizar` instala a versão nova num ambiente de boot à parte, testa no boot seguinte e só então a torna padrão; se algo der errado, o computador volta sozinho para o sistema anterior |
 | **Pendrive ao vivo + instalador** | boota sem tocar no disco; `lume hardware` diz o que funciona; `lume instalar` instala no disco inteiro |
 | **PCs Intel + NVIDIA** | o driver NVIDIA certo para a geração da placa (Turing/GTX 16xx em diante, 580 para Maxwell–Volta, 470 para Kepler), Intel em notebooks e híbridos, e volta sozinho ao modo sem aceleração se um driver travar |
@@ -125,7 +126,7 @@ e o sistema sobe direto na tela de login gráfica.
 
 ## Atualizações que não quebram
 
-Como fica (exemplo de uma versão 1.1.2 futura):
+Como fica (da 1.1.1 para a 1.1.2):
 
 ```
 root@farol:~ # lume atualizar
@@ -168,6 +169,51 @@ o índice `atualizacao.txt` diz a versão e o SHA256 do pacote do sistema.
 > vem na própria atualização:
 > `fetch -o /tmp/lume-atualizar https://raw.githubusercontent.com/Kalel047/lumebsd/main/fonte/usr.sbin/lume-configurar/lume-atualizar.sh && sh /tmp/lume-atualizar aplicar`
 
+## Máquina do tempo
+
+O FreeBSD tem ZFS e snapshots, mas nada que os tire sozinho nem um jeito
+simples de voltar no tempo. O LumeBSD vem com isso ligado:
+
+```
+fabiano@farol:~ $ lume tempo versoes Documentos/contrato.odt
+
+  /home/fabiano/Documentos/contrato.odt
+  hoje 14:00                  48 KB   lume-2026-11-04_14.00.02
+  hoje 10:00                  41 KB   lume-2026-11-04_10.00.01
+  ontem 18:00                 37 KB   lume-2026-11-03_18.00.03
+
+fabiano@farol:~ $ lume tempo recuperar Documentos/contrato.odt ontem
+  ✓ versão de ontem 18:00 recuperada em:
+    /home/fabiano/Documentos/contrato (de 03-11 18.00).odt
+```
+
+- **Uma foto por hora**, só quando algo mudou, das pastas pessoais e do
+  sistema. As fotos são instantâneas e só ocupam o que mudou depois delas.
+- **Guardadas por um tempo que faz sentido**: todas das últimas 24 horas,
+  uma por dia por 30 dias, uma por semana por 6 meses. Com o disco acima
+  de 85%, as automáticas mais velhas saem primeiro.
+- **Antes de cada mudança**: `forja instalar/remover/atualizar` e `lume
+  atualizar` tiram uma foto antes de mexer.
+- **Um arquivo** (`versoes`, `recuperar`): sem ser root, inclusive
+  arquivos apagados; a versão antiga vai **ao lado** da atual, com a data
+  no nome, ou no lugar dela (`--substituir`, e a atual fica guardada).
+- **O sistema inteiro** (`lume tempo voltar 3`): um ambiente de boot com
+  o sistema como estava naquela foto; as pastas pessoais não mudam, e o
+  sistema de agora fica guardado para desfazer.
+- `lume tempo mudou 2`: o que foi criado, apagado ou mudado desde a foto.
+- No **Dolphin**, botão direito num arquivo ou pasta, **Versões
+  anteriores**: escolha a versão e abra, recupere ao lado ou substitua.
+
+`lume tempo foto "antes de mexer no projeto"` tira uma foto que fica até
+você apagar. Tudo em `man lume-tempo`.
+
+| | |
+|---|---|
+| ![Botão direito no Dolphin](docs/capturas/tempo-5-menu-dolphin.png) | ![Versões anteriores: a lista](docs/capturas/tempo-6-versoes-anteriores.png) |
+| ![O que fazer com a versão](docs/capturas/tempo-7-o-que-fazer.png) | ![Recuperada ao lado da atual](docs/capturas/tempo-9-dolphin-depois.png) |
+
+<sub>"Versões anteriores" no Dolphin, no sistema instalado numa VM.</sub>
+
 ## Vídeo: Intel + NVIDIA
 
 `lume video` decide a cada boot (`rc.d/lume_video`):
@@ -193,16 +239,17 @@ um modo: `lume video nvidia | intel | scfb | auto`.
 forja instalar htop                 # binário oficial, instala em segundos
 forja opcoes nano -NLS -DOCS        # muda opções (as "USE flags")
 forja instalar nano                 # agora compila da árvore de ports com elas
-forja atualizar                     # snapshot do ZFS, binários e recompilações
+forja atualizar                     # foto do disco, binários e recompilações
 forja mundo                         # o que você pediu (o @world)
 ```
 
 - Cada pacote vem **binário** até você mudar uma opção dele; aí a forja o
   compila da árvore de ports com as suas opções e o **trava** (`pkg lock`)
   para a atualização binária não desfazer a escolha.
-- `forja atualizar` cria um ambiente de boot antes de mexer em qualquer
-  coisa (`bectl`), atualiza os binários e recompila só o que mudou de
-  versão ou de opções.
+- `forja instalar`, `remover` e `atualizar` tiram uma foto do disco antes
+  de mexer em qualquer coisa (`lume tempo`; se algo quebrar, `lume tempo
+  voltar 1`); `atualizar` atualiza os binários e recompila só o que mudou
+  de versão ou de opções.
 - `forja arvore` baixa a árvore de ports do trimestre (`2026Q4`).
 - Arquivos: `/etc/forja/forja.conf`, `/etc/forja/opcoes`,
   `/var/db/forja/mundo`. Manual: `man forja`.
@@ -240,13 +287,14 @@ aplica de novo.
 
 | Comando | O que faz |
 |---|---|
-| `lume` | painel: kernel, CPU, memória, disco, carga, serviços |
+| `lume` | painel: kernel, CPU, memória, disco, carga, serviços, versão e a última foto do disco |
 | `lume hardware` | o que funciona neste computador |
 | `lume video [testar\|auto\|nvidia\|intel\|scfb]` | driver de vídeo |
 | `lume wifi` | conecta no Wi-Fi |
 | `lume desktop` | instala o KDE Plasma e os drivers |
 | `lume instalar` | instala no disco inteiro (ZFS + GELI) |
 | `lume atualizar` | atualiza o sistema num ambiente de boot, com volta automática |
+| `lume tempo` | máquina do tempo: fotos do disco, versões de arquivos, o sistema de antes |
 | `lume tema [papel\|padrao]` | visual do KDE |
 | `lume configurar` | assistente de configuração |
 | `vigia` | gerenciador de serviços (abaixo) |
@@ -296,7 +344,8 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0010                 vídeo Intel + NVIDIA por geração
   0011                 forja
   0012                 tema Papel
-  0013..               correções que os testes pegaram
+  0013..0024           correções que os testes pegaram; lume atualizar (1.1.1)
+  0025                 lume tempo, a máquina do tempo (1.1.2)
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
                        (forja, lume, vigia, lume-configurar, rc.d, tema...)
 conf/                  src.conf (userland) e LUME (kernel)
@@ -354,6 +403,7 @@ python3 tests/teste-pendrive.py aovivo    aovivo.log     # boot, lume hardware, 
 python3 tests/teste-pendrive.py instalado instalado.log  # senha do disco, assistente
 python3 tests/teste-pendrive.py desktop   desktop.log    # login gráfico, fotos da tela
 python3 tests/teste-pendrive.py forja     forja.log      # binário, compilação, atualizar
+python3 tests/teste-pendrive.py tempo     tempo.log      # lume tempo e "Versões anteriores"
 ```
 
 ## Status
@@ -361,7 +411,7 @@ python3 tests/teste-pendrive.py forja     forja.log      # binário, compilaçã
 Tudo abaixo foi testado de ponta a ponta no QEMU (UEFI/OVMF, sem KVM),
 com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
-- [x] **Build do zero**: FreeBSD 15.1 + 24 patches, world com LLVM, kernel
+- [x] **Build do zero**: FreeBSD 15.1 + 25 patches, world com LLVM, kernel
   `LUME` completo (847 módulos) com LLVM 19 — também no GitHub Actions
   (2h12 de build, imagem bootada no QEMU), a partir deste repositório
 - [x] **Pendrive ao vivo**: boot até o login em ~1 min (emulado), `lume
@@ -386,9 +436,17 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
   interrompido no meio (de volta ao anterior)
 - [x] **Ambientes de boot**: numa instalação nova, bootar outro ambiente
   roda de fato aquele ambiente
+- [x] **Máquina do tempo**: 1.1.1 → 1.1.2 pelo `lume atualizar` (fotos
+  ligadas sozinhas, foto automática pelo `cron`); como usuário comum,
+  versões de um arquivo, arquivo apagado de volta, versão antiga ao lado e
+  no lugar; `mudou` com nomes acentuados; limpeza pela idade; `lume tempo
+  voltar` para antes de uma instalação (o sistema volta, `/home` fica) e o
+  desfazer; foto antes do `forja` e do `lume atualizar`; "Versões
+  anteriores" no Dolphin, do clique à cópia recuperada
 - Sessões completas: [instalação pelo pendrive](docs/pendrive-instalacao.log),
   [primeiro boot](docs/primeiro-boot-instalado.log), [forja](docs/forja-sessao.log),
-  [atualizações e volta automática](docs/atualizacao-sessao.log)
+  [atualizações e volta automática](docs/atualizacao-sessao.log),
+  [máquina do tempo](docs/tempo-sessao.log)
 - [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA
   (precisa da placa) — no pendrive, rode `lume hardware` e
   `lume video testar` antes de instalar
@@ -409,6 +467,10 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 | Bootar outro ambiente de boot (inclusive os da forja) montava o antigo por cima | `ROOT/default` com `canmount=noauto` e sem `vfs.root.mountfrom` fixo no `loader.conf`; o `lume atualizar` conserta instalações antigas |
 | Atualização trocaria `pwd.db`/`spwd.db` (usuários e senhas) pelos do build | bancos derivados nunca vêm do pacote |
 | `rc.d` tem a tag `config` no METALOG e não seria atualizado | `rc.d`, `periodic` e `defaults` são do sistema |
+| Espaço das fotos mostrava 462 MB: contava a cópia do sistema antigo que o `bectl` guarda depois de uma atualização | só o que sairia apagando as fotos do LumeBSD (`zfs destroy -n`) |
+| `lume tempo mudou` listava `/var/run` inteiro e nomes como `reuni\0303\0243o` | o que todo boot recria fica de fora; nomes decodificados |
+| Recuperar como usuário comum dava erro de permissão no log | o registro é só do root |
+| Atualizado da 1.1, `lume tempo` dizia "guarda: nada" até o primeiro `cron` | sem a propriedade em lugar nenhum, vale o padrão (`/home` e sistema) |
 
 ### Compilando programas à mão
 

@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: BSD-2-Clause
 .\"
-.Dd November 1, 2026
+.Dd November 4, 2026
 .Dt LUME 1
 .Os
 .Sh NAME
@@ -21,6 +21,9 @@
 .Nm
 .Cm atualizar
 .Op Cm verificar | aplicar Oo Ar índice | arquivo Oc | estado | confirmar | voltar | limpar
+.Nm
+.Cm tempo
+.Op Cm linha | versoes | recuperar | foto | mudou | voltar | apagar | ligar | desligar
 .Sh DESCRIPTION
 Sem argumentos,
 .Nm
@@ -108,6 +111,15 @@ traz um diferente, ele fica ao lado, com o final
 O pacote é conferido pelo SHA256 do índice, baixado por HTTPS.
 Só atualiza dentro da mesma série (1.1.x): mudar a versão do FreeBSD por
 baixo pede uma instalação nova.
+.It Cm tempo
+A máquina do tempo: uma foto do disco por hora
+.Pq snapshots do ZFS ,
+guardadas por dias e semanas, de onde se recupera um arquivo, uma pasta
+ou o sistema inteiro como estava.
+No Dolphin, botão direito
+.Sy Versões anteriores .
+Veja
+.Xr lume-tempo 8 .
 .It Cm instalar
 Instala o LumeBSD num disco inteiro, a partir do pendrive: ZFS com
 ambientes de boot, criptografia GELI pedindo senha no boot, swap
@@ -129,11 +141,15 @@ versão completa do sistema (por exemplo, 1.1.1)
 atualização instalada que ainda não foi confirmada
 .It Pa /var/log/lume-atualizar.log
 registro das atualizações
+.It Pa /var/db/lume/tempo-estado
+resumo da máquina do tempo para a linha
+.Dq tempo
 .El
 .Sh SEE ALSO
 .Xr bectl 8 ,
 .Xr freebsd-version 1 ,
 .Xr lume-configurar 8 ,
+.Xr lume-tempo 8 ,
 .Xr sysctl 8 ,
 .Xr rc.conf 5
 .Sh HISTORY

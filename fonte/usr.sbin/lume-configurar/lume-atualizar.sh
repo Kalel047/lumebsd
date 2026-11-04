@@ -252,6 +252,9 @@ cmd_aplicar()
 	msg "Instalando o LumeBSD $nova no ambiente de boot ${NEGRITO}$be${FIM}"
 	msg "${FRACO}(o sistema em uso, $agora, não é tocado)${FIM}"
 	registrar "aplicar $atual -> $nova em $be (a partir de $agora)"
+	# Foto das pastas pessoais e do sistema antes (lume tempo).
+	[ -x /usr/sbin/lume-tempo ] &&
+	    /usr/sbin/lume-tempo antes "lume atualizar $atual -> $nova"
 	bectl create -e "$agora" "$be" || erro "não deu para criar o ambiente $be"
 	mnt=$(mktemp -d /tmp/lume-atualizar.XXXXXX)
 	if ! bectl mount "$be" "$mnt" >/dev/null; then

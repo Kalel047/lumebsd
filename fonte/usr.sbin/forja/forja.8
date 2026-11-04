@@ -43,13 +43,23 @@ dependências não entram.
 apaga o pacote e as dependências que ficaram órfãs.
 .Pp
 .Nm Cm atualizar
-cria um ambiente de boot
-.Pq Xr bectl 8 ,
 atualiza a árvore de ports e os pacotes binários, e recompila o que tiver
 versão nova na árvore ou opções diferentes das que foram usadas (o
 .Dq --newuse
 do Portage).
-Se algo der errado, escolha o ambiente de boot anterior no menu do boot.
+.Pp
+Antes de
+.Cm instalar ,
+.Cm remover
+e
+.Cm atualizar ,
+.Nm
+tira uma foto do disco com
+.Xr lume-tempo 8
+.Pq com Va snapshot=sim , o padrão .
+Se algo der errado,
+.Nm lume tempo voltar 1
+devolve o sistema como estava antes.
 .Pp
 Dependências de um programa compilado vêm em binário, exceto as que também
 tiverem opções próprias, que são compiladas antes.
@@ -105,9 +115,10 @@ forja mundo                  # o que você instalou e como
 forja atualizar              # mantém tudo em dia
 .Ed
 .Sh SEE ALSO
-.Xr pkg 8 ,
 .Xr ports 7 ,
-.Xr bectl 8
+.Xr bectl 8 ,
+.Xr lume-tempo 8 ,
+.Xr pkg 8
 .Sh HISTORY
 .Nm
 surgiu no LumeBSD 1.1

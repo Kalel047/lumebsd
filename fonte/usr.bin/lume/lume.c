@@ -14,6 +14,7 @@
  *   lume desktop    instala o desktop KDE Plasma
  *   lume instalar   instala o LumeBSD no disco (a partir do pendrive)
  *   lume atualizar  atualiza o sistema num novo ambiente de boot
+ *   lume tempo      máquina do tempo: fotos do disco e o caminho de volta
  */
 
 #include <sys/param.h>
@@ -42,11 +43,13 @@
 #define	LUME_VERSAO_ARQ	"/usr/share/lume/versao"
 /* Atualização instalada que ainda não passou pela checagem de saúde. */
 #define	LUME_PENDENTE	"/var/db/lume/atualizacao-pendente"
+/* Resumo da máquina do tempo, gravado pelo lume-tempo a cada 15 minutos. */
+#define	LUME_TEMPO_ESTADO	"/var/db/lume/tempo-estado"
 
 /* Subcomandos que são scripts em /usr/sbin/lume-<nome>. */
 static const char *scripts[] = {
 	"configurar", "hardware", "video", "wifi", "desktop", "instalar",
-	"tema", "atualizar",
+	"tema", "atualizar", "tempo",
 };
 #define	VIGIA_SOCKET	"/var/run/vigia.sock"
 
@@ -62,6 +65,7 @@ static int use_color;
 
 static const char *tips[] = {
 	"lume sem argumentos mostra o painel do sistema.",
+	"Apagou sem querer? lume tempo recuperar ARQUIVO traz de volta.",
 	"jail(8) isola serviços inteiros com custo quase zero.",
 	"service -e lista todos os serviços habilitados no boot.",
 	"sysrc(8) edita o rc.conf sem abrir um editor: sysrc hostname=farol",
@@ -252,6 +256,47 @@ sistema(void)
 		    "(%slume atualizar estado%s)\n", RED, RESET, AMBER, RESET);
 }
 
+/* Linha "tempo": a última foto da máquina do tempo e quantas há. */
+static void
+tempo(void)
+{
+	char linha[64], txt[160], quanto[32], ocupa[32];
+	long long fotos = -1, ultima = 0, bytes = 0;
+	time_t idade;
+	FILE *f;
+
+	if ((f = fopen(LUME_TEMPO_ESTADO, "r")) == NULL)
+		return;
+	while (fgets(linha, sizeof(linha), f) != NULL) {
+		sscanf(linha, "fotos=%lld", &fotos);
+		sscanf(linha, "ultima=%lld", &ultima);
+		sscanf(linha, "ocupa=%lld", &bytes);
+	}
+	fclose(f);
+	if (fotos < 0)
+		return;
+	if (fotos == 0 || ultima <= 0) {
+		row("tempo", "nenhuma foto ainda (lume tempo)");
+		return;
+	}
+	idade = time(NULL) - (time_t)ultima;
+	if (idade < 120)
+		snprintf(quanto, sizeof(quanto), "agora há pouco");
+	else if (idade < 7200)
+		snprintf(quanto, sizeof(quanto), "há %jd min",
+		    (intmax_t)(idade / 60));
+	else if (idade < 172800)
+		snprintf(quanto, sizeof(quanto), "há %jd h",
+		    (intmax_t)(idade / 3600));
+	else
+		snprintf(quanto, sizeof(quanto), "%shá %jd dias%s", RED,
+		    (intmax_t)(idade / 86400), RESET);
+	human((uint64_t)bytes, ocupa, sizeof(ocupa));
+	snprintf(txt, sizeof(txt), "última foto %s, %lld no total (%s)",
+	    quanto, fotos, ocupa);
+	row("tempo", txt);
+}
+
 static void
 painel(void)
 {
@@ -330,6 +375,7 @@ painel(void)
 	}
 	servicos();
 	sistema();
+	tempo();
 	if (access(LUME_MARCA, F_OK) != 0)
 		printf("\n  %s!%s sistema ainda não configurado: rode %slume "
 		    "configurar%s como root\n", RED, RESET, AMBER, RESET);
@@ -344,7 +390,8 @@ usage(void)
 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
 	    "     lume tema [papel | padrao]\n"
 	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
-	    "     lume atualizar [verificar | aplicar | estado | voltar]\n");
+	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
+	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n");
 	exit(1);
 }
 

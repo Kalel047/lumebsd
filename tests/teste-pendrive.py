@@ -9,11 +9,14 @@ uso: python3 tests/teste-pendrive.py FASE LOG
   instalado  boota o NVMe: senha do disco, assistente, verificações
   desktop    (depois de instalado) login gráfico, fotos da tela
   forja      (depois de instalado) binário, compilação com opções, atualizar
+  tempo      (depois do desktop) lume tempo: fotos, versões, recuperar,
+             mudou, voltar e a janela "Versões anteriores" do Dolphin
   ajustar    entra como root no instalado e roda os comandos de $AJUSTES
 
 Variáveis: LUME_IMG (a imagem), LUME_TESTE_DIR (onde ficam disco NVMe,
 fotos e o socket do monitor), OVMF_CODE/OVMF_VARS, LUME_KVM=1 para usar
-aceleração, LUME_REPO_URL (espelho de pacotes para "aovivo").
+aceleração, LUME_REPO_URL (espelho de pacotes para "aovivo"), PREPARO
+(comandos antes do teste "tempo").
 O pendrive vai em SATA porque o USB emulado do QEMU dá erros de leitura
 sob carga; para o sistema é o mesmo disco.
 """
@@ -327,6 +330,78 @@ elif fase == "forja":
         passos = [x for x in passos if "forja arvore" not in x[0]]
     for c, t in passos:
         comando(c, P, t)
+    enviar("shutdown -p now")
+    esperar("Uptime", 300)
+
+elif fase == "tempo":
+    senha_do_disco("login: ")
+    marca("sistema no login; esperando o SDDM")
+    time.sleep(90)
+    for tecla in "lume2026":
+        monitor(f"sendkey {tecla}")
+    monitor("sendkey ret")
+    marca("senha digitada na tela de login")
+    time.sleep(240)
+    P = "root@thinkpad:~ # "
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    # PREPARO: comandos antes do teste (um por linha), como trocar um script.
+    for c in os.environ.get("PREPARO", "").splitlines():
+        if c.strip():
+            comando(c, P, 300)
+    F = "su - fabiano -c"
+    D = "Documentos/contrato.txt"
+    passos = [
+        "grep lume-tempo /var/log/cron | tail -4",
+        "lume tempo",
+        "lume-tempo automatico; zfs get -r -s local -o name,value lume:tempo",
+        f"{F} 'mkdir -p Documentos; echo \"versão 1: rascunho\" > {D}'",
+        "lume tempo foto 'teste: versão 1'",
+        f"{F} 'echo \"versão 2: revisado\" > {D}; echo foto > Documentos/foto.jpg'",
+        "lume tempo antes 'teste: versão 2'",
+        f"{F} 'echo \"versão 3: final\" > {D}; rm Documentos/foto.jpg'",
+        f"{F} 'lume tempo versoes {D}; lume tempo versoes Documentos/foto.jpg'",
+        f"{F} 'lume tempo recuperar Documentos/foto.jpg; cat Documentos/foto.jpg'",
+        f"{F} 'lume tempo recuperar {D} 2; ls Documentos'",
+        f"{F} 'lume tempo recuperar {D} --substituir; cat {D}; ls Documentos'",
+        "lume tempo linha",
+        "lume tempo mudou 2",
+        "lume | tail -4",
+    ]
+    for c in passos:
+        comando(c, P, 300)
+    # A janela "Versões anteriores", na sessão do fabiano.
+    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
+              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    comando("ls -l /usr/local/share/kio/servicemenus/", P)
+    comando(sessao + "su -m fabiano -c 'env HOME=/home/fabiano daemon -f dolphin /home/fabiano/Documentos'", P)
+    time.sleep(60)
+    # O botão direito no primeiro arquivo (contrato.txt), com o xdotool se
+    # houver (PREPARO pode instalar); senão, a tecla Menu.
+    clique = ("w=$(xdotool search --onlyvisible --class dolphin | tail -1); "
+              "xdotool windowactivate --sync $w mousemove --window $w 228 104 click 3")
+    comando(sessao + f"if command -v xdotool >/dev/null; then su -m fabiano -c '{clique}'; "
+            "else echo sem-xdotool; fi", P)
+    time.sleep(10)
+    foto("5-dolphin-menu")
+    monitor("sendkey esc")
+    comando(sessao + f"su -m fabiano -c 'env HOME=/home/fabiano daemon -f lume-tempo gui /home/fabiano/{D}'", P)
+    time.sleep(40)
+    foto("6-versoes-anteriores")
+    monitor("sendkey down")  # a versão mais velha
+    monitor("sendkey ret")
+    time.sleep(15)
+    foto("7-o-que-fazer")
+    monitor("sendkey down")  # "Recuperar ao lado da atual"
+    monitor("sendkey ret")
+    time.sleep(15)
+    foto("8-recuperado")
+    monitor("sendkey ret")
+    time.sleep(20)
+    foto("9-dolphin-depois")
+    comando(f"{F} 'ls -l Documentos; head Documentos/*'", P)
     enviar("shutdown -p now")
     esperar("Uptime", 300)
 

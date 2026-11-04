@@ -123,6 +123,8 @@ aplicar()
 	# Programas GTK (Firefox e cia.) com o mesmo jeito.
 	instalar $T/gtk-settings.ini $XDG/gtk-3.0/settings.ini 0644
 	instalar $T/gtk-settings.ini $XDG/gtk-4.0/settings.ini 0644
+	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
+	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
 	# Tela de login
 	instalar $T/sddm.conf $P/etc/sddm.conf.d/lume.conf 0644
 	[ -d $P/share/sddm/themes/breeze ] &&

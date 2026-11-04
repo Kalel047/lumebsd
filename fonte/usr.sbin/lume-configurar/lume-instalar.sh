@@ -189,12 +189,12 @@ passo "Criando o ZFS"
 mkdir -p "$ALVO"
 roda zpool create -f -o altroot="$ALVO" -O compress=zstd -O atime=off \
     -O mountpoint=none "$POOL" /dev/gpt/zfs0.eli || morrer "zpool create falhou"
-roda zfs create -o mountpoint=none "$POOL/ROOT" &&
+roda zfs create -o mountpoint=none -o lume:tempo=on "$POOL/ROOT" &&
 # canmount=noauto: cada ambiente de boot só é montado quando é o escolhido
 # no boot (com "on", o zfs mount -a montaria um por cima do outro).
 roda zfs create -o mountpoint=/ -o canmount=noauto "$POOL/ROOT/default" &&
 roda zfs mount "$POOL/ROOT/default" &&
-roda zfs create -o mountpoint=/home "$POOL/home" &&
+roda zfs create -o mountpoint=/home -o lume:tempo=on "$POOL/home" &&
 roda zfs create -o mountpoint=/tmp -o exec=on -o setuid=off "$POOL/tmp" &&
 roda zfs create -o mountpoint=/usr -o canmount=off "$POOL/usr" &&
 roda zfs create "$POOL/usr/src" &&
