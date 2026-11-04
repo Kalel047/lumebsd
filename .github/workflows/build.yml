@@ -14,7 +14,7 @@ on:
       tag:
         description: "Tag da Release"
         type: string
-        default: "v1.1.2"
+        default: "v1.2.0"
   schedule:
     - cron: "23 5 1 * *"
 
@@ -29,7 +29,7 @@ jobs:
       run:
         shell: bash
     env:
-      IMG: LumeBSD-1.1-Farol-pendrive.img
+      IMG: LumeBSD-1.2-Farol-pendrive.img
     steps:
       - uses: actions/checkout@v4
 
@@ -75,9 +75,9 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: LumeBSD-1.1-Farol-pendrive
+          name: LumeBSD-1.2-Farol-pendrive
           path: |
-            LumeBSD-1.1-Farol-pendrive.img.xz
+            LumeBSD-1.2-Farol-pendrive.img.xz
             SHA256SUMS
           compression-level: 0
           retention-days: 14
@@ -110,7 +110,9 @@ jobs:
         run: |
           # atualizacao.txt fica em releases/latest/download/, de onde o
           # "lume atualizar" lê a versão nova.
+          # As novidades (que o app também mostra) e o guia do pendrive.
+          cat docs/novidades.md docs/release.md > notas-release.md
           gh release create "${{ inputs.tag }}" "$IMG.xz" SHA256SUMS \
-              atualizacao/atualizacao.txt atualizacao/*.tar.zst \
+              atualizacao/atualizacao.txt atualizacao/*.tar.zst atualizacao/*.md \
               --target "$GITHUB_SHA" --title "LumeBSD $(cat VERSAO) \"Farol\"" \
-              --notes-file docs/release-1.1.md
+              --notes-file notas-release.md

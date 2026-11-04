@@ -7,6 +7,10 @@
 #   lume tema           mostra qual tema está em uso
 #   lume tema papel     aplica o Papel (o lume desktop já faz isso)
 #   lume tema padrao    volta ao visual original do KDE
+#   lume tema integrar  põe no KDE o que é do sistema: o app Atualizações do
+#                       LumeBSD (menu, aviso na sessão, polkit) e o
+#                       "Versões anteriores" do Dolphin (o tema chama isto, e
+#                       o lume_saude também, depois de uma atualização)
 #
 # Papel, tinta e cinzas; sem animações, sombras nem transparência; fontes
 # IBM Plex; ícones Breeze convertidos para tons de cinza; papel de parede
@@ -123,8 +127,7 @@ aplicar()
 	# Programas GTK (Firefox e cia.) com o mesmo jeito.
 	instalar $T/gtk-settings.ini $XDG/gtk-3.0/settings.ini 0644
 	instalar $T/gtk-settings.ini $XDG/gtk-4.0/settings.ini 0644
-	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
-	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
+	integrar
 	# Tela de login
 	instalar $T/sddm.conf $P/etc/sddm.conf.d/lume.conf 0644
 	[ -d $P/share/sddm/themes/breeze ] &&
@@ -135,6 +138,29 @@ aplicar()
 	echo "  ✓ Tema Papel aplicado. Vale para quem entrar a partir de agora;"
 	echo "    quem já usa o KDE escolhe \"Papel (LumeBSD)\" em"
 	echo "    Configurações do Sistema > Aparência > Tema global."
+}
+
+integrar()
+{
+	[ -x $P/bin/plasmashell ] || return 0
+	# Com o Papel aplicado, o papel de parede acompanha a versão do sistema.
+	if [ -f "$MARCA" ]; then
+		papel_de_parede LumePapel "Papel (LumeBSD)" $T/papel.png
+		papel_de_parede LumePapelNoite "Papel noite (LumeBSD)" $T/papel-noite.png
+	fi
+	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
+	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
+	# O app de atualizações: no menu, o aviso na entrada da sessão e a
+	# permissão (polkit) para instalar com a senha do usuário.
+	A=/usr/share/lume/app
+	if [ -x /usr/bin/lume-atualizacoes ]; then
+		instalar $A/lume-atualizacoes.desktop \
+		    $P/share/applications/lume-atualizacoes.desktop 0644
+		instalar $A/lume-atualizacoes-bandeja.desktop \
+		    $XDG/autostart/lume-atualizacoes-bandeja.desktop 0644
+		instalar $A/org.lumebsd.atualizar.policy \
+		    $P/share/polkit-1/actions/org.lumebsd.atualizar.policy 0644
+	fi
 }
 
 padrao()
@@ -156,5 +182,8 @@ papel|aplicar)
 padrao|padrão)
 	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root" >&2; exit 1; }
 	padrao ;;
-*)	echo "uso: lume tema [papel | padrao]" >&2; exit 2 ;;
+integrar)
+	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root" >&2; exit 1; }
+	integrar ;;
+*)	echo "uso: lume tema [papel | padrao | integrar]" >&2; exit 2 ;;
 esac

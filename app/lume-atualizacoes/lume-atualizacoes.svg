@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Atualizações do LumeBSD: o farol dentro de uma volta (tema Papel). -->
+  <circle cx="32" cy="32" r="30" fill="#f2efe8" stroke="#222" stroke-width="2"/>
+  <path d="M51 23 A21 21 0 0 0 14 22" fill="none" stroke="#222" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M51 23 l1.5 -8.5 M51 23 l-8.4 -1.8" fill="none" stroke="#222" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M13 41 A21 21 0 0 0 50 42" fill="none" stroke="#222" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M13 41 l-1.5 8.5 M13 41 l8.4 1.8" fill="none" stroke="#222" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M28.5 46 L30 28 h4 L35.5 46 Z" fill="#f2efe8" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M29.4 34 h5.2 M29 40 h6" stroke="#222" stroke-width="1.8"/>
+  <path d="M29 28 h6 l-1 -4 h-4 Z" fill="#222"/>
+  <path d="M26 46 h12" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+</svg>

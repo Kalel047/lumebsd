@@ -1,6 +1,6 @@
 """Baixa pacotes oficiais do FreeBSD 15 (com dependências) e confere cada um.
 
-uso: pacotes.py DESTINO pacote [pacote ...]
+uso: pacotes.py [--sem-dependencias] DESTINO pacote [pacote ...]
 Um nome com * é um padrão: 'gpu-firmware-intel-kmod-*' pega todos.
 
 Lê os catálogos assinados de pkg.freebsd.org (quarterly e kmods do 15.1),
@@ -45,7 +45,12 @@ def catalogo(tmp):
 
 
 def main():
-    destino, pedidos = sys.argv[1], sys.argv[2:]
+    args = sys.argv[1:]
+    # --sem-dependencias: só os pedidos (os cabeçalhos do Qt para compilar o
+    # app de atualizações não precisam do resto).
+    sem_deps = "--sem-dependencias" in args
+    args = [a for a in args if a != "--sem-dependencias"]
+    destino, pedidos = args[0], args[1:]
     os.makedirs(destino, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         idx = catalogo(tmp)
@@ -63,7 +68,8 @@ def main():
         if nome not in idx:
             sys.exit(f"pacote não encontrado: {nome}")
         escolhidos[nome] = idx[nome]
-        fila.extend((idx[nome].get("deps") or {}).keys())
+        if not sem_deps:
+            fila.extend((idx[nome].get("deps") or {}).keys())
     for d in escolhidos.values():
         arq = os.path.join(destino, f"{d['name']}-{d['version']}.pkg")
         if os.path.exists(arq) and soma_pkg(arq) == d["sum"]:

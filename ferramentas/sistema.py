@@ -5,6 +5,7 @@ dono, permissões, flags e a tag "config" nos arquivos de configuração. O
 LumeBSD guarda essa lista (sem tamanhos e hashes) em
 /usr/share/lume/sistema.mtree e a versão completa em /usr/share/lume/versao.
 """
+import hashlib
 import os
 import re
 import shutil
@@ -41,11 +42,32 @@ def extras_lume(stage, cabecalho, linhas, versao):
              f"./{LISTA} type=file {RAIZ} mode=0444 tags=package=lume"]
     caminhos = {l.split()[0] for l in novas}
     base = [l for l in linhas if l.split()[0] not in caminhos]
-    sistema = [cabecalho] + [re.sub(r" (size|sha256digest|md5digest|time)=\S+", "", l)
+    sistema = [cabecalho] + [com_digest(stage, re.sub(r" (size|sha256digest|md5digest|time|contents)=\S+", "", l))
                              for l in base + novas]
     with open(os.path.join(stage, LISTA), "w") as f:
         f.write("\n".join(sistema) + "\n")
     return novas
+
+
+def e_config(linha):
+    """A mesma regra do lume-atualizar: tag config, fora rc.d/periodic/defaults."""
+    return (re.search(r" tags=([^ ]*,)?config(,| |$)", linha) and " type=file" in linha
+            and not re.match(r"\./etc/(rc\.d|defaults|periodic)/", linha))
+
+
+def com_digest(stage, linha):
+    """Configurações levam o SHA256 da versão do sistema: na próxima
+    atualização, uma que o usuário não mexeu é trocada pela nova (em vez de
+    ficar a velha e a nova ao lado, .lume-novo)."""
+    if not e_config(linha):
+        return linha
+    rel = linha.split()[0][2:]
+    arq = os.path.join(stage, rel)
+    if rel == "etc/motd.template" and os.path.exists(arq + ".build"):
+        arq += ".build"
+    if not os.path.isfile(arq):
+        return linha
+    return linha + " sha256digest=" + hashlib.sha256(open(arq, "rb").read()).hexdigest()
 
 
 def com_originais(stage, linhas):

@@ -759,10 +759,12 @@ cmd_ligar()
 # O menu do Dolphin vai junto do KDE (quem atualizou da 1.1 também ganha).
 integrar_kde()
 {
-	[ -f "$MENU_DOLPHIN" ] && [ -d /usr/local/share/kio ] || return 0
-	cmp -s "$MENU_DOLPHIN" "$MENU_DESTINO" && return 0
-	mkdir -p "$(dirname "$MENU_DESTINO")" &&
-	    install -m 0755 "$MENU_DOLPHIN" "$MENU_DESTINO"
+	[ -f "$MENU_DOLPHIN" ] && [ -x /usr/local/bin/plasmashell ] || return 0
+	app=/usr/share/lume/app/lume-atualizacoes.desktop
+	cmp -s "$MENU_DOLPHIN" "$MENU_DESTINO" &&
+	    { [ ! -f "$app" ] || cmp -s "$app" /usr/local/share/applications/lume-atualizacoes.desktop; } &&
+	    return 0
+	/usr/sbin/lume-tema integrar > /dev/null 2>&1
 }
 
 cmd_automatico()

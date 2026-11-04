@@ -11,6 +11,10 @@ uso: python3 tests/teste-pendrive.py FASE LOG
   forja      (depois de instalado) binário, compilação com opções, atualizar
   tempo      (depois do desktop) lume tempo: fotos, versões, recuperar,
              mudou, voltar e a janela "Versões anteriores" do Dolphin
+  app        (depois do desktop, com lume_atualizar_url apontando para uma
+             versão nova e o xdotool instalado) o app Atualizações do
+             LumeBSD: aviso na bandeja, novidades, senha, instalação,
+             reiniciar
   ajustar    entra como root no instalado e roda os comandos de $AJUSTES
 
 Variáveis: LUME_IMG (a imagem), LUME_TESTE_DIR (onde ficam disco NVMe,
@@ -30,7 +34,7 @@ import time
 
 TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR = os.environ.get("LUME_TESTE_DIR", os.path.join(TOPO, "teste-pendrive"))
-PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.1-Farol-pendrive.img"))
+PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.2-Farol-pendrive.img"))
 OVMF_CODE = os.environ.get("OVMF_CODE", "/usr/share/OVMF/OVMF_CODE_4M.fd")
 OVMF_VARS = os.environ.get("OVMF_VARS", "/usr/share/OVMF/OVMF_VARS_4M.fd")
 NVME = f"{DIR}/nvme.img"
@@ -99,9 +103,14 @@ def esperar(pat, timeout=300):
 
 
 def enviar(s):
+    # Em pedaços: linhas longas mandadas de uma vez perdem letras no
+    # console serial do FreeBSD emulado.
     time.sleep(0.3)
-    p.stdin.write((s + "\r").encode())
-    p.stdin.flush()
+    dados = (s + "\r").encode()
+    for i in range(0, len(dados), 32):
+        p.stdin.write(dados[i:i + 32])
+        p.stdin.flush()
+        time.sleep(0.05)
 
 
 def esperar_um(pats, timeout=300):
@@ -125,6 +134,26 @@ def esperar_um(pats, timeout=300):
     print(f"FALHOU esperando {pats!r} ({round(time.time() - t0)} s)", flush=True)
     p.kill()
     sys.exit(1)
+
+
+def achou(pat, timeout):
+    """Como esperar, mas sem desistir do teste: verdadeiro se apareceu."""
+    global buf
+    pat = pat.encode()
+    fim = time.time() + timeout
+    while time.time() < fim:
+        if pat in buf:
+            buf = buf[buf.index(pat) + len(pat):]
+            return True
+        r, _, _ = select.select([p.stdout], [], [], 1)
+        if r:
+            d = os.read(p.stdout.fileno(), 65536)
+            if not d:
+                break
+            buf += d
+            log.write(d)
+            log.flush()
+    return False
 
 
 def senha_do_disco(depois):
@@ -404,6 +433,135 @@ elif fase == "tempo":
     comando(f"{F} 'ls -l Documentos; head Documentos/*'", P)
     enviar("shutdown -p now")
     esperar("Uptime", 300)
+
+elif fase == "app":
+    senha_do_disco("login: ")
+    marca("sistema no login; esperando o SDDM")
+    time.sleep(90)
+    for tecla in "lume2026":
+        monitor(f"sendkey {tecla}")
+    monitor("sendkey ret")
+    marca("senha digitada na tela de login")
+    # O aviso da bandeja sai uns 90 s depois da entrada e fica 15 s.
+    time.sleep(110)
+    for i in range(8):
+        foto(f"app-1-bandeja-{i}")
+        time.sleep(9)
+    P = "root@thinkpad:~ # "
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
+              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    X = sessao + "su -m fabiano -c "
+    comando("pgrep -lf lume-atualizacoes; ls /usr/local/share/applications/lume-atualizacoes.desktop /usr/local/share/polkit-1/actions/org.lumebsd.atualizar.policy", P)
+    comando(X + "'env HOME=/home/fabiano daemon -f lume-atualizacoes'", P)
+    time.sleep(60)
+    foto("app-2-nova")
+    comando("ANTES=$(grep -c 'pronto: .* ativado' /var/log/lume-atualizar.log); echo $ANTES", P)
+    # O botão principal (Instalar, depois Reiniciar agora) fica no canto de
+    # baixo à direita da janela.
+    janela = ("w=$(xdotool search --onlyvisible --classname lume-atualizacoes | tail -1); "
+              "xdotool windowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); "
+              "xdotool mousemove --window $w $((WIDTH - 71)) $((HEIGHT - 36)) click 1")
+    comando(X + f"'{janela}'", P)   # Instalar
+    time.sleep(25)
+    foto("app-3-senha")
+    comando(X + "'xdotool type --delay 120 lume2026; xdotool key Return'", P)
+    time.sleep(40)
+    foto("app-4-instalando")
+    # Espera o lume-atualizar terminar (a linha "pronto" no registro).
+    comando("i=0; until grep -q 'pronto: .* ativado' /var/log/lume-atualizar.log 2>/dev/null && "
+            "[ $(grep -c 'pronto: .* ativado' /var/log/lume-atualizar.log) -gt ${ANTES:-0} ]; do "
+            "i=$((i+1)); [ $i -gt 300 ] && break; sleep 5; done; tail -3 /var/log/lume-atualizar.log", P, 1700)
+    time.sleep(15)
+    foto("app-5-pronto")
+    comando("bectl list", P)
+    # "Reiniciar agora", a confirmação (o botão padrão) e, se o polkit pedir
+    # de novo, a senha.
+    comando(X + f"'{janela}'", P)
+    time.sleep(8)
+    foto("app-6-reiniciar")
+    # (Daqui em diante o computador pode desligar a qualquer momento: sem
+    # esperar o prompt.)
+    enviar(X + "'xdotool key Return'")
+    if not achou("Uptime", 25):
+        enviar(X + "'xdotool search --onlyvisible --name Autentica >/dev/null && "
+               "{ xdotool type --delay 120 lume2026; xdotool key Return; }'")
+    if not achou("Uptime", 300):
+        marca("o app não reiniciou o computador; desligando pelo console")
+        enviar("shutdown -p now")
+        esperar("Uptime", 300)
+    else:
+        marca("o app reiniciou o computador")
+
+elif fase in ("app-falhou", "app-voltar"):
+    # app-falhou: depois de uma atualização que não passou na checagem (o
+    # computador voltou), a tela que explica e "Apagar a tentativa".
+    # app-voltar: "Voltar para a versão anterior" e "Reiniciar agora".
+    senha_do_disco("login: ")
+    time.sleep(90)
+    for tecla in "lume2026":
+        monitor(f"sendkey {tecla}")
+    monitor("sendkey ret")
+    time.sleep(200)
+    P = "root@thinkpad:~ # "
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
+              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    X = sessao + "su -m fabiano -c "
+
+    def clicar(dx, dy):
+        """Clica num ponto contado do canto de baixo à direita (dx > 0) ou
+        de baixo à esquerda (dx < 0) da janela do app."""
+        x = f"$((WIDTH - {dx}))" if dx > 0 else f"{-dx}"
+        comando(X + "'w=$(xdotool search --onlyvisible --classname lume-atualizacoes | tail -1); "
+                "xdotool windowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); "
+                f"xdotool mousemove --window $w {x} $((HEIGHT - {dy})) click 1'", P)
+
+    def senha():
+        comando(X + "'xdotool search --onlyvisible --name Autentica >/dev/null && "
+                "{ xdotool type --delay 120 lume2026; xdotool key Return; }; true'", P)
+
+    comando("lume atualizar --maquina estado", P)
+    comando(X + "'env HOME=/home/fabiano daemon -f lume-atualizacoes'", P)
+    time.sleep(60)
+    if fase == "app-falhou":
+        foto("app-7-falhou")
+        clicar(225, 36)                 # Apagar a tentativa
+        time.sleep(15)
+        senha()
+        time.sleep(60)
+        foto("app-8-depois")
+        comando("bectl list; tail -3 /var/log/lume-atualizar.log", P)
+        enviar("shutdown -p now")
+        esperar("Uptime", 300)
+    else:
+        foto("app-9-em-dia")
+        clicar(-150, 36)                # Voltar para a versão anterior (...)
+        time.sleep(8)
+        foto("app-10-voltar")
+        comando(X + "'xdotool key Return'", P)
+        time.sleep(15)
+        senha()
+        time.sleep(30)
+        foto("app-11-volta-pronta")
+        comando("bectl list", P)
+        clicar(71, 36)                  # Reiniciar agora
+        time.sleep(8)
+        foto("app-12-reiniciar")
+        enviar(X + "'xdotool key Return'")
+        if not achou("Uptime", 25):
+            enviar(X + "'xdotool search --onlyvisible --name Autentica >/dev/null && "
+                   "{ xdotool type --delay 120 lume2026; xdotool key Return; }'")
+        if not achou("Uptime", 300):
+            marca("o app não reiniciou o computador")
+            sys.exit(1)
+        marca("o app reiniciou o computador")
 
 print(f"OK em {round(time.time() - t0)} s", flush=True)
 p.kill()

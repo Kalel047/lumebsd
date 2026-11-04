@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Updates (tray)
+Name[pt_BR]=Atualizações do LumeBSD (aviso)
+Comment[pt_BR]=Avisa quando sai uma versão nova do LumeBSD
+Exec=/usr/bin/lume-atualizacoes --bandeja
+Icon=/usr/share/lume/app/lume-atualizacoes.svg
+NoDisplay=true
+X-KDE-autostart-after=panel
+X-KDE-autostart-phase=2

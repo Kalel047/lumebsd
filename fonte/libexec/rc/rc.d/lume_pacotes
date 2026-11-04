@@ -1,0 +1,80 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: no primeiro boot de uma atualização que trocou a base FreeBSD,
+# instala os pacotes que o "lume atualizar" já baixou para a base nova
+# (drivers do kernel ou, numa versão principal, todos os programas).
+#
+# Roda antes do vídeo e da tela de login, já com o kernel novo, e sem
+# internet: os pacotes e o catálogo estão no cache do próprio ambiente. Se
+# falhar, a checagem de saúde (lume_saude) não confirma a atualização, e o
+# próximo boot volta para o sistema anterior.
+#
+
+# PROVIDE: lume_pacotes
+# REQUIRE: FILESYSTEMS ldconfig
+# BEFORE: lume_video LOGIN dbus sddm
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_pacotes"
+desc="Instala os pacotes da base FreeBSD nova depois de uma atualização"
+rcvar="lume_pacotes_enable"
+start_cmd="lume_pacotes_start"
+stop_cmd=":"
+
+PEND=/var/db/lume/pacotes-pendentes
+FALHA=/var/db/lume/pacotes-falharam
+LOG=/var/log/lume-atualizar.log
+
+campo()
+{
+	awk -F= -v k="$2" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$1"
+}
+
+lume_pacotes_start()
+{
+	[ -f "$PEND" ] || return 0
+	modo=$(campo "$PEND" modo)
+	base=$(campo "$PEND" base)
+	lista=$(campo "$PEND" lista)
+	PKG=/usr/local/sbin/pkg-static
+	echo
+	echo "LumeBSD: instalando os programas para o FreeBSD $base."
+	echo "  Leva alguns minutos; não desligue o computador."
+	echo "$(date '+%F %T') lume_pacotes: instalando ($modo, FreeBSD $base)" >> "$LOG"
+	export ASSUME_ALWAYS_YES=yes
+	rc=/var/run/lume-pacotes.rc
+	echo 1 > "$rc"
+	# No console, só o "[n/total] Reinstalling ..." de cada pacote.
+	{
+		case "$modo" in
+		drivers)
+			# shellcheck disable=SC2086
+			$PKG install -U -f $lista ;;
+		programas)
+			$PKG upgrade -U -f ;;
+		*)
+			false ;;
+		esac
+		echo $? > "$rc"
+	} 2>&1 | tee -a "$LOG" | grep --line-buffered -E '^\[[0-9]+/[0-9]+\]' |
+	    sed -u 's/^/  /'
+	ok=$(cat "$rc"); rm -f "$rc"
+	if [ "$ok" -eq 0 ]; then
+		$PKG clean -a -y > /dev/null 2>&1
+		rm -f "$PEND" "$FALHA"
+		echo "$(date '+%F %T') lume_pacotes: pronto" >> "$LOG"
+		echo "  Programas instalados."
+	else
+		echo "não deu para instalar os programas para o FreeBSD $base" > "$FALHA"
+		echo "$(date '+%F %T') lume_pacotes: falhou" >> "$LOG"
+		echo "  Não deu para instalar os programas. Reinicie para voltar ao sistema anterior."
+	fi
+}
+
+load_rc_config $name
+: ${lume_pacotes_enable:="YES"}
+run_rc_command "$1"

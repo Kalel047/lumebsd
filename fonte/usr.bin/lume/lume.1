@@ -20,7 +20,7 @@
 .Op Cm papel | padrao
 .Nm
 .Cm atualizar
-.Op Cm verificar | aplicar Oo Ar índice | arquivo Oc | estado | confirmar | voltar | limpar
+.Op Cm verificar | aplicar Oo Ar índice | arquivo Oc | estado | confirmar | voltar | descartar | limpar
 .Nm
 .Cm tempo
 .Op Cm linha | versoes | recuperar | foto | mudou | voltar | apagar | ligar | desligar
@@ -77,7 +77,11 @@ sombras nem transparência, e o farol em traço como papel de parede.
 .Cm padrao
 volta ao visual original do KDE.
 .It Cm atualizar
-Atualiza o sistema base sem risco.
+Atualiza o sistema sem risco.
+No desktop, o mesmo trabalho é feito pelo app
+.Sy Atualizações do LumeBSD
+.Pq Xr lume-atualizacoes 1 ,
+que avisa quando sai uma versão nova.
 A versão nova é instalada num ambiente de boot novo
 .Pq Xr bectl 8 ,
 nunca no sistema em uso, e ativada só para o próximo boot.
@@ -102,6 +106,9 @@ mostra versão, ambientes e o que está em teste;
 torna permanente a atualização em teste;
 .Cm voltar
 faz o sistema anterior ser o padrão de novo;
+.Cm descartar
+apaga o ambiente de uma atualização que falhou (o computador voltou
+sozinho);
 .Cm limpar
 apaga ambientes de atualizações antigas, menos o atual e o anterior.
 .Pp
@@ -109,8 +116,17 @@ Os arquivos de configuração que você tem são mantidos; quando a versão nova
 traz um diferente, ele fica ao lado, com o final
 .Pa .lume-novo .
 O pacote é conferido pelo SHA256 do índice, baixado por HTTPS.
-Só atualiza dentro da mesma série (1.1.x): mudar a versão do FreeBSD por
-baixo pede uma instalação nova.
+.Pp
+Vale qualquer versão mais nova: correção (1.2.0 para 1.2.1), versão nova
+(1.2 para 1.3) ou versão principal (1 para 2).
+O que muda o trabalho é a base FreeBSD por baixo, que o índice informa:
+na mesma base, só o sistema troca; numa base nova da mesma série (15.1
+para 15.2), os drivers do kernel de terceiros (vídeo, Wi-Fi, firmwares)
+são baixados de novo; numa série nova (15 para 16), todos os programas.
+Esses pacotes são baixados antes, ainda no sistema em uso, e instalados
+no primeiro boot da versão nova por
+.Pa rc.d/lume_pacotes ;
+se falharem, a atualização não é confirmada e o computador volta.
 .It Cm tempo
 A máquina do tempo: uma foto do disco por hora
 .Pq snapshots do ZFS ,
@@ -148,6 +164,7 @@ resumo da máquina do tempo para a linha
 .Sh SEE ALSO
 .Xr bectl 8 ,
 .Xr freebsd-version 1 ,
+.Xr lume-atualizacoes 1 ,
 .Xr lume-configurar 8 ,
 .Xr lume-tempo 8 ,
 .Xr sysctl 8 ,

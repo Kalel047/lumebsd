@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Updates
+Name[pt_BR]=Atualizações do LumeBSD
+Name[pt]=Atualizações do LumeBSD
+GenericName=System Updates
+GenericName[pt_BR]=Atualizações do sistema
+Comment=Keep LumeBSD up to date, safely
+Comment[pt_BR]=Mantém o LumeBSD em dia, sem risco
+Exec=/usr/bin/lume-atualizacoes
+Icon=/usr/share/lume/app/lume-atualizacoes.svg
+Categories=System;Settings;
+Keywords=update;upgrade;atualizar;atualização;sistema;versão;
+StartupNotify=true

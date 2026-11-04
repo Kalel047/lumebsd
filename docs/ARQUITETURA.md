@@ -25,7 +25,7 @@ encaixam. O README fala do uso; aqui é o "como funciona por dentro".
         │       ferramentas/montar-pendrive.py
         │                     │   makefs (UFS) + FAT EFI + mkimg (GPT)
         ▼                     ▼
- fonte/ (cópia legível)   LumeBSD-1.1-Farol-pendrive.img
+ fonte/ (cópia legível)   LumeBSD-1.2-Farol-pendrive.img
 ```
 
 O LumeBSD **não é um fork**: é o FreeBSD 15.1 com uma série de patches. Os
@@ -40,7 +40,8 @@ eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
 | `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh, inclusive `lume-atualizar` e `lume-tempo`), o tema Papel (`tema/`, com o menu "Versões anteriores" do Dolphin) e o `cron` da máquina do tempo |
 | `usr.sbin/vigia/` | o gerenciador de serviços, em C (`vigiad` e o cliente `vigia`) |
 | `usr.sbin/forja/` | a forja (sh), `forja.conf` e `forja(8)` |
-| `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), vigia |
+| `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), pacotes da base nova (`lume_pacotes`), vigia |
+| `app/lume-atualizacoes/` (fora da árvore do FreeBSD) | o app Atualizações do LumeBSD (Qt 6), o ícone, os atalhos e a política do polkit |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
 | `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=1.1`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
@@ -161,7 +162,11 @@ tela de login (`sddm_xkb_layout`) e para o KDE (`kxkbrc`).
 pendrive, o `LumeBSD-<versão>-sistema.tar.zst`: o sistema base inteiro,
 lido do `METALOG` original (donos, permissões e flags `schg` vão no tar), mais
 `/usr/share/lume/versao` e `/usr/share/lume/sistema.mtree`. Ao lado vai o
-índice `atualizacao.txt` (`versao=`, `arquivo=`, `sha256=`, `tamanho=`).
+índice `atualizacao.txt` (`versao=`, `base=`, `abi=`, `osversion=`,
+`arquivo=`, `sha256=`, `tamanho=`, `notas=` e, quando preciso,
+`minimo=`/`intermediario=`). A base sai do `__FreeBSD_version` do próprio
+stage (`1501000` → `15.1`, `FreeBSD:15:amd64`); as notas são
+`docs/novidades.md`, que o app mostra.
 O CI publica os dois na Release; o padrão do sistema é
 `releases/latest/download/atualizacao.txt` (`lume_atualizar_url` no
 `rc.conf` muda isso). O índice é lido como dados (`chave=valor`), nunca
@@ -169,8 +174,10 @@ executado, e cada campo é validado.
 
 ### Aplicar
 
-1. confere o SHA256 do pacote (baixado por HTTPS) e se a versão é mais
-   nova e da mesma série (`1.1.x`: o mesmo FreeBSD por baixo);
+1. segue o índice (se a versão instalada é mais velha que `minimo=`, vai
+   para o índice `intermediario=` antes, até 5 saltos), baixa o pacote
+   (com `fetch -r`, continua de onde parou) e confere o SHA256; a versão
+   tem que ser mais nova e a base não pode ser mais velha;
 2. garante `canmount=noauto` em todos os ambientes de `ROOT/` (o
    instalador da 1.1.0 criava o `default` com `on`, e o `zfs mount -a` do
    boot montava o ambiente antigo por cima do novo);
@@ -190,6 +197,60 @@ executado, e cada campo é validado.
 
 Se qualquer passo falha, o ambiente novo é destruído e nada mudou.
 
+### Correção, versão nova, versão principal
+
+O número do LumeBSD diz o tipo (correção `x.y.Z`, versão nova `x.Y.0`,
+versão principal `X.0.0`), que o app mostra; o trabalho quem decide é a
+base FreeBSD (`uname -U` no sistema em uso contra `base=` do índice):
+
+| Base | O que acontece |
+|---|---|
+| a mesma | só o sistema troca |
+| outra da mesma série (15.1 → 15.2) | `drivers`: os pacotes donos de `/boot/modules/*.ko` (drm, nvidia, firmwares), feitos para um kernel exato |
+| outra série (15 → 16) | `programas`: todos os pacotes; os travados pelo forja são destravados e listados em `/var/db/lume/recompilar` |
+
+Os pacotes são **baixados antes**, ainda no sistema em uso e com o `pkg`
+dele (nada da base nova roda no kernel velho): `pkg -o ABI=<nova> -o
+OSVERSION=<nova> -o PKG_DBDIR=<novo>/var/db/pkg -o
+PKG_CACHEDIR=<novo>/var/cache/pkg -o REPOS_DIR=<novo>/etc/pkg/,...` faz o
+`update` (o catálogo da base nova fica no ambiente novo) e o `install -F`
+ou `upgrade -F -f` (só baixa). A marca `/var/db/lume/pacotes-pendentes`
+vai no ambiente novo. No primeiro boot dele, já com o kernel novo e antes
+do vídeo e da tela de login, `rc.d/lume_pacotes` instala do cache, sem
+internet (`pkg-static install|upgrade -U -f`). Se falhar, fica
+`pacotes-falharam`, o `lume_saude` não confirma e o boot seguinte volta.
+
+### O app
+
+`app/lume-atualizacoes/main.cpp`, Qt 6 Widgets **sem moc** (só sinais do
+Qt ligados a lambdas), para compilar fora do FreeBSD: o
+`ferramentas/montar-app.py` usa o clang 19 com `--target
+x86_64-unknown-freebsd15.1`, a libc/libc++ do stage e os cabeçalhos e
+bibliotecas do pacote `qt6-base` (baixado só para isso; no sistema o Qt
+vem com o desktop). O binário vai para `/usr/bin/lume-atualizacoes`, com
+`rpath` para `/usr/local/lib/qt6`, e entra no `METALOG.build`, logo no
+pendrive e no pacote de atualização.
+
+Todo o trabalho é do `lume-atualizar --maquina`, que troca as mensagens
+por linhas `@chave a=b c=d` (`@estado`, `@nova`, `@em_dia`, `@passo n
+total texto`, `@progresso pct` durante o download, `@pronto`, `@falhou`,
+`@erro`). O que precisa de root vai pelo `pkexec` com a ação polkit
+`org.lumebsd.atualizar` (`auth_admin_keep`; no FreeBSD, administrador é o
+grupo `wheel`). Reiniciar é pelo `org.kde.Shutdown` da sessão.
+
+`lume-atualizacoes --bandeja` entra com a sessão (autostart): procura 90 s
+depois e a cada 6 h e só põe um ícone na bandeja, com um aviso, quando há
+versão nova ou quando a última atualização falhou. "Falhou" sai do
+`/var/log/lume-atualizar.log` (em `zroot/var/log`, o mesmo para todos os
+ambientes): o último `pronto: <ambiente>` sem `confirmado` nem
+`descartado` depois, num ambiente que existe e não é o atual; o motivo é
+a linha `não confirmado` do `lume_saude`.
+
+O menu, o autostart e a política do polkit ficam em `/usr/share/lume/app`
+e vão para `/usr/local` pelo `lume tema integrar`, que o `lume tema
+papel`, o `lume_saude` (depois de confirmar uma atualização) e o `lume
+tempo automatico` chamam.
+
 ### Confirmar ou voltar
 
 O loader usa o `bootonce` do pool uma vez e o apaga. No boot do ambiente
@@ -205,7 +266,8 @@ de energia no meio do boot — o padrão do pool ainda é o ambiente anterior,
 e o próximo boot volta para ele sozinho. `lume atualizar voltar` faz o
 mesmo depois de uma atualização já confirmada.
 
-Testado no QEMU, num sistema instalado pela 1.1.0: atualização 1.1.0 →
+Testado no QEMU, num sistema instalado pela 1.1.0 (veja o README para os
+testes da 1.2): atualização 1.1.0 →
 1.1.1 confirmada no boot; uma 1.1.2 com o `vigiad` quebrado (checagem
 reprovada, motivo registrado, reboot de volta à 1.1.1); uma 1.1.2 com o
 `init` quebrado (pânico, reboot automático, volta à 1.1.1); e um boot

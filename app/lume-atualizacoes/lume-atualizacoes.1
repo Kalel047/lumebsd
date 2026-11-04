@@ -1,0 +1,69 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 4, 2026
+.Dt LUME-ATUALIZACOES 1
+.Os
+.Sh NAME
+.Nm lume-atualizacoes
+.Nd Atualizações do LumeBSD, o app que mantém o sistema em dia
+.Sh SYNOPSIS
+.Nm
+.Op Fl -bandeja
+.Sh DESCRIPTION
+.Nm
+é o app gráfico de atualizações do LumeBSD, no menu do KDE em
+.Sy Sistema > Atualizações do LumeBSD .
+Ele procura uma versão nova, mostra o tipo
+.Pq correção, versão nova ou versão principal ,
+o tamanho e as novidades, e instala com um botão, pedindo a senha do
+usuário
+.Pq um administrador, do grupo wheel .
+No fim, oferece reiniciar.
+.Pp
+O trabalho é todo do
+.Nm lume atualizar ,
+descrito em
+.Xr lume 1 :
+a versão nova vai para um ambiente de boot à parte e só é confirmada
+depois de um boot saudável; se falhar, o computador volta sozinho para a
+versão anterior, e
+.Nm
+explica o que aconteceu e oferece apagar a tentativa.
+Quando a versão nova troca a base FreeBSD, ele avisa que os drivers ou
+todos os programas serão baixados de novo.
+.Pp
+Depois de uma atualização, o botão
+.Sy Voltar para a versão anterior
+desfaz a última, sem mexer nas pastas pessoais.
+.Pp
+Com
+.Fl -bandeja
+.Pq iniciado com a sessão do KDE ,
+fica em segundo plano: procura um minuto e meio depois da entrada e a cada
+6 horas, e só aparece na bandeja, com um aviso, quando há uma versão nova
+ou uma atualização falhou.
+.Sh FILES
+.Bl -tag -width "/usr/local/share/polkit-1/actions/org.lumebsd.atualizar.policy" -compact
+.It Pa /usr/local/share/applications/lume-atualizacoes.desktop
+o atalho no menu
+.It Pa /usr/local/etc/xdg/autostart/lume-atualizacoes-bandeja.desktop
+o aviso na sessão
+.It Pa /usr/local/share/polkit-1/actions/org.lumebsd.atualizar.policy
+a permissão para rodar
+.Pa /usr/sbin/lume-atualizar
+como root pelo
+.Xr pkexec 1
+.El
+.Pp
+Os três são instalados por
+.Nm lume tema integrar
+a partir de
+.Pa /usr/share/lume/app .
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr pkexec 1 ,
+.Xr bectl 8
+.Sh HISTORY
+.Nm
+apareceu no LumeBSD 1.2.

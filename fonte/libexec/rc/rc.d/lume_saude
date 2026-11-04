@@ -46,6 +46,11 @@ checar()
 	for p in /bin/sh /sbin/init /usr/bin/login /usr/sbin/sshd /usr/bin/lume; do
 		[ -x "$p" ] || { echo "falta $p"; return; }
 	done
+	# Trocando a base FreeBSD, os programas são instalados no boot
+	# (rc.d/lume_pacotes); sem eles, a versão nova não está completa.
+	if [ -f /var/db/lume/pacotes-falharam ] || [ -f /var/db/lume/pacotes-pendentes ]; then
+		echo "os programas não foram instalados para a base FreeBSD nova"; return
+	fi
 	# Serviços que estão ligados precisam estar rodando. O SDDM sobe em
 	# segundo plano; dá um tempo para ele.
 	# O vigia pelo socket dele (um pidfile velho, copiado do sistema
@@ -73,6 +78,9 @@ confirmar_ou_avisar()
 		if /usr/sbin/lume-atualizar confirmar >/dev/null 2>&1; then
 			echo "LumeBSD $versao: boot saudável, atualização confirmada."
 			echo "$(date '+%F %T') lume_saude: boot saudável" >> "$LOG"
+			# O que a versão nova traz para o KDE (o app de atualizações,
+			# o menu do Dolphin), se o KDE está instalado.
+			/usr/sbin/lume-tema integrar > /dev/null 2>&1
 			logger -t lume "atualização $versao confirmada ($be)"
 			return 0
 		fi

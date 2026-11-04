@@ -1,5 +1,5 @@
 #!/bin/sh
-# Constrói o pendrive do LumeBSD 1.1 "Farol" (ao vivo + instalador) a partir
+# Constrói o pendrive do LumeBSD 1.2 "Farol" (ao vivo + instalador) a partir
 # do código-fonte do FreeBSD 15.1.
 # Roda em Linux (cross-build com LLVM) ou FreeBSD. Uso: sh build-lumebsd.sh
 #
@@ -13,7 +13,7 @@ SRC=$TOP/src
 OBJ=$TOP/obj
 STAGE=$TOP/stage
 PACOTES=$TOP/pacotes
-IMG=$TOP/LumeBSD-1.1-Farol-pendrive.img
+IMG=$TOP/LumeBSD-1.2-Farol-pendrive.img
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
 VERSAO=$(cat "$TOP/VERSAO")
 ATUALIZACAO=$TOP/atualizacao
@@ -64,15 +64,22 @@ python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
     'gpu-firmware-intel-kmod-*' wifi-firmware-iwlwifi-kmod \
     cpu-microcode-intel
 
+# 4b. O app Atualizações do LumeBSD (Qt 6, compilado contra o qt6-base do
+#     FreeBSD; o Qt em si vem com o desktop, não no pendrive)
+python3 "$TOP/ferramentas/pacotes.py" --sem-dependencias "$TOP/qt" qt6-base
+python3 "$TOP/ferramentas/montar-app.py" "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]*.pkg | head -1)"
+
 # 5. Imagem do pendrive (UEFI e BIOS)
 python3 "$TOP/ferramentas/montar-pendrive.py" "$STAGE" "$PACOTES" \
     "$OBJ$SRC/amd64.amd64/tmp/legacy/bin" "$IMG" "$VERSAO"
 
 # 6. Pacote de atualização (lume atualizar): o sistema base inteiro e o índice
-python3 "$TOP/ferramentas/montar-atualizacao.py" "$STAGE" "$VERSAO" "$ATUALIZACAO"
+#    e as novidades que o app mostra
+python3 "$TOP/ferramentas/montar-atualizacao.py" "$STAGE" "$VERSAO" "$ATUALIZACAO" \
+    --notas "$TOP/docs/novidades.md"
 
 echo
 echo "Pronto: $IMG (LumeBSD $VERSAO)"
-echo "Atualização: $ATUALIZACAO/ (publique atualizacao.txt e o .tar.zst juntos)"
+echo "Atualização: $ATUALIZACAO/ (publique atualizacao.txt, o .tar.zst e as notas juntos)"
 echo "Grave num pendrive de 8 GB ou mais (no Windows: Rufus, modo DD;"
 echo "no Linux/FreeBSD: dd if=$(basename "$IMG") of=/dev/SEU_PENDRIVE bs=1m)."

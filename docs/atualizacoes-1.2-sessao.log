@@ -1,0 +1,225 @@
+# LumeBSD 1.2 — atualizações no QEMU (console serial; o app, nas capturas)
+
+# 1) 1.1.2 -> 1.2.0 (versão nova, mesma base), com o lume-atualizar novo
+root@thinkpad:~ # lume versao; uname -U; lume atualizar estado | head -3
+LumeBSD 1.1.2 "Farol"
+1501000
+  versão: 1.1.2
+  ambiente em uso: lume-1.1.2-2   padrão no boot: lume-1.1.2-2
+
+root@thinkpad:~ # fetch -qo /tmp/lume-atualizar http://10.0.2.2:8000/ajuste/lume -atualizar && sh /tmp/lume-atualizar --maquina verificar; echo rc=$?
+@atual versao=1.1.2 base=15.1
+@erro não deu para ler o índice de atualizações: https://github.com/Kalel047/lumebsd/releases/latest/download/atualizacao.txt. Tem internet? (cabo ou: lume wifi)
+rc=1
+root@thinkpad:~ # LUME_ATUALIZAR_URL=http://10.0.2.2:8000/atualizacao/atualizaca o.txt sh /tmp/lume-atualizar --maquina verificar
+@atual versao=1.1.2 base=15.1
+@nova versao=1.2.0 base=15.1 tipo=versao troca=nenhuma tamanho=321287108 notas=http://10.0.2.2:8000/atualizacao/LumeBSD-1.2.0-notas.md
+root@thinkpad:~ # LUME_ATUALIZAR_URL=http://10.0.2.2:8000/atualizacao/atualizaca o.txt su fabiano -c 'sh /tmp/lume-atualizar verificar'
+  ✓ versão nova: 1.2.0 (você tem a 1.1.2)
+  novidades: http://10.0.2.2:8000/atualizacao/LumeBSD-1.2.0-notas.md
+root@thinkpad:~ # sh /tmp/lume-atualizar --maquina aplicar http://10.0.2.2:8000/ atualizacao/atualizacao.txt | grep -v '^@progresso' ; echo rc=$?
+@passo 1 5 Baixando a versão nova
+@ok pacote conferido (SHA256)
+@passo 2 5 Preparando um ambiente de boot novo
+@msg Instalando o LumeBSD 1.2.0 no ambiente de boot lume-1.2.0
+@msg (o sistema em uso, lume-1.1.2-2, não é tocado)
+@passo 3 5 Instalando o sistema novo
+@passo 5 5 Ativando para o próximo boot
+@ok LumeBSD 1.2.0 instalado em lume-1.2.0
+@aviso configurações suas foram mantidas; as versões novas ficaram ao lado:
+@config /etc/group.lume-novo
+@config /etc/master.passwd.lume-novo
+@config /etc/shells.lume-novo
+@config /etc/sysctl.conf.lume-novo
+@config /etc/login.conf.lume-novo
+@config /etc/motd.template.lume-novo
+@pronto ambiente=lume-1.2.0 anterior=lume-1.1.2-2 versao=1.2.0
+rc=0
+root@thinkpad:~ # sh /tmp/lume-atualizar --maquina estado; bectl list
+@estado versao=1.1.2 base=15.1 ambiente=lume-1.1.2-2 padrao=lume-1.1.2-2 pendente=- anterior=lume-1.1.2 ao_vivo=nao
+@falhou ambiente=lume-1.2.0 motivo=o boot da versão nova não chegou ao fim (travou, deu pânico ou foi desligado)
+BE                  Active Mountpoint Space Created
+default             -      -          488K  2026-11-04 01:44
+lume-1.1.2          -      -          820K  2026-11-04 07:30
+lume-1.1.2-2        NR     /          6.82G 2026-11-04 08:42
+lume-1.2.0          T      -          462M  2026-11-04 14:18
+teste               -      -          552K  2026-11-04 01:51
+volta-20261104-0737 -      -          460K  2026-11-04 07:39
+root@thinkpad:~ # shutdown -p now
+
+# 2) primeiro boot da 1.2.0: confirmada, app integrado ao KDE; 1.2.0 -> 1.2.1 (correção)
+#    (o @falhou logo depois de aplicar era um bug da 1.2.0, corrigido: agora sai @reiniciar)
+root@thinkpad:~ # sleep 150; lume atualizar estado | head -6
+  versão: 1.2.0 (base FreeBSD 15.1)
+  ambiente em uso: lume-1.2.0   padrão no boot: lume-1.2.0
+
+    BE                  Active Mountpoint Space Created
+    default             -      -          488K  2026-11-04 01:44
+    lume-1.1.2          -      -          820K  2026-11-04 07:30
+root@thinkpad:~ # lume | head -4; uname -sr; freebsd-version -ku
+
+  LumeBSD 1.2 "Farol"  @ thinkpad
+  ----------------------------------------------
+  kernel     LumeBSD 1.2-FAROL (base FreeBSD 15.1)
+LumeBSD 1.2-FAROL
+1.2-FAROL
+1.2-FAROL
+root@thinkpad:~ # ls /usr/local/share/applications/lume-atualizacoes.desktop /us r/local/etc/xdg/autostart/lume-atualizacoes-bandeja.desktop /usr/local/share/pol kit-1/actions/org.lumebsd.atualizar.policy /usr/bin/lume-atualizacoes; ldd /usr/ bin/lume-atualizacoes | grep -c "not found"
+/usr/bin/lume-atualizacoes
+/usr/local/etc/xdg/autostart/lume-atualizacoes-bandeja.desktop
+/usr/local/share/applications/lume-atualizacoes.desktop
+/usr/local/share/polkit-1/actions/org.lumebsd.atualizar.policy
+0
+root@thinkpad:~ # ls -l /usr/local/bin/pkexec; pkg info -e xdotool && echo xdoto ol-ok; cat /usr/local/etc/polkit-1/rules.d/*.rules 2>/dev/null | grep -v "^ *//"  | head -8
+-rwsr-xr-x  1 root wheel 22552 23 out 23:39 /usr/local/bin/pkexec
+xdotool-ok
+/* -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*- */
+
+
+polkit.addAdminRule(function(action, subject) {
+    return ["unix-group:wheel"];
+});
+root@thinkpad:~ # lume atualizar --maquina estado
+@estado versao=1.2.0 base=15.1 ambiente=lume-1.2.0 padrao=lume-1.2.0 pendente=- anterior=lume-1.1.2-2 ao_vivo=nao
+rc=0
+  [3/5] Instalando o sistema novo
+  [5/5] Ativando para o próximo boot
+  ✓ LumeBSD 1.2.1 instalado em lume-1.2.1
+  ! configurações suas foram mantidas; as versões novas ficaram ao lado:
+      /etc/group.lume-novo
+      /etc/master.passwd.lume-novo
+      /etc/shells.lume-novo
+      /etc/sysctl.conf.lume-novo
+      /etc/login.conf.lume-novo
+      /etc/motd.template.lume-novo
+
+  Reinicie para entrar nele (shutdown -r now).
+  Se o boot falhar, o computador volta sozinho para o lume-1.2.0.
+  Se der tudo certo, a atualização é confirmada no fim do boot.
+root@thinkpad:~ # lume atualizar --maquina estado; lume atualizar estado | head  -4
+@estado versao=1.2.0 base=15.1 ambiente=lume-1.2.0 padrao=lume-1.2.0 pendente=- anterior=lume-1.1.2-2 ao_vivo=nao
+@falhou ambiente=lume-1.2.1 motivo=o boot da versão nova não chegou ao fim (travou, deu pânico ou foi desligado)
+  versão: 1.2.0 (base FreeBSD 15.1)
+  ambiente em uso: lume-1.2.0   padrão no boot: lume-1.2.0
+  ! a atualização em lume-1.2.1 não deu certo, e o sistema voltou sozinho: o boot da versão nova não chegou ao fim (travou, deu pânico ou foi desligado)
+    lume atualizar descartar apaga o ambiente dela
+root@thinkpad:~ # sysrc lume_atualizar_url=http://10.0.2.2:8000/t122/atualizacao .txt
+lume_atualizar_url:  -> http://10.0.2.2:8000/t122/atualizacao.txt
+root@thinkpad:~ # shutdown -p now
+
+# 3) 1.2.1 -> 1.2.2 pelo app (aviso na bandeja, senha no polkit, progresso)
+root@thinkpad:~ # bectl list
+BE                  Active Mountpoint Space Created
+default             -      -          488K  2026-11-04 01:44
+lume-1.1.2          -      -          820K  2026-11-04 07:30
+lume-1.1.2-2        -      -          724K  2026-11-04 08:42
+lume-1.2.0          -      -          708K  2026-11-04 14:18
+lume-1.2.1          NR     /          7.72G 2026-11-04 14:36
+lume-1.2.2          T      -          462M  2026-11-04 15:26
+teste               -      -          552K  2026-11-04 01:51
+volta-20261104-0737 -      -          460K  2026-11-04 07:39
+root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'w=$(xd otool search --onlyvisible --classname lume-atualizacoes | tail -1); xdotool win dowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); xdotool mou semove --window $w $((WIDTH - 71)) $((HEIGHT - 36)) click 1'
+
+# 4) 1.2.2 -> 1.3.0 com a base FreeBSD 15.1 -> 15.2 (simulada): drivers baixados antes
+[16/16] Fetching gpu-firmware-intel-kmod-skylake-20260519.1501000: .......... done
+2026-11-04 16:03:38 pronto: lume-1.3.0 ativado para o próximo boot
+
+# 5) primeiro boot da 1.3.0: lume_pacotes instala os drivers do cache, sem internet
+
+LumeBSD: instalando os programas para o FreeBSD 15.2.
+  Leva alguns minutos; não desligue o computador.
+  [10/16] Reinstalling gpu-firmware-intel-kmod-icelake-20260519.1501000...
+  [10/16] Extracting gpu-firmware-intel-kmod-icelake-20260519.1501000: ........ done
+  [11/16] Reinstalling gpu-firmware-intel-kmod-kabylake-20260519.1501000...
+  [11/16] Extracting gpu-firmware-intel-kmod-kabylake-20260519.1501000: .......... done
+  [12/16] Reinstalling gpu-firmware-intel-kmod-meteorlake-20260519.1501000...
+  [12/16] Extracting gpu-firmware-intel-kmod-meteorlake-20260519.1501000: ........ done
+  [13/16] Reinstalling gpu-firmware-intel-kmod-rocketlake-20260519.1501000...
+  [13/16] Extracting gpu-firmware-intel-kmod-rocketlake-20260519.1501000: ..... done
+  [14/16] Reinstalling gpu-firmware-intel-kmod-skylake-20260519.1501000...
+  [14/16] Extracting gpu-firmware-intel-kmod-skylake-20260519.1501000: ........ done
+  [15/16] Reinstalling gpu-firmware-intel-kmod-tigerlake-20260519.1501000...
+  [15/16] Extracting gpu-firmware-intel-kmod-tigerlake-20260519.1501000: .......... done
+  [16/16] Reinstalling nvidia-kmod-595.104.02.1501000...
+  [16/16] Extracting nvidia-kmod-595.104.02.1501000: ....... done
+  Programas instalados.
+em0: link state changed to UP
+lo0: link state changed to UP
+em0: link state changed to DOWN
+em0: link state changed to UP
+root@thinkpad:~ # sleep 150; lume atualizar estado | head -5; lume versao
+  versão: 1.3.0 (base FreeBSD 15.1)
+  ambiente em uso: lume-1.3.0   padrão no boot: lume-1.3.0
+
+    BE                  Active Mountpoint Space Created
+    default             -      -          488K  2026-11-04 01:44
+LumeBSD 1.3.0 "Farol"
+root@thinkpad:~ # grep -a "lume_pacotes\|lume_saude\|confirmado" /var/log/lume-a tualizar.log | tail -6; ls /var/db/lume/
+2026-11-04 15:47:08 confirmado: lume-1.2.2 agora é o padrão
+2026-11-04 15:47:08 lume_saude: boot saudável
+2026-11-04 16:11:14 lume_pacotes: instalando (drivers, FreeBSD 15.2)
+2026-11-04 16:12:33 lume_pacotes: pronto
+2026-11-04 16:13:37 confirmado: lume-1.3.0 agora é o padrão
+2026-11-04 16:13:37 lume_saude: boot saudável
+ambiente-anterior       recompilar              video-estado
+configurado             tempo-estado
+root@thinkpad:~ # pkg query "%n %v" drm-612-kmod gpu-firmware-intel-kmod-skylake ; kldstat | grep -c ko; lume atualizar --maquina estado
+drm-612-kmod 6.12.85.1501000_2
+gpu-firmware-intel-kmod-skylake 20260519.1501000
+9
+@estado versao=1.3.0 base=15.1 ambiente=lume-1.3.0 padrao=lume-1.3.0 pendente=- anterior=lume-1.2.2 ao_vivo=nao
+root@thinkpad:~ # shutdown -p now
+
+# 6) uma 1.3.1 quebrada de propósito (vigiad): não confirmada, volta para a 1.3.0
+LumeBSD 1.3.1: a atualização NÃO foi confirmada: o vigia não está respondendo.
+  Reinicie para voltar ao lume-1.3.0 (nada foi perdido).
+root@thinkpad:~ # sleep 200; lume versao; tail -4 /var/log/lume-atualizar.log; b ectl list | grep lume-1.3
+LumeBSD 1.3.1 "Farol"
+[16/16] Reinstalling nvidia-kmod-595.104.02.1501000...
+[16/16] Extracting nvidia-kmod-595.104.02.1501000: ....... done
+2026-11-04 16:31:10 lume_pacotes: pronto
+2026-11-04 16:32:02 não confirmado: lume-1.3.1 (o vigia não está respondendo)
+lume-1.3.0          R      -          8.80G 2026-11-04 15:59
+lume-1.3.1          N      /          637M  2026-11-04 16:20
+root@thinkpad:~ # shutdown -p now
+
+# 7) de volta na 1.3.0: o app mostra a falha e apaga a tentativa
+root@thinkpad:~ # lume atualizar --maquina estado
+@estado versao=1.3.0 base=15.1 ambiente=lume-1.3.0 padrao=lume-1.3.0 pendente=- anterior=lume-1.2.2 ao_vivo=nao
+@falhou ambiente=lume-1.3.1 motivo=o vigia não está respondendo
+root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'env HO ME=/home/fabiano daemon -f lume-atualizacoes'
+root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'w=$(xd otool search --onlyvisible --classname lume-atualizacoes | tail -1); xdotool win dowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); xdotool mou semove --window $w $((WIDTH - 225)) $((HEIGHT - 36)) click 1'
+root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'xdotoo l search --onlyvisible --name Autentica >/dev/null && { xdotool type --delay 120  lume2026; xdotool key Return; }; true'
+root@thinkpad:~ # bectl list; tail -3 /var/log/lume-atualizar.log
+BE                  Active Mountpoint Space Created
+default             -      -          488K  2026-11-04 01:44
+lume-1.1.2          -      -          820K  2026-11-04 07:30
+lume-1.1.2-2        -      -          724K  2026-11-04 08:42
+lume-1.2.0          -      -          708K  2026-11-04 14:18
+lume-1.2.1          -      -          652K  2026-11-04 14:36
+lume-1.2.2          -      -          2.03M 2026-11-04 15:26
+lume-1.3.0          NR     /          8.80G 2026-11-04 15:59
+teste               -      -          552K  2026-11-04 01:51
+volta-20261104-0737 -      -          460K  2026-11-04 07:39
+2026-11-04 16:31:10 lume_pacotes: pronto
+2026-11-04 16:32:02 não confirmado: lume-1.3.1 (o vigia não está respondendo)
+2026-11-04 16:44:00 descartado: lume-1.3.1
+root@thinkpad:~ # shutdown -p now
+
+# 8) versão intermediária (minimo=) e aviso de versão principal (FreeBSD 16)
+root@thinkpad:~ # lume versao; bectl list | grep "lume-1.[23]"
+LumeBSD 1.2.2 "Farol"
+lume-1.2.0          -      -          708K  2026-11-04 14:18
+lume-1.2.1          -      -          652K  2026-11-04 14:36
+lume-1.2.2          NR     /          8.18G 2026-11-04 15:26
+lume-1.3.0          -      -          639M  2026-11-04 15:59
+root@thinkpad:~ # su fabiano -c "env LUME_ATUALIZAR_URL=http://10.0.2.2:8000/tmi n/atualizacao.txt lume atualizar --maquina verificar"
+@atual versao=1.2.2 base=15.1
+@nova versao=1.3.0 base=15.2 tipo=versao troca=drivers tamanho=321298106 notas=http://10.0.2.2:8000/t130/LumeBSD-1.3.0-notas.md
+root@thinkpad:~ # su fabiano -c "env LUME_ATUALIZAR_URL=http://10.0.2.2:8000/tmi n/direto.txt lume atualizar verificar"
+  ✓ versão principal: 2.0.0 (você tem a 1.2.2)
+  ! Troca a base para o FreeBSD 16.0: todos os programas são baixados de novo para ela (pode levar um bom tempo e alguns GB).
+  novidades: http://10.0.2.2:8000/tmin/LumeBSD-1.3.0-notas.md
+root@thinkpad:~ # lume atualizar --maquina estado
+@estado versao=1.2.2 base=15.1 ambiente=lume-1.2.2 padrao=lume-1.2.2 pendente=- anterior=lume-1.2.1 ao_vivo=nao
+root@thinkpad:~ # shutdown -p now

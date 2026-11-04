@@ -1,4 +1,4 @@
-# LumeBSD 1.1.2 "Farol"
+# LumeBSD 1.2 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -21,7 +21,7 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.1
+        |[_]|        LumeBSD 1.2
         |===|        "Farol"
         |   |
         |===|
@@ -36,6 +36,7 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 | | |
 |---|---|
+| **Atualizações do LumeBSD** (1.2) | um app no menu que avisa quando sai versão nova, mostra as novidades e instala com um botão; correções, versões novas e versões principais (inclusive trocando o FreeBSD por baixo) pelo mesmo caminho, sempre com volta automática |
 | **Máquina do tempo** (1.1.2) | `lume tempo` tira uma foto do disco por hora (snapshots do ZFS) e guarda por dias e semanas; traz de volta um arquivo apagado, a versão de ontem de um documento ou o sistema inteiro de antes de uma instalação. No Dolphin: botão direito, **Versões anteriores** |
 | **Atualizações que não quebram** (1.1.1) | `lume atualizar` instala a versão nova num ambiente de boot à parte, testa no boot seguinte e só então a torna padrão; se algo der errado, o computador volta sozinho para o sistema anterior |
 | **Pendrive ao vivo + instalador** | boota sem tocar no disco; `lume hardware` diz o que funciona; `lume instalar` instala no disco inteiro |
@@ -49,7 +50,7 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 ### 1. Gravar
 
-Baixe `LumeBSD-1.1-Farol-pendrive.img.xz` das
+Baixe `LumeBSD-1.2-Farol-pendrive.img.xz` das
 [Releases](https://github.com/Kalel047/lumebsd/releases) (ou do último
 [Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml),
 em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
@@ -57,7 +58,7 @@ em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
 
 - **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
   perguntar, **modo DD**.
-- **Linux/FreeBSD**: `dd if=LumeBSD-1.1-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+- **Linux/FreeBSD**: `dd if=LumeBSD-1.2-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
 
 Na BIOS/UEFI do PC, desligue o *Secure Boot* (o loader do FreeBSD não é
 assinado) e dê boot pelo pendrive (F12 na maioria das placas).
@@ -126,26 +127,29 @@ e o sistema sobe direto na tela de login gráfica.
 
 ## Atualizações que não quebram
 
-Como fica (da 1.1.1 para a 1.1.2):
+O LumeBSD se atualiza pelo app **Atualizações do LumeBSD** (menu
+**Sistema**), sem comando nenhum:
 
-```
-root@farol:~ # lume atualizar
-  ✓ versão nova: 1.1.2 (você tem a 1.1.1)
+- quando sai uma versão nova, um aviso aparece na bandeja;
+- o app mostra o que é (correção, versão nova ou versão principal), o
+  tamanho e as novidades; **Instalar** pede a sua senha e mostra o
+  progresso; no fim, **Reiniciar agora**;
+- se o boot da versão nova der errado, o computador volta sozinho, e o app
+  explica o que aconteceu e oferece apagar a tentativa;
+- **Voltar para a versão anterior** desfaz a última atualização, sem
+  mexer nas suas pastas.
 
-  Instalar agora? O sistema atual fica guardado. [S/n]:
-  ✓ pacote conferido (SHA256)
-  Instalando o LumeBSD 1.1.2 no ambiente de boot lume-1.1.2
-  (o sistema em uso, lume-1.1.1, não é tocado)
-  ✓ LumeBSD 1.1.2 instalado em lume-1.1.2
+| | |
+|---|---|
+| ![O aviso na bandeja](docs/capturas/app-1-aviso.png) | ![Versão nova, com as novidades](docs/capturas/app-2-versao-nova.png) |
+| ![A senha, pelo polkit](docs/capturas/app-3-senha.png) | ![Instalando](docs/capturas/app-4-instalando.png) |
+| ![Uma atualização que não deu certo](docs/capturas/app-5-nao-deu-certo.png) | ![Reiniciar](docs/capturas/app-6-reiniciar.png) |
 
-  Reinicie para entrar nele (shutdown -r now).
-  Se o boot falhar, o computador volta sozinho para o lume-1.1.1.
-  Se der tudo certo, a atualização é confirmada no fim do boot.
-```
+<sub>O app no sistema instalado numa VM: o aviso, uma versão nova com troca
+de base FreeBSD (simulada), a senha, a instalação, a tela depois de uma
+atualização quebrada de propósito e o reiniciar.</sub>
 
-No FreeBSD, o `freebsd-update` troca os arquivos do sistema em uso; se a
-atualização der errado no meio, ou o sistema novo não subir, quem conserta
-é você. No LumeBSD:
+Por trás, o mesmo `lume atualizar` do terminal:
 
 1. a versão nova vai para um **ambiente de boot novo** (uma cópia do
    sistema no ZFS); o sistema em uso não é tocado;
@@ -157,16 +161,39 @@ atualização der errado no meio, ou o sistema novo não subir, quem conserta
    seguinte volta **sozinho** para o sistema anterior, intacto. O motivo
    fica em `/var/log/lume-atualizar.log`.
 
-Suas configurações ficam como estão; quando a versão nova traz uma
-diferente, ela aparece ao lado, com o final `.lume-novo`. Usuários e senhas
-nunca são tocados. Outros comandos: `lume atualizar estado`, `voltar`
-(o sistema de antes vira o padrão de novo), `confirmar` e `limpar`.
+No FreeBSD, o `freebsd-update` troca os arquivos do sistema em uso; se a
+atualização der errado no meio, ou o sistema novo não subir, quem conserta
+é você.
+
+### Correção, versão nova, versão principal
+
+Qualquer versão mais nova serve. O que muda o trabalho é o FreeBSD por
+baixo, que o índice da versão informa:
+
+| Versão nova | Exemplo | O que acontece |
+|---|---|---|
+| mesma base FreeBSD | 1.2.0 → 1.2.1, 1.2 → 1.3 | só o sistema troca |
+| base nova da mesma série | FreeBSD 15.1 → 15.2 | os drivers de vídeo, Wi-Fi e firmwares são baixados de novo para o kernel novo |
+| série nova | FreeBSD 15 → 16 (LumeBSD 2) | todos os programas são baixados de novo |
+
+Os pacotes são baixados antes, ainda no sistema em uso, e instalados no
+primeiro boot da versão nova, já com o kernel novo (`rc.d/lume_pacotes`).
+Se falharem, a atualização não é confirmada e o computador volta. Quem tem
+uma versão muito antiga para pular direto é levado antes à intermediária
+(`minimo=` no índice).
+
+Suas configurações ficam como estão; uma que você nunca mexeu é trocada
+pela nova, e quando você mexeu, a nova aparece ao lado, com o final
+`.lume-novo`. Usuários e senhas nunca são tocados. No terminal: `lume
+atualizar` (procura, pergunta, instala), `estado`, `voltar`, `descartar`,
+`confirmar` e `limpar`.
 
 As versões saem nas [Releases](https://github.com/Kalel047/lumebsd/releases):
-o índice `atualizacao.txt` diz a versão e o SHA256 do pacote do sistema.
+o índice `atualizacao.txt` diz a versão, a base FreeBSD, o SHA256 do
+pacote e as novidades.
 
-> Quem instalou a 1.1.0 (o primeiro pendrive) ainda não tem o comando; ele
-> vem na própria atualização:
+> Quem tem uma versão anterior à 1.2 atualiza uma vez pelo terminal (as
+> regras novas vêm na própria atualização):
 > `fetch -o /tmp/lume-atualizar https://raw.githubusercontent.com/Kalel047/lumebsd/main/fonte/usr.sbin/lume-configurar/lume-atualizar.sh && sh /tmp/lume-atualizar aplicar`
 
 ## Máquina do tempo
@@ -293,7 +320,7 @@ aplica de novo.
 | `lume wifi` | conecta no Wi-Fi |
 | `lume desktop` | instala o KDE Plasma e os drivers |
 | `lume instalar` | instala no disco inteiro (ZFS + GELI) |
-| `lume atualizar` | atualiza o sistema num ambiente de boot, com volta automática |
+| `lume atualizar` | atualiza o sistema num ambiente de boot, com volta automática (o app **Atualizações do LumeBSD** faz o mesmo no desktop) |
 | `lume tempo` | máquina do tempo: fotos do disco, versões de arquivos, o sistema de antes |
 | `lume tema [papel\|padrao]` | visual do KDE |
 | `lume configurar` | assistente de configuração |
@@ -346,6 +373,9 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0012                 tema Papel
   0013..0024           correções que os testes pegaram; lume atualizar (1.1.1)
   0025                 lume tempo, a máquina do tempo (1.1.2)
+  0026..0027           lume atualizar pela base FreeBSD, lume_pacotes; 1.2
+app/lume-atualizacoes/ o app Atualizações do LumeBSD (Qt 6), fora da árvore
+                       do FreeBSD; ferramentas/montar-app.py o compila
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
                        (forja, lume, vigia, lume-configurar, rc.d, tema...)
 conf/                  src.conf (userland) e LUME (kernel)
@@ -377,7 +407,9 @@ sh build-lumebsd.sh
 O script clona o FreeBSD `releng/15.1`, aplica os patches, compila
 userland e kernel `LUME`, instala num diretório de staging sem precisar de
 root, baixa os pacotes essenciais do repositório trimestral do FreeBSD
-(conferindo os hashes) e gera `LumeBSD-1.1-Farol-pendrive.img`.
+(conferindo os hashes), compila o app de atualizações contra o `qt6-base`
+do FreeBSD e gera `LumeBSD-1.2-Farol-pendrive.img` e, em `atualizacao/`, o
+pacote de atualização com o índice e as novidades (`docs/novidades.md`).
 Leva várias horas numa máquina de 2 núcleos (o world é a parte longa).
 
 Dependências no Ubuntu/Debian:
@@ -404,6 +436,9 @@ python3 tests/teste-pendrive.py instalado instalado.log  # senha do disco, assis
 python3 tests/teste-pendrive.py desktop   desktop.log    # login gráfico, fotos da tela
 python3 tests/teste-pendrive.py forja     forja.log      # binário, compilação, atualizar
 python3 tests/teste-pendrive.py tempo     tempo.log      # lume tempo e "Versões anteriores"
+python3 tests/teste-pendrive.py app       app.log        # o app: aviso, senha, instalar, reiniciar
+python3 tests/teste-pendrive.py app-falhou falhou.log    # depois de uma atualização reprovada
+python3 tests/teste-pendrive.py app-voltar voltar.log    # voltar para a versão anterior
 ```
 
 ## Status
@@ -436,6 +471,16 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
   interrompido no meio (de volta ao anterior)
 - [x] **Ambientes de boot**: numa instalação nova, bootar outro ambiente
   roda de fato aquele ambiente
+- [x] **Atualizações (1.2)**: 1.1.2 → 1.2.0 (versão nova, pelo comando de
+  uma vez); 1.2.0 → 1.2.1 (correção); 1.2.1 → 1.2.2 **pelo app**: aviso na
+  bandeja, novidades, senha no polkit, progresso, pronto; 1.2.2 → 1.3.0
+  trocando a base FreeBSD 15.1 → 15.2 (simulada: os 16 pacotes de drivers
+  baixados antes e instalados no boot pelo `lume_pacotes`, sem internet,
+  depois confirmada); uma 1.3.1 quebrada de propósito (reprovada, de volta
+  à 1.3.0, o app explica e apaga a tentativa); voltar para a versão
+  anterior e reiniciar pelo app; versão intermediária (`minimo=`); o app
+  compilado no CI. A troca de série (FreeBSD 15 → 16) só tem o aviso e o
+  caminho comum testados: ainda não existem pacotes do FreeBSD 16
 - [x] **Máquina do tempo**: 1.1.1 → 1.1.2 pelo `lume atualizar` (fotos
   ligadas sozinhas, foto automática pelo `cron`); como usuário comum,
   versões de um arquivo, arquivo apagado de volta, versão antiga ao lado e
@@ -446,7 +491,8 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 - Sessões completas: [instalação pelo pendrive](docs/pendrive-instalacao.log),
   [primeiro boot](docs/primeiro-boot-instalado.log), [forja](docs/forja-sessao.log),
   [atualizações e volta automática](docs/atualizacao-sessao.log),
-  [máquina do tempo](docs/tempo-sessao.log)
+  [máquina do tempo](docs/tempo-sessao.log),
+  [atualizações da 1.2](docs/atualizacoes-1.2-sessao.log)
 - [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA
   (precisa da placa) — no pendrive, rode `lume hardware` e
   `lume video testar` antes de instalar
@@ -471,10 +517,14 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 | `lume tempo mudou` listava `/var/run` inteiro e nomes como `reuni\0303\0243o` | o que todo boot recria fica de fora; nomes decodificados |
 | Recuperar como usuário comum dava erro de permissão no log | o registro é só do root |
 | Atualizado da 1.1, `lume tempo` dizia "guarda: nada" até o primeiro `cron` | sem a propriedade em lugar nenhum, vale o padrão (`/home` e sistema) |
+| "Reiniciar agora" pedia ao KDE, que no FreeBSD não reinicia o computador | o app reinicia pelo `lume-atualizar reiniciar`, com a mesma permissão do polkit |
+| Logo depois de instalar, o estado dizia que a atualização tinha falhado | a ativada para o próximo boot (`bectl` "T") é "falta reiniciar" |
+| Toda atualização deixava `.lume-novo` até de configurações que ninguém mexeu | a lista do sistema guarda o SHA256 de cada configuração; intocada, é trocada |
+| Linhas longas pelo console serial perdiam letras (testes) | o teste manda em pedaços |
 
 ### Compilando programas à mão
 
-O `uname` do LumeBSD diz `LumeBSD 1.1-FAROL`. Pela forja ou por
+O `uname` do LumeBSD diz `LumeBSD 1.2-FAROL`. Pela forja ou por
 `/usr/ports` isso é resolvido sozinho. Para um `./configure` fora dos
 ports que não reconheça o sistema:
 

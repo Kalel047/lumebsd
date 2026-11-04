@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- O app Atualizações do LumeBSD roda o lume-atualizar como root pelo
+     pkexec: pede a senha de um administrador (grupo wheel) e a lembra por
+     alguns minutos. -->
+<policyconfig>
+  <vendor>LumeBSD</vendor>
+  <vendor_url>https://github.com/Kalel047/lumebsd</vendor_url>
+  <icon_name>system-software-update</icon_name>
+  <action id="org.lumebsd.atualizar">
+    <description>Update the LumeBSD system</description>
+    <description xml:lang="pt_BR">Atualizar o sistema LumeBSD</description>
+    <message>Authentication is required to update LumeBSD</message>
+    <message xml:lang="pt_BR">Para atualizar o LumeBSD, digite a sua senha</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/sbin/lume-atualizar</annotate>
+  </action>
+</policyconfig>

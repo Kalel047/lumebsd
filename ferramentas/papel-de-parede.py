@@ -8,12 +8,16 @@ livro. Com "noite", as cores se invertem (tela de login e de bloqueio, como
 a tela de descanso de um leitor de e-book).
 """
 import math
+import os
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
 fontes, saida = sys.argv[1], sys.argv[2]
 noite = len(sys.argv) > 3 and sys.argv[3] == "noite"
+# A série (1.2) do arquivo VERSAO do repositório.
+SERIE = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "VERSAO")).read().strip().rsplit(".", 1)[0]
 
 L, A = 3840, 2160
 S = 2                      # desenha em 2x e reduz: traço suave
@@ -107,7 +111,7 @@ d.text(p(mx, 1180), "LumeBSD", font=fonte("IBMPlexSerif-Light", 150),
        fill=TINTA)
 d.text(p(mx + 6, 1390), "luz firme sobre fundação BSD",
        font=fonte("IBMPlexSerif-Italic", 52), fill=CINZA)
-d.text(p(mx + 8, 1560), "1.1  ·  FAROL", font=fonte("IBMPlexMono-Regular", 34),
+d.text(p(mx + 8, 1560), f"{SERIE}  ·  FAROL", font=fonte("IBMPlexMono-Regular", 34),
        fill=CINZA)
 
 img = img.resize((L, A), Image.LANCZOS).convert("P", palette=Image.ADAPTIVE,

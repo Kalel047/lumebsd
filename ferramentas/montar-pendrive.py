@@ -32,6 +32,7 @@ if len(sys.argv) > 5:
 else:
     VERSAO = open(os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), "VERSAO")).read().strip()
+SERIE = VERSAO.rsplit(".", 1)[0]     # 1.2.0 -> 1.2
 METALOG = os.path.join(stage, "METALOG")
 # Sempre parte do METALOG do build, mesmo se o script rodar de novo.
 linhas_do_build(stage)
@@ -121,7 +122,7 @@ lume_notebook_enable="YES"
 lume_video_enable="NO"
 vigia_enable="YES"
 """),
-    escrever("boot/loader.conf", """# LumeBSD 1.1 - pendrive ao vivo
+    escrever("boot/loader.conf", f"""# LumeBSD {SERIE} - pendrive ao vivo
 boot_multicons="YES"
 console="efi,comconsole"
 autoboot_delay="5"
@@ -132,8 +133,8 @@ cpu_microcode_name="/boot/firmware/intel-ucode.bin"
 compat.linuxkpi.iwlwifi_11n_disable="0"
 compat.linuxkpi.iwlwifi_disable_11ac="0"
 """),
-    escrever("etc/motd.template", """
-   LumeBSD 1.1 "Farol"  -  pendrive ao vivo
+    escrever("etc/motd.template", f"""
+   LumeBSD {SERIE} "Farol"  -  pendrive ao vivo
 
    Nada no disco deste computador foi alterado.
 
