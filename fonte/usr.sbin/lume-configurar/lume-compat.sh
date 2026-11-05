@@ -21,7 +21,7 @@ ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 erro() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 precisa_root() { [ $root = s ] || erro "precisa ser root (su -)"; }
 
-tem_wine()  { [ -x /usr/local/bin/wine64 ]; }
+tem_wine()  { [ -x /usr/local/bin/wine64.bin ]; }
 
 # 64 ou 32: o tipo de máquina no cabeçalho PE de um .exe ("?" se não for).
 pe_bits()
@@ -119,14 +119,17 @@ abrir() {
 		    "Preparando o Wine na primeira vez; leva cerca de um minuto." 20 &
 	fi
 	cd "$(dirname "$f")" || exit 1
-	# Tudo pelo wine64, também os processos que o Wine abre sozinho (o
-	# wineboot da primeira vez, o start): o "wine" do FreeBSD exige o i386.
-	WINELOADER=/usr/local/bin/wine64
-	export WINELOADER
+	# Tudo pelo wine64.bin, também os processos que o Wine abre sozinho (o
+	# wineboot da primeira vez): os scripts wine e wine64 do FreeBSD exigem
+	# o Wine i386. O LD_BIND_NOW é o do script wine64 (bug 50257 do Wine).
+	WINELOADER=/usr/local/bin/wine64.bin
+	WINESERVER=/usr/local/bin/wineserver
+	LD_BIND_NOW=1
+	export WINELOADER WINESERVER LD_BIND_NOW
 	case "$f" in
-	*.[mM][sS][iI])	exec wine64 msiexec /i "$f" ;;
-	*.[bB][aA][tT]|*.[cC][mM][dD])	exec wine64 cmd /c "$f" ;;
-	*)		exec wine64 "$f" ;;
+	*.[mM][sS][iI])	exec "$WINELOADER" msiexec /i "$f" ;;
+	*.[bB][aA][tT]|*.[cC][mM][dD])	exec "$WINELOADER" cmd /c "$f" ;;
+	*)		exec "$WINELOADER" "$f" ;;
 	esac
 }
 
