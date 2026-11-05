@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Help
+Name[pt_BR]=Ajuda do LumeBSD
+Name[pt]=Ajuda do LumeBSD
+GenericName=Help
+GenericName[pt_BR]=Ajuda
+Comment=Guide to LumeBSD, in Portuguese
+Comment[pt_BR]=O guia do sistema: programas, Windows, Wi-Fi, atualizações e problemas
+Exec=/usr/sbin/lume-ajuda
+Icon=help-contents
+Categories=System;Documentation;
+Keywords=ajuda;help;manual;guia;suporte;como;

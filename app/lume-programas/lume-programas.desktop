@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Software
+Name[pt_BR]=Programas do LumeBSD
+Name[pt]=Programas do LumeBSD
+GenericName=Software Center
+GenericName[pt_BR]=Loja de programas
+Comment=Install software by area of study, in Portuguese
+Comment[pt_BR]=Instale programas por área (Exatas, Sociais aplicadas, Uso geral)
+Exec=/usr/bin/lume-programas
+Icon=/usr/share/lume/app/lume-programas.svg
+Categories=System;PackageManager;Settings;
+Keywords=loja;programas;instalar;aplicativos;apps;software;kit;matlab;office;excel;word;
+StartupNotify=true

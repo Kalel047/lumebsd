@@ -1,19 +1,25 @@
-# LumeBSD 1.2 "Farol"
+# LumeBSD 1.3 "Farol"
 
-Sobre o FreeBSD 15.1.
+Sobre o FreeBSD 15.1. Feito para estudantes e professores de exatas e de sociais aplicadas, e para quem só quer um computador que funcione.
 
-## Atualizações do LumeBSD, o app
+## Programas do LumeBSD, a loja
 
-- Um app no menu (**Sistema › Atualizações do LumeBSD**) que procura, mostra as novidades e instala com um botão, pedindo a sua senha. No fim, oferece reiniciar.
-- Avisa sozinho, na bandeja, quando sai uma versão nova, e explica se uma atualização não deu certo (o computador volta sozinho para a versão anterior).
-- **Voltar para a versão anterior** com um clique, sem mexer nas suas pastas.
+- Um app no menu (**Sistema › Programas do LumeBSD**) com mais de 100 programas escolhidos, em português, por categoria: escritório, ciência e matemática, estatística, engenharia e CAD, programação, LaTeX e referências, gráficos, vídeo, educação e finanças.
+- **Kits por área**, instalados de uma vez: **Uso geral** (LibreOffice em português, as fontes do Office, VLC, anotações em PDF), **Exatas e engenharia** (GNU Octave, Python científico com Jupyter, wxMaxima, GeoGebra, LabPlot) e **Sociais aplicadas** (R com RKWard, Python para dados, Zotero). O instalador pergunta qual na hora de instalar.
+- **Procure pelo programa que você usava**: "matlab" mostra o Octave, "spss" o R com RKWard, "autocad" o LibreCAD e o FreeCAD.
+- Instalar pede a sua senha e mostra o progresso; remover tira só o que nenhum outro programa usa.
 
-## Atualizações de qualquer tamanho
+## Programas do Windows, do Linux e da web
 
-- Correções (1.2.0 → 1.2.1), versões novas (1.2 → 1.3) e versões principais (1 → 2) pelo mesmo caminho.
-- Quando a versão nova troca o FreeBSD por baixo, os drivers de vídeo e Wi-Fi (ou, numa versão principal, todos os programas) são baixados antes e instalados no primeiro boot. Se algo falhar, o computador volta sozinho.
+- **Dois cliques num .exe**: na primeira vez, o LumeBSD oferece instalar o Wine e abre o programa.
+- **Apps da web no menu**: Microsoft 365 (Word, Excel, PowerPoint), Teams, Outlook, Google Drive, Meet, Zoom, WhatsApp, Overleaf, Power BI e outros, em janela própria.
+- A **camada Linux** liga sozinha quando um programa precisa dela (Google Chrome, Discord).
 
-## Também desde a 1.1
+## Ajuda do LumeBSD
 
-- **Máquina do tempo** (`lume tempo`): uma foto do disco por hora, guardada por dias e semanas. No Dolphin, botão direito, **Versões anteriores**. Volte o sistema inteiro para antes de uma instalação sem mexer nas suas pastas.
-- **Atualizações que não quebram**: a versão nova entra num ambiente de boot à parte e só é confirmada depois de um boot saudável.
+- Um guia em português no menu (**Ajuda do LumeBSD**, ou `lume ajuda`): instalar programas, o que usar no lugar de cada programa do Windows e do Mac, Wi-Fi e hardware, atualizações e o que fazer quando algo dá errado.
+
+## Também
+
+- Impressoras: o serviço de impressão já vem ligado.
+- Antes de instalar ou remover programas pela loja, uma foto do sistema vai para a máquina do tempo.

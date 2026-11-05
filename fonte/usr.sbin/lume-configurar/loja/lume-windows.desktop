@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Windows program
+Name[pt_BR]=Programa do Windows
+Name[pt]=Programa do Windows
+Comment=Run with Wine (offers to install it the first time)
+Comment[pt_BR]=Abre com o Wine (na primeira vez, oferece instalar)
+Exec=/usr/sbin/lume-compat abrir %f
+Icon=wine
+NoDisplay=true
+Terminal=false
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/vnd.microsoft.portable-executable;application/x-msi;application/x-ms-installer;application/x-bat;

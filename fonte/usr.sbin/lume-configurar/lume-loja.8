@@ -1,0 +1,108 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 4, 2026
+.Dt LUME-LOJA 8
+.Os
+.Sh NAME
+.Nm lume-loja
+.Nd os programas do LumeBSD, por área e em português
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Cm lista
+.Op Ar categoria
+.Nm
+.Cm procurar
+.Ar texto
+.Nm
+.Cm info
+.Ar programa
+.Nm
+.Cm instalar
+.Ar programa ...
+.Nm
+.Cm remover
+.Ar programa ...
+.Nm
+.Cm kit
+.Op Ar kit
+.Sh DESCRIPTION
+.Nm
+.Pq ou Nm lume loja
+instala programas a partir de um catálogo curado em português, com
+categorias, kits por área e, para cada programa, os programas conhecidos
+que ele substitui.
+A busca acha também por eles:
+.Ql lume loja procurar matlab
+mostra o GNU Octave.
+O app gráfico é o
+.Xr lume-programas 1 .
+.Pp
+Os programas vêm dos pacotes oficiais do FreeBSD.
+Os apps da web
+.Pq Microsoft 365, Teams, Overleaf...
+viram atalhos no menu, que abrem o site em janela própria no Chromium ou
+no Chrome, quando instalados, ou no Firefox.
+Programas para Linux ligam antes a camada Linux
+.Pq Xr lume-compat 8 .
+.Pp
+Os kits:
+.Bl -tag -width "sociais"
+.It Cm geral
+Uso geral: LibreOffice em português, fontes compatíveis com o Office,
+VLC, Xournal++ e os apps da web mais usados.
+.It Cm exatas
+Exatas e engenharia: GNU Octave, Python científico com JupyterLab,
+wxMaxima, GeoGebra, LabPlot, Qalculate!, Desmos e Overleaf.
+Inclui o
+.Cm geral .
+.It Cm sociais
+Sociais aplicadas: R com RKWard, Python para dados, Zotero e Power BI.
+Inclui o
+.Cm geral .
+.El
+.Pp
+Instalar e remover precisam de root
+.Pq o app usa o Xr pkexec 1 ,
+exceto os apps da web, que um usuário põe no próprio menu.
+Antes, uma foto do sistema vai para a máquina do tempo
+.Pq Nm lume tempo voltar desfaz .
+Remover marca os pacotes do programa como automáticos e deixa o
+.Xr pkg 8
+tirar só o que nada mais usa; os do desktop e os de outros programas
+instalados do catálogo ficam.
+.Sh COMMANDS
+.Bl -tag -width indent
+.It Cm lista Op Ar categoria
+Os programas, por categoria, com uma marca nos instalados.
+.It Cm procurar Ar texto
+Procura no nome, nos programas parecidos e na descrição.
+.It Cm info Ar programa
+Descrição, pacotes e quanto ocupa no disco.
+.It Cm instalar Ar programa ...
+Instala; com
+.Fl -maquina
+antes do comando, escreve o progresso em linhas
+.Dq @chave valor
+para o app.
+.It Cm remover Ar programa ...
+Remove.
+.It Cm kit Op Ar kit
+Sem argumento, os kits; com um, instala todos os programas dele.
+.El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa /usr/share/lume/loja/catalogo
+Programas, categorias e kits; o formato está no começo do arquivo.
+.It Pa /usr/share/lume/loja/atalhos
+Atalhos do menu para programas cujo pacote não traz um.
+.It Pa /var/db/lume/kits
+Os kits instalados.
+.El
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr lume-programas 1 ,
+.Xr lume-compat 8 ,
+.Xr lume-tempo 8 ,
+.Xr pkg 8

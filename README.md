@@ -1,4 +1,4 @@
-# LumeBSD 1.2 "Farol"
+# LumeBSD 1.3 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -16,12 +16,17 @@ Você grava o pendrive, testa o hardware sem tocar no disco, instala com
 criptografia em poucos minutos e entra num KDE Plasma com visual próprio,
 em pt-BR, com teclado ABNT2 e horário de Brasília.
 
+O público: **estudantes e professores de exatas e de sociais aplicadas, e
+quem só quer um computador que funcione**. Por isso o LumeBSD instala os
+programas da sua área de uma vez, acha o substituto do programa que você
+usava no Windows ou no Mac e abre um `.exe` com dois cliques.
+
 ```
      \    |    /
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.2
+        |[_]|        LumeBSD 1.3
         |===|        "Farol"
         |   |
         |===|
@@ -36,6 +41,9 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 | | |
 |---|---|
+| **Programas do LumeBSD** (1.3) | a loja em português: mais de 100 programas escolhidos, **kits por área** (Uso geral, Exatas e engenharia, Sociais aplicadas) e uma busca que acha pelo programa que você usava (“matlab” mostra o Octave, “spss” o R com RKWard) |
+| **Windows, Linux e web** (1.3) | dois cliques num `.exe` oferecem o Wine e abrem o programa; Microsoft 365, Teams, Overleaf, WhatsApp e outros como apps no menu; a camada Linux liga sozinha |
+| **Ajuda do LumeBSD** (1.3) | um guia em português no menu (`lume ajuda`): o que usar no lugar de cada programa, Wi-Fi e hardware, e o que fazer quando algo dá errado |
 | **Atualizações do LumeBSD** (1.2) | um app no menu que avisa quando sai versão nova, mostra as novidades e instala com um botão; correções, versões novas e versões principais (inclusive trocando o FreeBSD por baixo) pelo mesmo caminho, sempre com volta automática |
 | **Máquina do tempo** (1.1.2) | `lume tempo` tira uma foto do disco por hora (snapshots do ZFS) e guarda por dias e semanas; traz de volta um arquivo apagado, a versão de ontem de um documento ou o sistema inteiro de antes de uma instalação. No Dolphin: botão direito, **Versões anteriores** |
 | **Atualizações que não quebram** (1.1.1) | `lume atualizar` instala a versão nova num ambiente de boot à parte, testa no boot seguinte e só então a torna padrão; se algo der errado, o computador volta sozinho para o sistema anterior |
@@ -50,7 +58,7 @@ em pt-BR, com teclado ABNT2 e horário de Brasília.
 
 ### 1. Gravar
 
-Baixe `LumeBSD-1.2-Farol-pendrive.img.xz` das
+Baixe `LumeBSD-1.3-Farol-pendrive.img.xz` das
 [Releases](https://github.com/Kalel047/lumebsd/releases) (ou do último
 [Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml),
 em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
@@ -58,7 +66,7 @@ em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
 
 - **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
   perguntar, **modo DD**.
-- **Linux/FreeBSD**: `dd if=LumeBSD-1.2-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+- **Linux/FreeBSD**: `dd if=LumeBSD-1.3-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
 
 Na BIOS/UEFI do PC, desligue o *Secure Boot* (o loader do FreeBSD não é
 assinado) e dê boot pelo pendrive (F12 na maioria das placas).
@@ -105,7 +113,16 @@ disco e instala:
 - boot UEFI registrado com `efibootmgr` e no caminho padrão `BOOTX64.EFI`;
 - os drivers e firmwares que vêm no pendrive;
 - com internet, o desktop (KDE Plasma 6, Firefox, Konsole, Dolphin, Kate,
-  Okular, PipeWire...) já com o driver de vídeo certo e o tema Papel.
+  Okular, PipeWire...) já com o driver de vídeo certo e o tema Papel;
+- e o **kit da sua área**, se você escolher um:
+
+```
+  Para que você vai usar o computador? Os programas da área vêm junto.
+    1) Uso geral: escritório em português, vídeo, apps da web (~400 MB)
+    2) Exatas e engenharia: Octave (como o MATLAB), Python, GeoGebra (~850 MB)
+    3) Sociais aplicadas: R, estatística, Zotero (~1,2 GB)
+    4) Só o desktop; escolho depois no app Programas do LumeBSD
+```
 
 > Reinstalando num PC que já tem o LumeBSD? O loader do pendrive vê o
 > disco criptografado e pergunta a senha dele: aperte Enter para pular.
@@ -322,6 +339,9 @@ aplica de novo.
 | `lume instalar` | instala no disco inteiro (ZFS + GELI) |
 | `lume atualizar` | atualiza o sistema num ambiente de boot, com volta automática (o app **Atualizações do LumeBSD** faz o mesmo no desktop) |
 | `lume tempo` | máquina do tempo: fotos do disco, versões de arquivos, o sistema de antes |
+| `lume loja` | programas por área e kits (o app **Programas do LumeBSD** faz o mesmo no desktop) |
+| `lume compat` | programas do Windows (Wine) e do Linux |
+| `lume ajuda` | a Ajuda do LumeBSD, no navegador |
 | `lume tema [papel\|padrao]` | visual do KDE |
 | `lume configurar` | assistente de configuração |
 | `vigia` | gerenciador de serviços (abaixo) |
@@ -374,14 +394,16 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0013..0024           correções que os testes pegaram; lume atualizar (1.1.1)
   0025                 lume tempo, a máquina do tempo (1.1.2)
   0026..0027           lume atualizar pela base FreeBSD, lume_pacotes; 1.2
-app/lume-atualizacoes/ o app Atualizações do LumeBSD (Qt 6), fora da árvore
-                       do FreeBSD; ferramentas/montar-app.py o compila
+  0028..0029           lume loja, lume compat, lume ajuda; 1.3
+app/                   os apps Atualizações e Programas do LumeBSD (Qt 6),
+                       fora da árvore do FreeBSD; ferramentas/montar-app.py
+                       os compila
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
                        (forja, lume, vigia, lume-configurar, rc.d, tema...)
 conf/                  src.conf (userland) e LUME (kernel)
 build-lumebsd.sh       do FreeBSD fixado até a imagem do pendrive
 ferramentas/           pacotes.py, montar-pendrive.py, fonte.py,
-                       papel-de-parede.py
+                       papel-de-parede.py, conferir-catalogo.py (a loja)
 tests/                 testes no QEMU pelo console serial
 docs/ARQUITETURA.md    como tudo funciona por dentro
 docs/                  sessões reais e capturas de tela
@@ -407,8 +429,8 @@ sh build-lumebsd.sh
 O script clona o FreeBSD `releng/15.1`, aplica os patches, compila
 userland e kernel `LUME`, instala num diretório de staging sem precisar de
 root, baixa os pacotes essenciais do repositório trimestral do FreeBSD
-(conferindo os hashes), compila o app de atualizações contra o `qt6-base`
-do FreeBSD e gera `LumeBSD-1.2-Farol-pendrive.img` e, em `atualizacao/`, o
+(conferindo os hashes), compila os apps contra o `qt6-base`
+do FreeBSD e gera `LumeBSD-1.3-Farol-pendrive.img` e, em `atualizacao/`, o
 pacote de atualização com o índice e as novidades (`docs/novidades.md`).
 Leva várias horas numa máquina de 2 núcleos (o world é a parte longa).
 
@@ -439,6 +461,8 @@ python3 tests/teste-pendrive.py tempo     tempo.log      # lume tempo e "Versõe
 python3 tests/teste-pendrive.py app       app.log        # o app: aviso, senha, instalar, reiniciar
 python3 tests/teste-pendrive.py app-falhou falhou.log    # depois de uma atualização reprovada
 python3 tests/teste-pendrive.py app-voltar voltar.log    # voltar para a versão anterior
+LUME_TESTE_KIT=geral python3 tests/teste-pendrive.py aovivo aovivo.log  # instala com um kit
+python3 tests/teste-pendrive.py loja      loja.log       # loja, senha, um .exe no Wine, Ajuda
 ```
 
 ## Status
@@ -524,7 +548,7 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
 ### Compilando programas à mão
 
-O `uname` do LumeBSD diz `LumeBSD 1.2-FAROL`. Pela forja ou por
+O `uname` do LumeBSD diz `LumeBSD 1.3-FAROL`. Pela forja ou por
 `/usr/ports` isso é resolvido sozinho. Para um `./configure` fora dos
 ports que não reconheça o sistema:
 

@@ -7,10 +7,12 @@
 #   lume tema           mostra qual tema está em uso
 #   lume tema papel     aplica o Papel (o lume desktop já faz isso)
 #   lume tema padrao    volta ao visual original do KDE
-#   lume tema integrar  põe no KDE o que é do sistema: o app Atualizações do
-#                       LumeBSD (menu, aviso na sessão, polkit) e o
-#                       "Versões anteriores" do Dolphin (o tema chama isto, e
-#                       o lume_saude também, depois de uma atualização)
+#   lume tema integrar  põe no KDE o que é do sistema: os apps Atualizações
+#                       e Programas do LumeBSD (menu, aviso na sessão,
+#                       polkit), a Ajuda, os dois cliques num .exe (lume
+#                       compat) e o "Versões anteriores" do Dolphin (o tema
+#                       chama isto, e o lume_saude também, depois de uma
+#                       atualização)
 #
 # Papel, tinta e cinzas; sem animações, sombras nem transparência; fontes
 # IBM Plex; ícones Breeze convertidos para tons de cinza; papel de parede
@@ -161,6 +163,47 @@ integrar()
 		instalar $A/org.lumebsd.atualizar.policy \
 		    $P/share/polkit-1/actions/org.lumebsd.atualizar.policy 0644
 	fi
+	# A loja de programas.
+	if [ -x /usr/bin/lume-programas ]; then
+		instalar $A/lume-programas.desktop \
+		    $P/share/applications/lume-programas.desktop 0644
+		instalar $A/org.lumebsd.programas.policy \
+		    $P/share/polkit-1/actions/org.lumebsd.programas.policy 0644
+	fi
+	# A Ajuda do LumeBSD, no menu.
+	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
+	    $P/share/applications/lume-ajuda.desktop 0644
+	# Dois cliques num .exe: lume-compat abrir (oferece o Wine na primeira vez).
+	instalar /usr/share/lume/loja/lume-windows.desktop \
+	    $P/share/applications/lume-windows.desktop 0644
+	padrao_mime "application/x-ms-dos-executable application/x-msdownload application/vnd.microsoft.portable-executable application/x-msi application/x-ms-installer" \
+	    lume-windows.desktop
+	# Impressoras: o CUPS vem com o desktop; quem atualizou de antes da 1.3
+	# não o tinha ligado (vale a partir do próximo boot).
+	if [ -x $P/sbin/cupsd ] && [ -z "$(sysrc -qn cupsd_enable 2>/dev/null)" ]; then
+		sysrc -q cupsd_enable=YES >/dev/null 2>&1
+	fi
+	# Os atalhos dos programas da loja que precisam de um (o JupyterLab).
+	[ -x /usr/sbin/lume-loja ] && /usr/sbin/lume-loja atalhos >/dev/null 2>&1
+	command -v update-desktop-database >/dev/null 2>&1 &&
+	    update-desktop-database -q $P/share/applications 2>/dev/null
+	return 0
+}
+
+# padrao_mime "tipos" app.desktop: o app padrão desses tipos, para todos (o
+# mimeapps.list do sistema), sem mexer no que já estiver lá.
+padrao_mime()
+{
+	f=$XDG/mimeapps.list
+	mkdir -p $XDG
+	[ -f $f ] || printf '[Default Applications]\n' > $f
+	grep -q '^\[Default Applications\]' $f || printf '\n[Default Applications]\n' >> $f
+	for t in $1; do
+		grep -q "^$t=" $f && continue
+		awk -v l="$t=$2" '{ print } /^\[Default Applications\]$/ { print l }' $f > $f.novo &&
+		    mv $f.novo $f
+	done
+	chmod 0644 $f
 }
 
 padrao()

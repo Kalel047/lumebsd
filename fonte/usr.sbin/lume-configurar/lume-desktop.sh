@@ -68,7 +68,7 @@ if [ "$escolha" = intel ]; then
 	    echo "  ! Firmwares Intel não instalados; tente: pkg install -g 'gpu-firmware-intel-kmod-*'"
 fi
 
-sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES \
+sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES cupsd_enable=YES \
     lume_video_enable=YES >/dev/null
 sysrc -q kld_list+="cuse" >/dev/null
 # Quem é do grupo wheel ganha vídeo e câmera.

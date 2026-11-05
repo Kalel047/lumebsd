@@ -1,5 +1,5 @@
 #!/bin/sh
-# Constrói o pendrive do LumeBSD 1.2 "Farol" (ao vivo + instalador) a partir
+# Constrói o pendrive do LumeBSD 1.3 "Farol" (ao vivo + instalador) a partir
 # do código-fonte do FreeBSD 15.1.
 # Roda em Linux (cross-build com LLVM) ou FreeBSD. Uso: sh build-lumebsd.sh
 #
@@ -13,7 +13,7 @@ SRC=$TOP/src
 OBJ=$TOP/obj
 STAGE=$TOP/stage
 PACOTES=$TOP/pacotes
-IMG=$TOP/LumeBSD-1.2-Farol-pendrive.img
+IMG=$TOP/LumeBSD-1.3-Farol-pendrive.img
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
 VERSAO=$(cat "$TOP/VERSAO")
 ATUALIZACAO=$TOP/atualizacao

@@ -15,12 +15,18 @@ uso: python3 tests/teste-pendrive.py FASE LOG
              versão nova e o xdotool instalado) o app Atualizações do
              LumeBSD: aviso na bandeja, novidades, senha, instalação,
              reiniciar
+  loja       (depois do instalado, com o kit geral) os Programas do LumeBSD:
+             kits, busca pelo programa conhecido, instalar com senha, e um
+             .exe com dois cliques (oferece o Wine, instala, abre); a
+             camada Linux e a Ajuda
   ajustar    entra como root no instalado e roda os comandos de $AJUSTES
 
 Variáveis: LUME_IMG (a imagem), LUME_TESTE_DIR (onde ficam disco NVMe,
 fotos e o socket do monitor), OVMF_CODE/OVMF_VARS, LUME_KVM=1 para usar
 aceleração, LUME_REPO_URL (espelho de pacotes para "aovivo"), PREPARO
-(comandos antes do teste "tempo").
+(comandos antes do teste "tempo"), LUME_TESTE_KIT (o kit que o "aovivo"
+instala junto com o desktop; sem ela, o instalador pergunta... e o teste
+responde o padrão).
 O pendrive vai em SATA porque o USB emulado do QEMU dá erros de leitura
 sob carga; para o sistema é o mesmo disco.
 """
@@ -34,7 +40,7 @@ import time
 
 TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR = os.environ.get("LUME_TESTE_DIR", os.path.join(TOPO, "teste-pendrive"))
-PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.2-Farol-pendrive.img"))
+PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.3-Farol-pendrive.img"))
 OVMF_CODE = os.environ.get("OVMF_CODE", "/usr/share/OVMF/OVMF_CODE_4M.fd")
 OVMF_VARS = os.environ.get("OVMF_VARS", "/usr/share/OVMF/OVMF_VARS_4M.fd")
 NVME = f"{DIR}/nvme.img"
@@ -211,6 +217,7 @@ if fase == "aovivo":
     marca("instalando no NVMe")
     enviar(f"env LUME_DISCO=nda0 LUME_CONFIRMA=APAGAR LUME_SENHA_DISCO={SENHA_DISCO}"
            f" LUME_DESKTOP={os.environ.get('LUME_TESTE_DESKTOP', 's')} LUME_CONSOLE_SERIAL=1 LUME_REPO_URL={REPO}"
+           f" LUME_KIT={os.environ.get('LUME_TESTE_KIT', '')}"
            " lume instalar")
     esperar("LumeBSD instalado em", 7200)
     marca("instalação concluída")
@@ -495,6 +502,109 @@ elif fase == "app":
         esperar("Uptime", 300)
     else:
         marca("o app reiniciou o computador")
+
+elif fase == "loja":
+    senha_do_disco("login: ")
+    marca("sistema no login; esperando o SDDM")
+    time.sleep(90)
+    for tecla in "lume2026":
+        monitor(f"sendkey {tecla}")
+    monitor("sendkey ret")
+    marca("senha digitada na tela de login")
+    time.sleep(200)
+    P = "root@thinkpad:~ # "
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
+              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    # PREPARO: comandos antes do teste (um por linha), como trocar um script.
+    for c in os.environ.get("PREPARO", "").splitlines():
+        if c.strip():
+            comando(c, P, 300)
+    X = sessao + "su -m fabiano -c "
+    H = "env HOME=/home/fabiano "
+    for c in ["lume loja", "lume loja procurar matlab", "lume loja procurar excel",
+              "cat /var/db/lume/kits; ls /usr/local/share/applications | grep lume",
+              "pkg info -e libreoffice pt_BR-libreoffice webfonts vlc xournalpp && echo kit-geral-ok",
+              "grep -i ms-dos /usr/local/etc/xdg/mimeapps.list",
+              "lume compat", "lume loja info qalculate",
+              "ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg info -e xdotool && echo xdotool-ok"]:
+        comando(c, P, 600)
+
+    def janela(cmd):
+        comando(X + "'w=$(xdotool search --onlyvisible --classname lume-programas | tail -1); "
+                f"xdotool windowactivate --sync $w; {cmd}'", P)
+
+    def senha():
+        comando(X + "'xdotool search --onlyvisible --name Autentica >/dev/null && "
+                "{ xdotool type --delay 120 lume2026; xdotool key Return; }; true'", P)
+
+    # A loja: o início com os kits e a busca pelo programa conhecido.
+    comando(X + f"'{H}daemon -f lume-programas'", P)
+    time.sleep(60)
+    foto("loja-1-inicio")
+    janela("xdotool type --delay 150 matlab")
+    time.sleep(10)
+    foto("loja-2-matlab")
+    janela("xdotool key ctrl+a BackSpace; xdotool type --delay 150 autocad")
+    time.sleep(10)
+    foto("loja-3-autocad")
+    comando("pkill -f lume-programas; true", P)
+
+    # Instalar com a senha: o Qalculate!, pelo app.
+    comando(X + f"'{H}daemon -f lume-programas --instalar qalculate'", P)
+    time.sleep(60)
+    foto("loja-4-confirmar")
+    janela("xdotool key Return")
+    time.sleep(25)
+    foto("loja-5-senha")
+    senha()
+    time.sleep(30)
+    foto("loja-6-instalando")
+    comando("i=0; until pkg info -e qalculate-qt && ! pgrep -f lume-programas >/dev/null; do "
+            "i=$((i+1)); [ $i -gt 240 ] && break; sleep 5; done; lume loja info qalculate", P, 1500)
+    comando(X + f"'{H}daemon -f lume-programas'", P)
+    time.sleep(50)
+    janela("xdotool mousemove --window $w 125 124 click 1")
+    time.sleep(10)
+    foto("loja-7-instalados")
+    comando("pkill -f lume-programas; true", P)
+
+    # Um programa do Windows com dois cliques: o atalho do sistema oferece o
+    # Wine, a loja instala (com a senha) e o programa abre.
+    comando(f"mkdir -p /home/fabiano/Downloads && fetch -q -o /home/fabiano/Downloads/calculadora.exe {REPO}/teste/calculadora.exe && "
+            "chown -R fabiano /home/fabiano/Downloads && ls -l /home/fabiano/Downloads", P)
+    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora.exe'", P)
+    time.sleep(40)
+    foto("loja-8-wine-pergunta")
+    comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
+    time.sleep(60)
+    foto("loja-9-wine-confirmar")
+    janela("xdotool key Return")
+    time.sleep(25)
+    senha()
+    time.sleep(60)
+    foto("loja-10-wine-instalando")
+    comando("i=0; until pkg info -e wine; do i=$((i+1)); [ $i -gt 480 ] && break; sleep 5; done; "
+            "pkg info -e wine && echo wine-ok", P, 2600)
+    marca("Wine instalado; esperando o programa abrir")
+    comando(X + "'i=0; until xdotool search --onlyvisible --name \"Calculadora de teste\" >/dev/null; do "
+            "i=$((i+1)); [ $i -gt 240 ] && break; sleep 5; done; true'", P, 1300)
+    time.sleep(10)
+    foto("loja-11-exe")
+
+    # A camada Linux e a Ajuda.
+    comando("lume compat linux ligar; lume compat; kldstat | grep -i linux", P, 300)
+    comando(X + f"'{H}daemon -f lume-ajuda'", P)
+    time.sleep(120)
+    foto("loja-12-ajuda")
+    comando(X + f"'{H}daemon -f lume-ajuda trocando'", P)
+    time.sleep(40)
+    foto("loja-13-trocando")
+    enviar("shutdown -p now")
+    esperar("Uptime", 300)
 
 elif fase in ("app-falhou", "app-voltar"):
     # app-falhou: depois de uma atualização que não passou na checagem (o

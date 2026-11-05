@@ -1,0 +1,61 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 4, 2026
+.Dt LUME-COMPAT 8
+.Os
+.Sh NAME
+.Nm lume-compat
+.Nd programas do Windows e do Linux no LumeBSD
+.Sh SYNOPSIS
+.Nm
+.Op Cm estado
+.Nm
+.Cm linux
+.Op Cm ligar | desligar
+.Nm
+.Cm windows
+.Nm
+.Cm abrir
+.Ar arquivo
+.Sh DESCRIPTION
+.Nm
+.Pq ou Nm lume compat
+cuida de rodar programas feitos para outros sistemas.
+.Bl -tag -width "Windows"
+.It Windows
+O Wine, instalado com
+.Ql lume loja instalar windows .
+Dois cliques num
+.Pa .exe ,
+.Pa .msi
+ou
+.Pa .bat
+no Dolphin chamam
+.Nm Cm abrir ,
+que na primeira vez oferece instalar o Wine pelo app
+.Xr lume-programas 1 .
+Cada usuário tem a sua
+.Dq unidade C:
+em
+.Pa ~/.wine .
+.It Linux
+A camada Linux do FreeBSD
+.Pq Xr linux 4 :
+.Cm linux ligar
+liga
+.Va linux_enable
+no
+.Xr rc.conf 5
+e carrega o módulo agora.
+O
+.Xr lume-loja 8
+faz isso sozinho antes de instalar um programa para Linux, como o
+Google Chrome.
+.El
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr lume-programas 1 ,
+.Xr wine 1 ,
+.Xr linux 4 ,
+.Xr lume-loja 8
