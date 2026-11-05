@@ -550,7 +550,7 @@ elif fase == "loja":
     janela("xdotool type --delay 150 matlab")
     time.sleep(10)
     foto("loja-2-matlab")
-    janela("xdotool key ctrl+a BackSpace; xdotool type --delay 150 autocad")
+    janela("xdotool key --delay 80 BackSpace BackSpace BackSpace BackSpace BackSpace BackSpace; xdotool type --delay 150 autocad")
     time.sleep(10)
     foto("loja-3-autocad")
     comando("pkill -f lume-programas; true", P)
@@ -627,13 +627,18 @@ elif fase == "exe":
               "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
     X = sessao + "su -m fabiano -c "
     H = "env HOME=/home/fabiano "
-    comando(f"fetch -q -o /home/fabiano/Downloads/calculadora32.exe {REPO}/teste/calculadora32.exe; "
+    comando(f"mkdir -p /home/fabiano/Downloads; for e in calculadora calculadora32; do fetch -q -o /home/fabiano/Downloads/$e.exe {REPO}/teste/$e.exe; done; "
             "chown fabiano /home/fabiano/Downloads/*; lume compat", P)
-    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora.exe'", P)
+    # O caminho dos dois cliques (o mimeapps.list) já foi testado na fase
+    # loja; aqui o lume-compat direto, com o registro do Wine.
+    comando("grep -i ms-dos /usr/local/etc/xdg/mimeapps.list", P)
+    comando(X + f"'{H}WINEDEBUG=err+all daemon -o /tmp/compat.log /usr/sbin/lume-compat abrir /home/fabiano/Downloads/calculadora.exe'", P)
     comando(X + "'i=0; until xdotool search --onlyvisible --name \"Calculadora de teste\" >/dev/null; do "
-            "i=$((i+1)); [ $i -gt 240 ] && break; sleep 5; done; xdotool search --onlyvisible --name \"Calculadora de teste\" && echo EXE-ABRIU'", P, 1300)
+            "i=$((i+1)); [ $i -gt 72 ] && break; sleep 5; done; xdotool search --onlyvisible --name \"Calculadora de teste\" && echo EXE-ABRIU'", P, 1300)
     time.sleep(10)
     foto("exe-1-64bits")
+    comando("tail -40 /tmp/compat.log; ps -axo user,pid,etime,command | grep -i wine | grep -v grep | cut -c1-150; ls /home/fabiano/.wine", P)
+    comando(X + "'xdotool search --onlyvisible --name . | while read w; do xdotool getwindowname $w; done | sort -u | head -30'", P)
     comando(X + "'xdotool search --onlyvisible --name \"Calculadora de teste\" windowactivate --sync key Return; true'", P)
     comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora32.exe'", P)
     time.sleep(40)

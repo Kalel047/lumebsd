@@ -68,7 +68,7 @@ dbeaver|dados|DBeaver|dbeaver||SQL Server Management Studio|Cliente de banco de 
 qgis|dados|QGIS|qgis||ArcGIS|Mapas e geoprocessamento (geografia, urbanismo, agronomia, meio ambiente).|qgis|
 
 # --- Engenharia e CAD ----------------------------------------------------
-freecad|engenharia|FreeCAD|FreeCAD||SolidWorks, Inventor, Fusion 360|Modelagem 3D paramétrica de peças e montagens, com desenho técnico.|freecad|
+freecad|engenharia|FreeCAD|FreeCAD||SolidWorks, Inventor, Fusion 360, AutoCAD 3D|Modelagem 3D paramétrica de peças e montagens, com desenho técnico.|freecad|
 librecad|engenharia|LibreCAD|librecad||AutoCAD|Desenho técnico em 2D; abre e salva DXF.|librecad|
 kicad|engenharia|KiCad|kicad||Altium, Eagle, Proteus|Esquemas eletrônicos e placas de circuito impresso.|kicad|
 qucs|engenharia|Qucs-S e ngspice|qucs-s ngspice_rework||Multisim, LTspice, PSpice|Simulação de circuitos analógicos e digitais.|qucs|
