@@ -19,6 +19,8 @@ uso: python3 tests/teste-pendrive.py FASE LOG
              kits, busca pelo programa conhecido, instalar com senha, e um
              .exe com dois cliques (oferece o Wine, instala, abre); a
              camada Linux e a Ajuda
+  exe        (depois do loja) .exe de 64 bits abre no Wine; o de 32 bits
+             ganha a explicação
   ajustar    entra como root no instalado e roda os comandos de $AJUSTES
 
 Variáveis: LUME_IMG (a imagem), LUME_TESTE_DIR (onde ficam disco NVMe,
@@ -603,6 +605,39 @@ elif fase == "loja":
     comando(X + f"'{H}daemon -f lume-ajuda trocando'", P)
     time.sleep(40)
     foto("loja-13-trocando")
+    enviar("shutdown -p now")
+    esperar("Uptime", 300)
+
+elif fase == "exe":
+    senha_do_disco("login: ")
+    time.sleep(90)
+    for tecla in "lume2026":
+        monitor(f"sendkey {tecla}")
+    monitor("sendkey ret")
+    time.sleep(200)
+    P = "root@thinkpad:~ # "
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    for c in os.environ.get("PREPARO", "").splitlines():
+        if c.strip():
+            comando(c, P, 300)
+    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
+              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    X = sessao + "su -m fabiano -c "
+    H = "env HOME=/home/fabiano "
+    comando(f"fetch -q -o /home/fabiano/Downloads/calculadora32.exe {REPO}/teste/calculadora32.exe; "
+            "chown fabiano /home/fabiano/Downloads/*; lume compat", P)
+    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora.exe'", P)
+    comando(X + "'i=0; until xdotool search --onlyvisible --name \"Calculadora de teste\" >/dev/null; do "
+            "i=$((i+1)); [ $i -gt 240 ] && break; sleep 5; done; xdotool search --onlyvisible --name \"Calculadora de teste\" && echo EXE-ABRIU'", P, 1300)
+    time.sleep(10)
+    foto("exe-1-64bits")
+    comando(X + "'xdotool search --onlyvisible --name \"Calculadora de teste\" windowactivate --sync key Return; true'", P)
+    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora32.exe'", P)
+    time.sleep(40)
+    foto("exe-2-32bits")
     enviar("shutdown -p now")
     esperar("Uptime", 300)
 

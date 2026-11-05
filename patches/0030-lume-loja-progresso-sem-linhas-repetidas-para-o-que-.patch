@@ -1,0 +1,109 @@
+From 405bd9cecd0af934f59f06dd40371a410c95beda Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 22:16:06 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20loja:=20progresso=20sem=20linhas=20repet?=
+ =?UTF-8?q?idas;=20"-"=20para=20o=20que=20n=C3=A3o=20tem=20janela?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/loja/catalogo | 23 ++++++++++++-----------
+ usr.sbin/lume-configurar/lume-loja.sh  |  3 ++-
+ 2 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/loja/catalogo b/usr.sbin/lume-configurar/loja/catalogo
+index 866b16d00..338683b6a 100644
+--- a/usr.sbin/lume-configurar/loja/catalogo
++++ b/usr.sbin/lume-configurar/loja/catalogo
+@@ -10,7 +10,8 @@
+ # parecido  programas conhecidos que ele substitui (a busca acha por eles)
+ # ícone     nome do ícone do tema (Breeze), ou vazio
+ # abrir     atalho do menu que o LumeBSD põe junto (em loja/atalhos), para
+-#           programas cujo pacote não traz um
++#           programas cujo pacote não traz um; "-" quando não há o que
++#           abrir (fontes, linguagens, ferramentas de terminal)
+ #
+ # @categoria id|Nome|ícone
+ # @kit id|Nome|descrição|kits que ele inclui
+@@ -35,14 +36,14 @@
+ 
+ # --- Escritório ----------------------------------------------------------
+ libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
+-fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|
++fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|-
+ xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
+ thunderbird|escritorio|Thunderbird|thunderbird||Outlook|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
+ calligra|escritorio|Calligra|calligra||Microsoft Office|Outra suíte de escritório, do KDE: textos, planilhas e apresentações.|calligrawords|
+ projectlibre|escritorio|ProjectLibre|projectlibre||Microsoft Project|Cronogramas e gráficos de Gantt para projetos.|projectlibre|
+ freeplane|escritorio|Freeplane|freeplane||XMind, MindManager|Mapas mentais para estudar e organizar ideias.|freeplane|
+ kontact|escritorio|Kontact|kontact korganizer||Outlook|E-mail, agenda e tarefas integrados ao KDE.|kontact|
+-pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|
++pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|-
+ 
+ # --- Ciência e matemática ------------------------------------------------
+ octave|ciencia|GNU Octave|octave octave-forge-signal octave-forge-control octave-forge-statistics octave-forge-symbolic octave-forge-optim octave-forge-io|exatas|MATLAB, Simulink|Linguagem de cálculo numérico compatível com o MATLAB: a maioria dos scripts .m roda sem mudar. Vem com os pacotes de sinais, controle, estatística, simbólico e otimização.|octave|
+@@ -52,7 +53,7 @@ geogebra|ciencia|GeoGebra|geogebra|exatas|GeoGebra|Geometria, gráficos de funç
+ labplot|ciencia|LabPlot|labplot|exatas|Origin, SigmaPlot|Gráficos científicos e ajuste de curvas a partir de planilhas e arquivos de dados.|labplot|
+ qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
+ kmplot|ciencia|KmPlot|kmplot kalgebra||Calculadora gráfica|Gráficos de funções em 2D e 3D, rápidos e simples.|kmplot|
+-gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|
++gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|-
+ kalzium|ciencia|Kalzium e Avogadro|kalzium avogadro2||ChemDraw|Tabela periódica completa e editor de moléculas em 3D.|kalzium|
+ step|ciencia|Step|step||PhET|Simulador de física interativo: molas, gravidade, colisões.|step|
+ stellarium|ciencia|Stellarium|stellarium||Planetário|O céu em 3D, de qualquer lugar e data.|stellarium|
+@@ -89,16 +90,16 @@ calibre|escrita|Calibre|calibre||Kindle|Organiza e converte livros digitais.|cal
+ 
+ # --- Programação ---------------------------------------------------------
+ vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
+-python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|
+-c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|
++python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|-
++c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|-
+ codeblocks|programacao|Code::Blocks|codeblocks||Dev-C++|IDE simples para C e C++, comum nas disciplinas de introdução.|codeblocks|
+-java|programacao|Java 21|openjdk21||Java|O JDK 21 para compilar e rodar programas em Java.|java|
++java|programacao|Java 21|openjdk21||Java|O JDK 21 para compilar e rodar programas em Java.|java|-
+ eclipse|programacao|Eclipse|eclipse openjdk21||Eclipse|IDE para Java.|eclipse|
+ netbeans|programacao|NetBeans|netbeans||NetBeans|IDE para Java.|netbeans|
+ pycharm|programacao|PyCharm|pycharm||PyCharm|IDE para Python, da JetBrains.|pycharm|
+-node|programacao|Node.js|node24||Node.js|JavaScript fora do navegador.|nodejs|
+-rust|programacao|Rust|rust||Rust|A linguagem Rust e o cargo.|rust|
+-go|programacao|Go|go||Go|A linguagem Go.|go|
++node|programacao|Node.js|node24||Node.js|JavaScript fora do navegador.|nodejs|-
++rust|programacao|Rust|rust||Rust|A linguagem Rust e o cargo.|rust|-
++go|programacao|Go|go||Go|A linguagem Go.|go|-
+ git|programacao|Git com interface|git-cola meld||GitHub Desktop|Git com janelas: commits, histórico e comparação de arquivos.|git-cola|
+ 
+ # --- Na web (atalhos no menu que abrem o site como um app) ---------------
+@@ -158,7 +159,7 @@ gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas,
+ 
+ # --- Sistema e compatibilidade -------------------------------------------
+ windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
+-linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|
++linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|-
+ virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
+ filelight|sistema|Filelight|filelight||WinDirStat|Mostra o que está ocupando o disco.|filelight|
+ keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass|Cofre de senhas.|keepassxc|
+diff --git a/usr.sbin/lume-configurar/lume-loja.sh b/usr.sbin/lume-configurar/lume-loja.sh
+index 2f4138ca1..5be7024ac 100644
+--- a/usr.sbin/lume-configurar/lume-loja.sh
++++ b/usr.sbin/lume-configurar/lume-loja.sh
+@@ -126,7 +126,7 @@ criar_atalho_web() {
+ 
+ # Atalhos de menu que o LumeBSD traz para programas sem um (o JupyterLab).
+ por_atalhos() {
+-	for id in $(itens | awk -F'|' '$9 != "" { print $1 }'); do
++	for id in $(itens | awk -F'|' '$9 != "" && $9 != "-" { print $1 }'); do
+ 		a=$(campo "$id" 9)
+ 		[ -f "$ATALHOS/$a" ] || continue
+ 		if instalado "$id"; then
+@@ -406,6 +406,7 @@ abrir() {
+ 	existe "$1" || erro "programa desconhecido: $1"
+ 	e_web "$1" && web "$1"
+ 	a=$(campo "$1" 9)
++	[ "$a" = - ] && erro "$(campo "$1" 3) não tem janela: é usado por outros programas ou pelo terminal"
+ 	f=
+ 	if [ -n "$a" ] && [ -f "$SISTEMA/lume-$a" ]; then
+ 		f=$SISTEMA/lume-$a

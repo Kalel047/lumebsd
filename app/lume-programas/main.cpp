@@ -60,6 +60,7 @@ struct Programa {
 	QString id, categoria, nome, parecido, descricao, icone;
 	QStringList pacotes, kits;
 	bool web = false;
+	bool abre = true;	// "-" no catálogo: fontes, linguagens...
 };
 
 struct Categoria {
@@ -234,6 +235,7 @@ Janela::ler_catalogo()
 		p.descricao = c[6];
 		p.icone = c[7];
 		p.web = c[3].startsWith("web:");
+		p.abre = c[8] != "-";
 		por_id_[p.id] = progs_.size();
 		progs_ << p;
 	}
@@ -614,8 +616,8 @@ Janela::pintar()
 		bool tem = instalados_.contains(p.id);
 		c.marca->setVisible(tem);
 		c.remover->setVisible(tem);
-		c.botao->setText(tem ? "Abrir" : (p.web ? "Pôr no menu" : "Instalar"));
-		c.botao->setEnabled(!ocupado_);
+		c.botao->setText(tem ? (p.abre ? "Abrir" : "Instalado") : (p.web ? "Pôr no menu" : "Instalar"));
+		c.botao->setEnabled(!ocupado_ && !(tem && !p.abre));
 		c.remover->setEnabled(!ocupado_);
 	}
 	for (const Kit &k : kits_) {

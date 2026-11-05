@@ -126,7 +126,7 @@ criar_atalho_web() {
 
 # Atalhos de menu que o LumeBSD traz para programas sem um (o JupyterLab).
 por_atalhos() {
-	for id in $(itens | awk -F'|' '$9 != "" { print $1 }'); do
+	for id in $(itens | awk -F'|' '$9 != "" && $9 != "-" { print $1 }'); do
 		a=$(campo "$id" 9)
 		[ -f "$ATALHOS/$a" ] || continue
 		if instalado "$id"; then
@@ -216,14 +216,6 @@ instalar() {
 		for p in $pks; do pkg_ok "$p" || falta="$falta $p"; done
 		[ -z "$falta" ] || erro "não deu para instalar:$falta"
 		app "passo 3 3 Arrumando o menu"
-		# Programas do Windows de 32 bits (a maioria dos instaladores).
-		case " $pks " in *" wine "*)
-			if [ -x /usr/local/share/wine/pkg32.sh ]; then
-				msg "Preparando o Wine para programas de 32 bits..."
-				/usr/local/share/wine/pkg32.sh install -y wine mesa-dri >/dev/null 2>&1 ||
-				    msg "(sem o suporte a 32 bits; programas de 64 bits funcionam)"
-			fi ;;
-		esac
 		[ $root = s ] && por_atalhos
 	fi
 	for id in $web_ids; do
@@ -406,6 +398,7 @@ abrir() {
 	existe "$1" || erro "programa desconhecido: $1"
 	e_web "$1" && web "$1"
 	a=$(campo "$1" 9)
+	[ "$a" = - ] && erro "$(campo "$1" 3) não tem janela: é usado por outros programas ou pelo terminal"
 	f=
 	if [ -n "$a" ] && [ -f "$SISTEMA/lume-$a" ]; then
 		f=$SISTEMA/lume-$a

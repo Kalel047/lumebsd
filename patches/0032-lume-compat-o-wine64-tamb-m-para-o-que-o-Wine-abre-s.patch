@@ -1,0 +1,35 @@
+From ca6798f949eb9b53c17464d5dbed38c5549db0ea Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 23:31:35 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20compat:=20o=20wine64=20tamb=C3=A9m=20par?=
+ =?UTF-8?q?a=20o=20que=20o=20Wine=20abre=20sozinho=20(WINELOADER)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/lume-compat.sh | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-compat.sh b/usr.sbin/lume-configurar/lume-compat.sh
+index f6904c68f..48df6606b 100644
+--- a/usr.sbin/lume-configurar/lume-compat.sh
++++ b/usr.sbin/lume-configurar/lume-compat.sh
+@@ -119,10 +119,14 @@ abrir() {
+ 		    "Preparando o Wine na primeira vez; leva cerca de um minuto." 20 &
+ 	fi
+ 	cd "$(dirname "$f")" || exit 1
++	# Tudo pelo wine64, também os processos que o Wine abre sozinho (o
++	# wineboot da primeira vez, o start): o "wine" do FreeBSD exige o i386.
++	WINELOADER=/usr/local/bin/wine64
++	export WINELOADER
+ 	case "$f" in
+ 	*.[mM][sS][iI])	exec wine64 msiexec /i "$f" ;;
+ 	*.[bB][aA][tT]|*.[cC][mM][dD])	exec wine64 cmd /c "$f" ;;
+-	*)		exec wine64 start /unix "$f" ;;
++	*)		exec wine64 "$f" ;;
+ 	esac
+ }
+ 
