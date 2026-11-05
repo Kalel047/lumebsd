@@ -1,0 +1,259 @@
+From 1564a110626e6261c1d64d787bf5228cb8dcda9f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 01:05:11 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20loja=20e=20lume=20compat:=20corre=C3=A7?=
+ =?UTF-8?q?=C3=B5es=20dos=20testes=20no=20QEMU?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- lume compat: o .exe de 64 bits pelo wine64.bin, com WINELOADER e sem
+  WINESERVER; os scripts wine e wine64 do FreeBSD exigem o Wine i386, que
+  o FreeBSD 15 não empacota. Um .exe de 32 bits ganha uma explicação.
+- lume loja: o progresso não repete o pacote (Installing e Extracting);
+  "-" no catálogo para o que não tem janela (fontes, linguagens); sem o
+  pkg32.sh depois do Wine.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ .../ajuda/compatibilidade.html                |  3 +-
+ usr.sbin/lume-configurar/loja/catalogo        | 27 +++++-----
+ usr.sbin/lume-configurar/lume-compat.sh       | 54 ++++++++++++++++---
+ usr.sbin/lume-configurar/lume-loja.sh         | 11 +---
+ 4 files changed, 64 insertions(+), 31 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/ajuda/compatibilidade.html b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+index 7ee4ffeb4..9731ef8b0 100644
+--- a/usr.sbin/lume-configurar/ajuda/compatibilidade.html
++++ b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+@@ -26,8 +26,9 @@
+ <li>O programa abre. Instaladores criam atalhos no menu, como no Windows.</li>
+ </ol>
+ <p>Os programas ficam numa “unidade C:” só sua, na pasta <code>.wine</code> da sua pasta pessoal.</p>
++<p class="nota"><b>Só programas de 64 bits.</b> O FreeBSD 15 não traz mais a parte de 32 bits que o Wine usa para os programas antigos de 32 bits. Se o LumeBSD avisar que um .exe é de 32 bits, procure a versão de 64 bits no site do programa: a maioria dos programas atuais oferece as duas.</p>
+ <h3>O que costuma funcionar</h3>
+-<p>Programas de escritório e utilitários mais simples, programas antigos, muitos jogos antigos, softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício).</p>
++<p>Programas de escritório e utilitários mais simples e softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício), na versão de 64 bits.</p>
+ <h3>O que costuma não funcionar</h3>
+ <p>Programas com proteção anticópia ou antitrapaça, drivers de equipamentos (placas de aquisição, gravadores de microcontrolador do fabricante), e programas grandes que dependem de partes profundas do Windows, como as versões recentes do MATLAB, do SolidWorks, do AutoCAD e do pacote Adobe. Para esses, veja os caminhos 3 e 4.</p>
+ <p>Quer saber antes de tentar? O site <a href="https://appdb.winehq.org/">appdb.winehq.org</a> mostra a experiência de outras pessoas com cada programa.</p>
+diff --git a/usr.sbin/lume-configurar/loja/catalogo b/usr.sbin/lume-configurar/loja/catalogo
+index 866b16d00..eac9e4ab1 100644
+--- a/usr.sbin/lume-configurar/loja/catalogo
++++ b/usr.sbin/lume-configurar/loja/catalogo
+@@ -10,7 +10,8 @@
+ # parecido  programas conhecidos que ele substitui (a busca acha por eles)
+ # ícone     nome do ícone do tema (Breeze), ou vazio
+ # abrir     atalho do menu que o LumeBSD põe junto (em loja/atalhos), para
+-#           programas cujo pacote não traz um
++#           programas cujo pacote não traz um; "-" quando não há o que
++#           abrir (fontes, linguagens, ferramentas de terminal)
+ #
+ # @categoria id|Nome|ícone
+ # @kit id|Nome|descrição|kits que ele inclui
+@@ -35,14 +36,14 @@
+ 
+ # --- Escritório ----------------------------------------------------------
+ libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
+-fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|
++fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|-
+ xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
+ thunderbird|escritorio|Thunderbird|thunderbird||Outlook|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
+ calligra|escritorio|Calligra|calligra||Microsoft Office|Outra suíte de escritório, do KDE: textos, planilhas e apresentações.|calligrawords|
+ projectlibre|escritorio|ProjectLibre|projectlibre||Microsoft Project|Cronogramas e gráficos de Gantt para projetos.|projectlibre|
+ freeplane|escritorio|Freeplane|freeplane||XMind, MindManager|Mapas mentais para estudar e organizar ideias.|freeplane|
+ kontact|escritorio|Kontact|kontact korganizer||Outlook|E-mail, agenda e tarefas integrados ao KDE.|kontact|
+-pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|
++pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|-
+ 
+ # --- Ciência e matemática ------------------------------------------------
+ octave|ciencia|GNU Octave|octave octave-forge-signal octave-forge-control octave-forge-statistics octave-forge-symbolic octave-forge-optim octave-forge-io|exatas|MATLAB, Simulink|Linguagem de cálculo numérico compatível com o MATLAB: a maioria dos scripts .m roda sem mudar. Vem com os pacotes de sinais, controle, estatística, simbólico e otimização.|octave|
+@@ -52,7 +53,7 @@ geogebra|ciencia|GeoGebra|geogebra|exatas|GeoGebra|Geometria, gráficos de funç
+ labplot|ciencia|LabPlot|labplot|exatas|Origin, SigmaPlot|Gráficos científicos e ajuste de curvas a partir de planilhas e arquivos de dados.|labplot|
+ qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
+ kmplot|ciencia|KmPlot|kmplot kalgebra||Calculadora gráfica|Gráficos de funções em 2D e 3D, rápidos e simples.|kmplot|
+-gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|
++gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|-
+ kalzium|ciencia|Kalzium e Avogadro|kalzium avogadro2||ChemDraw|Tabela periódica completa e editor de moléculas em 3D.|kalzium|
+ step|ciencia|Step|step||PhET|Simulador de física interativo: molas, gravidade, colisões.|step|
+ stellarium|ciencia|Stellarium|stellarium||Planetário|O céu em 3D, de qualquer lugar e data.|stellarium|
+@@ -67,7 +68,7 @@ dbeaver|dados|DBeaver|dbeaver||SQL Server Management Studio|Cliente de banco de
+ qgis|dados|QGIS|qgis||ArcGIS|Mapas e geoprocessamento (geografia, urbanismo, agronomia, meio ambiente).|qgis|
+ 
+ # --- Engenharia e CAD ----------------------------------------------------
+-freecad|engenharia|FreeCAD|FreeCAD||SolidWorks, Inventor, Fusion 360|Modelagem 3D paramétrica de peças e montagens, com desenho técnico.|freecad|
++freecad|engenharia|FreeCAD|FreeCAD||SolidWorks, Inventor, Fusion 360, AutoCAD 3D|Modelagem 3D paramétrica de peças e montagens, com desenho técnico.|freecad|
+ librecad|engenharia|LibreCAD|librecad||AutoCAD|Desenho técnico em 2D; abre e salva DXF.|librecad|
+ kicad|engenharia|KiCad|kicad||Altium, Eagle, Proteus|Esquemas eletrônicos e placas de circuito impresso.|kicad|
+ qucs|engenharia|Qucs-S e ngspice|qucs-s ngspice_rework||Multisim, LTspice, PSpice|Simulação de circuitos analógicos e digitais.|qucs|
+@@ -89,16 +90,16 @@ calibre|escrita|Calibre|calibre||Kindle|Organiza e converte livros digitais.|cal
+ 
+ # --- Programação ---------------------------------------------------------
+ vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
+-python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|
+-c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|
++python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|-
++c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|-
+ codeblocks|programacao|Code::Blocks|codeblocks||Dev-C++|IDE simples para C e C++, comum nas disciplinas de introdução.|codeblocks|
+-java|programacao|Java 21|openjdk21||Java|O JDK 21 para compilar e rodar programas em Java.|java|
++java|programacao|Java 21|openjdk21||Java|O JDK 21 para compilar e rodar programas em Java.|java|-
+ eclipse|programacao|Eclipse|eclipse openjdk21||Eclipse|IDE para Java.|eclipse|
+ netbeans|programacao|NetBeans|netbeans||NetBeans|IDE para Java.|netbeans|
+ pycharm|programacao|PyCharm|pycharm||PyCharm|IDE para Python, da JetBrains.|pycharm|
+-node|programacao|Node.js|node24||Node.js|JavaScript fora do navegador.|nodejs|
+-rust|programacao|Rust|rust||Rust|A linguagem Rust e o cargo.|rust|
+-go|programacao|Go|go||Go|A linguagem Go.|go|
++node|programacao|Node.js|node24||Node.js|JavaScript fora do navegador.|nodejs|-
++rust|programacao|Rust|rust||Rust|A linguagem Rust e o cargo.|rust|-
++go|programacao|Go|go||Go|A linguagem Go.|go|-
+ git|programacao|Git com interface|git-cola meld||GitHub Desktop|Git com janelas: commits, histórico e comparação de arquivos.|git-cola|
+ 
+ # --- Na web (atalhos no menu que abrem o site como um app) ---------------
+@@ -157,8 +158,8 @@ kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken|Controle das conta
+ gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas, pessoal ou de pequena empresa.|gnucash|
+ 
+ # --- Sistema e compatibilidade -------------------------------------------
+-windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
+-linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|
++windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe de 64 bits do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
++linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|-
+ virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
+ filelight|sistema|Filelight|filelight||WinDirStat|Mostra o que está ocupando o disco.|filelight|
+ keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass|Cofre de senhas.|keepassxc|
+diff --git a/usr.sbin/lume-configurar/lume-compat.sh b/usr.sbin/lume-configurar/lume-compat.sh
+index 4480dbdcf..afa64a08a 100644
+--- a/usr.sbin/lume-configurar/lume-compat.sh
++++ b/usr.sbin/lume-configurar/lume-compat.sh
+@@ -21,14 +21,26 @@ ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+ erro() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+ precisa_root() { [ $root = s ] || erro "precisa ser root (su -)"; }
+ 
+-tem_wine()  { [ -x /usr/local/bin/wine ]; }
++tem_wine()  { [ -x /usr/local/bin/wine64.bin ]; }
++
++# 64 ou 32: o tipo de máquina no cabeçalho PE de um .exe ("?" se não for).
++pe_bits()
++{
++	off=$(od -An -tu4 -j60 -N4 "$1" 2>/dev/null | tr -d ' ')
++	[ -n "$off" ] || { echo "?"; return; }
++	case $(od -An -tx2 -j$((off + 4)) -N2 "$1" 2>/dev/null | tr -d ' ') in
++	8664|aa64)	echo 64 ;;
++	014c)		echo 32 ;;
++	*)		echo "?" ;;
++	esac
++}
+ linux_on()  { kldstat -q -m linuxelf 2>/dev/null || kldstat -q -n linux64 2>/dev/null; }
+ linux_cfg() { [ "$(sysrc -n linux_enable 2>/dev/null)" = YES ]; }
+ 
+ estado() {
+ 	echo
+ 	if tem_wine; then
+-		ok "Windows: Wine $(wine --version 2>/dev/null | sed 's/^wine-//') instalado (dois cliques num .exe)"
++		ok "Windows: Wine $(pkg query %v wine 2>/dev/null) instalado (dois cliques num .exe de 64 bits)"
+ 	else
+ 		echo "  · Windows: desligado (lume loja instalar windows)"
+ 	fi
+@@ -68,11 +80,30 @@ linux() {
+ # Abre um .exe/.msi/.bat com o Wine (o atalho "Programa do Windows" do
+ # Dolphin chama isto). Na primeira vez, oferece instalar o Wine pelo app
+ # Programas do LumeBSD, que pede a senha e mostra o progresso.
++#
++# Só 64 bits: o Wine do FreeBSD 15 roda os de 32 bits com uma cópia i386 do
++# Wine e as bibliotecas de 32 bits do sistema (lib32), que o FreeBSD 15 não
++# empacota mais. Um .exe de 32 bits ganha uma explicação, não um erro mudo.
+ abrir() {
+ 	f=$1
+ 	[ -f "$f" ] || erro "arquivo não encontrado: $f"
++	grafico=n
++	[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null && grafico=s
++	case "$f" in
++	*.[eE][xX][eE])
++		if [ "$(pe_bits "$f")" = 32 ] && [ ! -x "$HOME/.i386-wine-pkg/usr/local/bin/wine" ]; then
++			txt="<b>${f##*/}</b> é um programa do Windows de <b>32 bits</b>.<br><br>O LumeBSD roda os programas do Windows de 64 bits; os de 32 bits ainda não (o FreeBSD 15 não traz mais a parte de 32 bits que o Wine usa para eles).<br><br>Procure a versão de 64 bits no site do programa (muitos oferecem as duas), a versão para a web, ou um substituto no app Programas do LumeBSD."
++			if [ $grafico = s ]; then
++				kdialog --title "Programa do Windows" --yes-label "Abrir a Ajuda" \
++				    --no-label "Fechar" --warningyesno "$txt" &&
++				    exec /usr/sbin/lume-ajuda windows
++				exit 0
++			fi
++			erro "${f##*/} é de 32 bits; o LumeBSD roda os programas do Windows de 64 bits (lume ajuda windows)"
++		fi ;;
++	esac
+ 	if ! tem_wine; then
+-		if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null; then
++		if [ $grafico = s ]; then
+ 			kdialog --title "Programa do Windows" --yes-label "Instalar" \
+ 			    --no-label "Cancelar" --yesno "<b>${f##*/}</b> é um programa do Windows.<br><br>O LumeBSD abre muitos deles com o <b>Wine</b>, que ainda não está instalado (baixa cerca de 700 MB).<br><br>Instalar agora?" ||
+ 			    exit 0
+@@ -83,22 +114,29 @@ abrir() {
+ 		fi
+ 	fi
+ 	# A primeira vez cria a "unidade C:" em ~/.wine e demora um pouco.
+-	if [ ! -d "${WINEPREFIX:-$HOME/.wine}" ] && command -v kdialog >/dev/null; then
++	if [ ! -d "${WINEPREFIX:-$HOME/.wine}" ] && [ $grafico = s ]; then
+ 		kdialog --title "Programa do Windows" --passivepopup \
+ 		    "Preparando o Wine na primeira vez; leva cerca de um minuto." 20 &
+ 	fi
+ 	cd "$(dirname "$f")" || exit 1
++	# Tudo pelo wine64.bin, também os processos que o Wine abre sozinho (o
++	# wineboot da primeira vez): os scripts wine e wine64 do FreeBSD exigem
++	# o Wine i386. O LD_BIND_NOW é o do script wine64 (bug 50257 do Wine).
++	# Sem WINESERVER: com ele, o Wine volta a procurar o script wine.
++	WINELOADER=/usr/local/bin/wine64.bin
++	LD_BIND_NOW=1
++	export WINELOADER LD_BIND_NOW
+ 	case "$f" in
+-	*.[mM][sS][iI])	exec wine msiexec /i "$f" ;;
+-	*.[bB][aA][tT]|*.[cC][mM][dD])	exec wine cmd /c "$f" ;;
+-	*)		exec wine start /unix "$f" ;;
++	*.[mM][sS][iI])	exec "$WINELOADER" msiexec /i "$f" ;;
++	*.[bB][aA][tT]|*.[cC][mM][dD])	exec "$WINELOADER" cmd /c "$f" ;;
++	*)		exec "$WINELOADER" "$f" ;;
+ 	esac
+ }
+ 
+ case "${1:-}" in
+ ""|estado)	estado ;;
+ linux)		shift; linux "$@" ;;
+-windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe abrem o programa."
++windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe de 64 bits abrem o programa."
+ 		else echo "  Para programas do Windows: lume loja instalar windows"; fi ;;
+ abrir)		shift; abrir "$1" ;;
+ *)	echo "uso: lume compat [estado | linux [ligar | desligar] | windows | abrir ARQUIVO]" >&2
+diff --git a/usr.sbin/lume-configurar/lume-loja.sh b/usr.sbin/lume-configurar/lume-loja.sh
+index 2f4138ca1..89ab2420b 100644
+--- a/usr.sbin/lume-configurar/lume-loja.sh
++++ b/usr.sbin/lume-configurar/lume-loja.sh
+@@ -126,7 +126,7 @@ criar_atalho_web() {
+ 
+ # Atalhos de menu que o LumeBSD traz para programas sem um (o JupyterLab).
+ por_atalhos() {
+-	for id in $(itens | awk -F'|' '$9 != "" { print $1 }'); do
++	for id in $(itens | awk -F'|' '$9 != "" && $9 != "-" { print $1 }'); do
+ 		a=$(campo "$id" 9)
+ 		[ -f "$ATALHOS/$a" ] || continue
+ 		if instalado "$id"; then
+@@ -216,14 +216,6 @@ instalar() {
+ 		for p in $pks; do pkg_ok "$p" || falta="$falta $p"; done
+ 		[ -z "$falta" ] || erro "não deu para instalar:$falta"
+ 		app "passo 3 3 Arrumando o menu"
+-		# Programas do Windows de 32 bits (a maioria dos instaladores).
+-		case " $pks " in *" wine "*)
+-			if [ -x /usr/local/share/wine/pkg32.sh ]; then
+-				msg "Preparando o Wine para programas de 32 bits..."
+-				/usr/local/share/wine/pkg32.sh install -y wine mesa-dri >/dev/null 2>&1 ||
+-				    msg "(sem o suporte a 32 bits; programas de 64 bits funcionam)"
+-			fi ;;
+-		esac
+ 		[ $root = s ] && por_atalhos
+ 	fi
+ 	for id in $web_ids; do
+@@ -406,6 +398,7 @@ abrir() {
+ 	existe "$1" || erro "programa desconhecido: $1"
+ 	e_web "$1" && web "$1"
+ 	a=$(campo "$1" 9)
++	[ "$a" = - ] && erro "$(campo "$1" 3) não tem janela: é usado por outros programas ou pelo terminal"
+ 	f=
+ 	if [ -n "$a" ] && [ -f "$SISTEMA/lume-$a" ]; then
+ 		f=$SISTEMA/lume-$a

@@ -142,6 +142,43 @@ Depois da senha do disco, o assistente em português pergunta o essencial:
 
 e o sistema sobe direto na tela de login gráfica.
 
+## Programas do LumeBSD
+
+Quem chega do Windows ou do Mac procura o programa que já conhece. No app
+**Programas do LumeBSD** (menu **Sistema**), a busca acha por ele:
+“matlab” mostra o GNU Octave, “spss” o R com RKWard, “autocad” o LibreCAD
+e o FreeCAD. São mais de 100 programas escolhidos, em português, por
+categoria, e três **kits por área**, que o instalador também oferece:
+
+| Kit | O que vem |
+|---|---|
+| **Uso geral** | LibreOffice em português, as fontes do Office, Xournal++, VLC e os apps da web (Microsoft 365, Teams, Google Drive, WhatsApp) |
+| **Exatas e engenharia** | o Uso geral, mais GNU Octave, Python científico com JupyterLab, wxMaxima, GeoGebra, LabPlot, Qalculate!, Desmos e Overleaf |
+| **Sociais aplicadas** | o Uso geral, mais R com RKWard, Python para dados, Zotero e Power BI |
+
+Instalar pede a senha e mostra o progresso; remover tira só o que nenhum
+outro programa usa. Os apps da web (Office 365, Teams, Outlook, Meet,
+Zoom, Overleaf, Power BI...) viram atalhos no menu, sem senha. E **dois
+cliques num `.exe`** oferecem o Wine, instalam e abrem o programa; um
+`.exe` de 32 bits ganha uma explicação (o FreeBSD 15 não traz mais a parte
+de 32 bits que o Wine usa para eles). A **Ajuda do LumeBSD** (`lume
+ajuda`) explica tudo isso em português, com uma tabela do que usar no
+lugar de cada programa.
+
+```
+lume loja                    # os kits
+lume loja procurar matlab    # pelo programa que você usava
+lume loja kit exatas         # um kit inteiro (como root)
+lume compat                  # Windows (Wine) e Linux
+```
+
+| | |
+|---|---|
+| ![Os kits por área](docs/capturas/loja-1-kits.png) | ![A busca pelo programa conhecido](docs/capturas/loja-2-busca-matlab.png) |
+| ![Instalar, com o tamanho](docs/capturas/loja-3-instalar.png) | ![O progresso](docs/capturas/loja-4-instalando.png) |
+| ![Dois cliques num .exe](docs/capturas/loja-6-exe-pergunta.png) | ![O .exe aberto pelo Wine](docs/capturas/loja-7-exe-abriu.png) |
+| ![Um .exe de 32 bits](docs/capturas/loja-8-exe-32bits.png) | ![A Ajuda do LumeBSD](docs/capturas/loja-10-ajuda-trocando.png) |
+
 ## Atualizações que não quebram
 
 O LumeBSD se atualiza pelo app **Atualizações do LumeBSD** (menu
@@ -394,7 +431,7 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0013..0024           correções que os testes pegaram; lume atualizar (1.1.1)
   0025                 lume tempo, a máquina do tempo (1.1.2)
   0026..0027           lume atualizar pela base FreeBSD, lume_pacotes; 1.2
-  0028..0029           lume loja, lume compat, lume ajuda; 1.3
+  0028..0030           lume loja, lume compat, lume ajuda; 1.3
 app/                   os apps Atualizações e Programas do LumeBSD (Qt 6),
                        fora da árvore do FreeBSD; ferramentas/montar-app.py
                        os compila
@@ -470,7 +507,7 @@ python3 tests/teste-pendrive.py loja      loja.log       # loja, senha, um .exe 
 Tudo abaixo foi testado de ponta a ponta no QEMU (UEFI/OVMF, sem KVM),
 com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
-- [x] **Build do zero**: FreeBSD 15.1 + 25 patches, world com LLVM, kernel
+- [x] **Build do zero**: FreeBSD 15.1 + 30 patches, world com LLVM, kernel
   `LUME` completo (847 módulos) com LLVM 19 — também no GitHub Actions
   (2h12 de build, imagem bootada no QEMU), a partir deste repositório
 - [x] **Pendrive ao vivo**: boot até o login em ~1 min (emulado), `lume
@@ -512,11 +549,21 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
   voltar` para antes de uma instalação (o sistema volta, `/home` fica) e o
   desfazer; foto antes do `forja` e do `lume atualizar`; "Versões
   anteriores" no Dolphin, do clique à cópia recuperada
+- [x] **Programas do LumeBSD (1.3)**: instalação com o kit Uso geral pelo
+  instalador (LibreOffice em português, fontes, Xournal++, VLC e os apps da
+  web, a partir do espelho); o app: kits, busca ("matlab" → Octave),
+  instalar o Qalculate! com a senha no polkit e o progresso, "Instalados";
+  dois cliques num `.exe` de 64 bits sem o Wine: a pergunta, a instalação
+  pelo app e a janela do programa aberta; um `.exe` de 32 bits: a
+  explicação; `lume compat linux ligar`; a Ajuda no Firefox. O teste pegou
+  que os scripts `wine`/`wine64` do FreeBSD 15 exigem o Wine i386: o `.exe`
+  vai pelo `wine64.bin`
 - Sessões completas: [instalação pelo pendrive](docs/pendrive-instalacao.log),
   [primeiro boot](docs/primeiro-boot-instalado.log), [forja](docs/forja-sessao.log),
   [atualizações e volta automática](docs/atualizacao-sessao.log),
   [máquina do tempo](docs/tempo-sessao.log),
-  [atualizações da 1.2](docs/atualizacoes-1.2-sessao.log)
+  [atualizações da 1.2](docs/atualizacoes-1.2-sessao.log),
+  [programas da 1.3](docs/loja-1.3-sessao.log)
 - [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA
   (precisa da placa) — no pendrive, rode `lume hardware` e
   `lume video testar` antes de instalar

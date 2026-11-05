@@ -1,0 +1,153 @@
+# LumeBSD 1.3: Programas do LumeBSD, Windows e Ajuda (QEMU, UEFI, sem KVM)
+
+## teste-loja-aovivo
+
+[  63 s] pendrive bootou até o login
+foto: /home/claude/teste-pendrive/aovivo-console.png
+[  76 s] instalando no NVMe
+[2667 s] instalação concluída
+OK em 2681 s
+rc=0
+
+## teste-loja-instalado
+
+[   3 s] loader pediu a senha do disco
+[  82 s] sistema bootou; assistente apareceu
+[ 108 s] login do sistema instalado
+foto: /home/claude/teste-pendrive/instalado-tela.png
+foto: /home/claude/teste-pendrive/instalado-sddm.png
+OK em 177 s
+rc=0
+
+## teste-loja-loja
+
+(o .exe desta rodada ainda ia pelo script wine, que exige o Wine i386; corrigido e testado em teste-exe)
+
+[   3 s] loader pediu a senha do disco
+[ 103 s] sistema no login; esperando o SDDM
+[ 202 s] senha digitada na tela de login
+foto: /home/claude/teste-pendrive/loja-1-inicio.png
+foto: /home/claude/teste-pendrive/loja-2-matlab.png
+foto: /home/claude/teste-pendrive/loja-3-autocad.png
+foto: /home/claude/teste-pendrive/loja-4-confirmar.png
+foto: /home/claude/teste-pendrive/loja-5-senha.png
+foto: /home/claude/teste-pendrive/loja-6-instalando.png
+foto: /home/claude/teste-pendrive/loja-7-instalados.png
+foto: /home/claude/teste-pendrive/loja-8-wine-pergunta.png
+foto: /home/claude/teste-pendrive/loja-9-wine-confirmar.png
+foto: /home/claude/teste-pendrive/loja-10-wine-instalando.png
+[ 990 s] Wine instalado; esperando o programa abrir
+foto: /home/claude/teste-pendrive/loja-11-exe.png
+foto: /home/claude/teste-pendrive/loja-12-ajuda.png
+foto: /home/claude/teste-pendrive/loja-13-trocando.png
+OK em 2472 s
+rc=0
+
+## teste-exe
+
+[   3 s] loader pediu a senha do disco
+foto: /home/claude/teste-pendrive/exe-1-64bits.png
+foto: /home/claude/teste-pendrive/exe-2-32bits.png
+OK em 508 s
+rc=0
+
+## kit Uso geral na instalação
+  • Instalando os programas do kit geral...
+      Kit Uso geral:
+      Instalando: libreoffice pt_BR-libreoffice pt-hunspell webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea xournalpp vlc
+      ✓ Instalado: libreoffice fontes-office xournalpp office365 teams googledrive whatsapp vlc
+
+## loja e compat pelo terminal
+
+root@thinkpad:~ # lume loja
+
+  Programas do LumeBSD: 105 programas, em português, por área.
+
+  ✓ geral    Uso geral
+             Escritório completo em português, fontes compatíveis com o 
+             Office, vídeo, anotações em PDF e os principais apps da web 
+             (Office 365, Teams, Google Drive, WhatsApp).
+    exatas   Exatas e engenharia
+             Cálculo numérico parecido com o MATLAB, Python científico com 
+             Jupyter, álgebra simbólica, gráficos, GeoGebra e LaTeX pelo 
+             Overleaf. Inclui o Uso geral.
+    sociais  Sociais aplicadas
+             Estatística e econometria com R (RKWard, com menus), Python para 
+             dados, gerenciador de referências (ABNT) e Power BI na web. Para 
+             Economia, Administração, Contabilidade, Direito e afins. Inclui o 
+             Uso geral.
+
+  Instalar um kit: lume loja kit exatas
+
+  lume loja lista [categoria]   tudo, por categoria
+  lume loja procurar TEXTO      acha também pelo nome do programa
+                                que você usava (ex.: matlab, excel)
+  lume loja instalar PROGRAMA   lume loja remover PROGRAMA
+
+  No menu: Programas do LumeBSD.
+
+root@thinkpad:~ # lume loja procurar matlab
+    octave           GNU Octave
+      parecido com: MATLAB, Simulink
+      Linguagem de cálculo numérico compatível com o MATLAB: a maioria 
+      dos scripts .m roda sem mudar. Vem com os pacotes de sinais, 
+      controle, estatística, simbólico e otimização.
+    python-ciencia   Python científico
+      parecido com: MATLAB, Anaconda, Spyder
+      Python com NumPy, SciPy, Matplotlib, Pandas e SymPy, e o 
+      JupyterLab para cadernos (.ipynb).
+root@thinkpad:~ # lume loja procurar excel
+  ✓ libreoffice      LibreOffice
+      parecido com: Word, Excel, PowerPoint, Microsoft Office
+      Textos, planilhas e apresentações, em português. Abre e salva 
+      arquivos do Office (.docx, .xlsx, .pptx).
+    r                R e RKWard
+      parecido com: SPSS, Stata, RStudio
+      A linguagem R com o RKWard, uma interface com menus para 
+      análises, gráficos e relatórios. Lê planilhas do Excel.
+    python-dados     Python para dados
+      parecido com: SPSS, Stata, Excel
+      Pandas, Statsmodels, Seaborn e scikit-learn no JupyterLab: 
+      análise, estatística e aprendizado de máquina.
+  ✓ office365        Microsoft 365
+      parecido com: Word, Excel, PowerPoint, OneDrive
+      O Word, o Excel e o PowerPoint da Microsoft, no navegador, com a 
+      sua conta (da faculdade ou pessoal).
+root@thinkpad:~ # cat /var/db/lume/kits; ls /usr/local/share/applications | grep  lume
+geral
+lume-ajuda.desktop
+lume-atualizacoes.desktop
+lume-programas.desktop
+lume-web-googledrive.desktop
+lume-web-office365.desktop
+lume-web-teams.desktop
+lume-web-whatsapp.desktop
+lume-windows.desktop
+root@thinkpad:~ # pkg info -e libreoffice pt_BR-libreoffice webfonts vlc xournal pp && echo kit-geral-ok
+kit-geral-ok
+root@thinkpad:~ # grep -i ms-dos /usr/local/etc/xdg/mimeapps.list
+application/x-ms-dos-executable=lume-windows.desktop
+root@thinkpad:~ # lume compat
+
+  · Windows: desligado (lume loja instalar windows)
+  · Linux: desligada (lume compat linux ligar)
+
+  Apps da web (Office 365, Teams, Overleaf...): lume loja lista web
+
+root@thinkpad:~ # lume loja info qalculate
+  Qalculate!
+  Calculadora científica e de unidades: entende "5 km/h em m/s", 
+  constantes físicas e moedas.
+  Parecido com: HP 50g, calculadora científica
+  Pacotes: qalculate-qt 
+  Ocupa: cerca de 224 MB a mais no disco
+  Instalar: lume loja instalar qalculate
+root@thinkpad:~ # ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg i nfo -e xdotool && echo xdotool-ok
+
+## .exe de 64 bits
+root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'i=0; u ntil xdotool search --onlyvisible --name "Calculadora de teste" >/dev/null; do i =$((i+1)); [ $i -gt 72 ] && break; sleep 5; done; xdotool search --onlyvisible - -name "Calculadora de teste" && echo EXE-ABRIU'
+69206017
+EXE-ABRIU
+root@thinkpad:~ # tail -40 /tmp/compat.log; ps -axo user,pid,etime,command | gre p -i wine | grep -v grep | cut -c1-150; ls /home/fabiano/.wine
+004c:fixme:actctx:parse_depend_manifests Could not find dependent assembly L"Microsoft.Windows.Common-Controls" (6.0.0.0)
+0054:fixme:actctx:parse_depend_manifests Could not find dependent assembly L"Microsoft.Windows.Common-Controls" (6.0.0.0)

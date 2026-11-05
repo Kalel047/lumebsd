@@ -122,10 +122,10 @@ abrir() {
 	# Tudo pelo wine64.bin, também os processos que o Wine abre sozinho (o
 	# wineboot da primeira vez): os scripts wine e wine64 do FreeBSD exigem
 	# o Wine i386. O LD_BIND_NOW é o do script wine64 (bug 50257 do Wine).
+	# Sem WINESERVER: com ele, o Wine volta a procurar o script wine.
 	WINELOADER=/usr/local/bin/wine64.bin
-	WINESERVER=/usr/local/bin/wineserver
 	LD_BIND_NOW=1
-	export WINELOADER WINESERVER LD_BIND_NOW
+	export WINELOADER LD_BIND_NOW
 	case "$f" in
 	*.[mM][sS][iI])	exec "$WINELOADER" msiexec /i "$f" ;;
 	*.[bB][aA][tT]|*.[cC][mM][dD])	exec "$WINELOADER" cmd /c "$f" ;;
