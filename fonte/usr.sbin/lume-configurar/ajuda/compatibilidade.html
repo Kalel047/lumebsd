@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Programas do Windows e do Linux</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+<header>
+<h1>Programas do Windows e do Linux</h1>
+<p>Quatro caminhos, do mais leve ao mais pesado.</p>
+</header>
+
+<h2>1. Pela web</h2>
+<p>Muita coisa que a faculdade usa já roda no navegador: Microsoft 365 (Word, Excel, PowerPoint), Teams, Outlook, Google Drive, Meet, Zoom, Classroom, Overleaf, Power BI, Canva. No app <span class="menu">Programas do LumeBSD</span>, em <span class="menu">Na web</span>, o botão <b>Pôr no menu</b> cria um atalho que abre o site como um app.</p>
+<p>Com o <b>Chromium</b> instalado, cada app da web abre em janela própria, sem barra de endereço; sem ele, abre numa janela do Firefox.</p>
+
+<h2>2. Programas do Windows (Wine)</h2>
+<p>O Wine roda muitos programas .exe sem precisar do Windows. Para usar:</p>
+<ol>
+<li>Dê dois cliques no .exe (ou .msi) no Dolphin.</li>
+<li>Na primeira vez, o LumeBSD oferece instalar o Wine (cerca de 700 MB) e pede a sua senha.</li>
+<li>O programa abre. Instaladores criam atalhos no menu, como no Windows.</li>
+</ol>
+<p>Os programas ficam numa “unidade C:” só sua, na pasta <code>.wine</code> da sua pasta pessoal.</p>
+<h3>O que costuma funcionar</h3>
+<p>Programas de escritório e utilitários mais simples, programas antigos, muitos jogos antigos, softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício).</p>
+<h3>O que costuma não funcionar</h3>
+<p>Programas com proteção anticópia ou antitrapaça, drivers de equipamentos (placas de aquisição, gravadores de microcontrolador do fabricante), e programas grandes que dependem de partes profundas do Windows, como as versões recentes do MATLAB, do SolidWorks, do AutoCAD e do pacote Adobe. Para esses, veja os caminhos 3 e 4.</p>
+<p>Quer saber antes de tentar? O site <a href="https://appdb.winehq.org/">appdb.winehq.org</a> mostra a experiência de outras pessoas com cada programa.</p>
+
+<h2>3. Programas do Linux</h2>
+<p>O FreeBSD tem uma camada que roda programas feitos para Linux. O LumeBSD a liga sozinho quando você instala, pelo app, um programa que precisa dela (o Google Chrome e o Discord, por exemplo). Em <span class="menu">Sistema e compatibilidade</span>, <b>Programas do Linux</b> instala a base para quem quer rodar outros.</p>
+<pre><code>lume compat                # o que está ligado
+lume compat linux ligar    # como root</code></pre>
+
+<h2>4. Uma máquina virtual</h2>
+<p>Para o programa que não roda de outro jeito, instale o <b>VirtualBox</b> (em <span class="menu">Sistema e compatibilidade</span>) e rode um Windows inteiro numa janela. Precisa de uma licença do Windows, de 8 GB de memória ou mais no computador e de uns 60 GB livres no disco. Muitas faculdades também oferecem laboratórios virtuais ou licenças acessadas pela web; vale perguntar.</p>
+
+<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+</main>
+</body>
+</html>

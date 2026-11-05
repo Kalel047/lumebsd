@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=JupyterLab
+Comment=Python notebooks in the browser
+Comment[pt_BR]=Cadernos de Python (.ipynb) no navegador; feche esta janela para parar
+Exec=/usr/local/bin/jupyter-lab --notebook-dir=~
+Icon=jupyter
+Terminal=true
+Categories=Development;Science;Education;
+Keywords=python;notebook;ipynb;jupyter;caderno;

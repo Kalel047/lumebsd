@@ -35,7 +35,7 @@
 #include <unistd.h>
 
 #define	LUME_NAME	"LumeBSD"
-#define	LUME_VERSION	"1.2"
+#define	LUME_VERSION	"1.3"
 #define	LUME_CODENAME	"Farol"
 #define	LUME_MARCA	"/var/db/lume/configurado"
 #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
@@ -49,7 +49,7 @@
 /* Subcomandos que são scripts em /usr/sbin/lume-<nome>. */
 static const char *scripts[] = {
 	"configurar", "hardware", "video", "wifi", "desktop", "instalar",
-	"tema", "atualizar", "tempo",
+	"tema", "atualizar", "tempo", "loja", "compat", "ajuda",
 };
 #define	VIGIA_SOCKET	"/var/run/vigia.sock"
 
@@ -65,6 +65,10 @@ static int use_color;
 
 static const char *tips[] = {
 	"lume sem argumentos mostra o painel do sistema.",
+	"Usava o MATLAB? lume loja procurar matlab mostra o que usar no lugar.",
+	"Um kit por área: lume loja kit exatas (ou sociais, ou geral).",
+	"Dois cliques num .exe abrem o programa do Windows com o Wine.",
+	"lume ajuda abre o guia do sistema em português.",
 	"Apagou sem querer? lume tempo recuperar ARQUIVO traz de volta.",
 	"jail(8) isola serviços inteiros com custo quase zero.",
 	"service -e lista todos os serviços habilitados no boot.",
@@ -391,7 +395,10 @@ usage(void)
 	    "     lume tema [papel | padrao]\n"
 	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
-	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n");
+	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"
+	    "     lume loja [lista | procurar | info | instalar | remover | kit]\n"
+	    "     lume compat [linux ligar | windows | abrir ARQUIVO]\n"
+	    "     lume ajuda [programas | trocando | windows | wifi | problemas]\n");
 	exit(1);
 }
 

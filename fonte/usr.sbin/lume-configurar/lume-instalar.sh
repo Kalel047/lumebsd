@@ -13,7 +13,8 @@
 # Variáveis para testes automatizados (todas opcionais):
 #   LUME_DISCO, LUME_SENHA_DISCO, LUME_CONFIRMA=APAGAR, LUME_DESKTOP=s|n,
 #   LUME_SWAP (padrão 8g), LUME_CONSOLE_SERIAL=1 (console também na serial),
-#   LUME_REPO_URL (espelho de pacotes, veja lume-desktop)
+#   LUME_REPO_URL (espelho de pacotes, veja lume-desktop),
+#   LUME_KIT=geral|exatas|sociais|"" (os programas da área; vazio: nenhum)
 #
 
 # Lista oficial dos arquivos do sistema (METALOG do build), com dono,
@@ -60,7 +61,7 @@ roda()
     morrer "lume instalar roda a partir do pendrive do LumeBSD"
 : > "$LOG"
 
-printf "\n  ${NEGRITO}LumeBSD 1.2 \"Farol\" - instalação${FIM}\n\n"
+printf "\n  ${NEGRITO}LumeBSD 1.3 \"Farol\" - instalação${FIM}\n\n"
 
 # --- 1. escolher o disco ------------------------------------------------
 
@@ -154,6 +155,24 @@ else
 	desktop=n
 fi
 
+# Os programas da área de quem vai usar (lume loja kit), junto com o desktop.
+kit=
+if [ "$desktop" = s ]; then
+	if [ -n "${LUME_KIT+x}" ]; then
+		kit=$LUME_KIT
+	else
+		echo
+		echo "  Para que você vai usar o computador? Os programas da área vêm junto."
+		echo "    1) Uso geral: escritório em português, vídeo, apps da web (~400 MB)"
+		echo "    2) Exatas e engenharia: Octave (como o MATLAB), Python, GeoGebra (~850 MB)"
+		echo "    3) Sociais aplicadas: R, estatística, Zotero (~1,2 GB)"
+		echo "    4) Só o desktop; escolho depois no app Programas do LumeBSD"
+		printf "  Opção [1]: "
+		read -r r
+		case "$r" in 2) kit=exatas ;; 3) kit=sociais ;; 4) kit= ;; *) kit=geral ;; esac
+	fi
+fi
+
 # --- 4. instalar ----------------------------------------------------------
 
 echo
@@ -237,7 +256,7 @@ fdesc			/dev/fd	fdescfs	rw	0	0
 proc			/proc	procfs	rw	0	0
 EOF
 cat > "$ALVO/boot/loader.conf" <<EOF
-# LumeBSD 1.2 - notebook
+# LumeBSD 1.3 - notebook
 zfs_load="YES"
 aesni_load="YES"
 geom_eli_load="YES"
@@ -261,7 +280,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
 # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
 cat >> "$ALVO/etc/make.conf" <<'EOF'
 # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
-# diz "LumeBSD 1.2-FAROL", que o configure dos programas não conhece; a
+# diz "LumeBSD 1.3-FAROL", que o configure dos programas não conhece; a
 # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
 .if !defined(_OSRELEASE)
 _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
@@ -330,6 +349,12 @@ if [ "$desktop" = s ]; then
 	chroot "$ALVO" env LUME_REPO_URL="${LUME_REPO_URL:-}" \
 	    /usr/sbin/lume-desktop 2>&1 | tee -a "$LOG" |
 	    sed 's/^/    /' || echo "    (o desktop pode ser instalado depois com: lume desktop)"
+	if [ -n "$kit" ] && [ -x "$ALVO/usr/local/bin/plasmashell" ]; then
+		echo "  • Instalando os programas do kit $kit..."
+		chroot "$ALVO" env LUME_SEM_FOTO=1 /usr/sbin/lume-loja kit "$kit" 2>&1 |
+		    tee -a "$LOG" | sed 's/^/    /' ||
+		    echo "    (o kit pode ser instalado depois no app Programas do LumeBSD)"
+	fi
 fi
 
 passo "Finalizando"

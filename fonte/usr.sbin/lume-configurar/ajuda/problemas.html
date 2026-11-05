@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quando algo dá errado</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+<header>
+<h1>Quando algo dá errado</h1>
+<p>Do mais simples ao mais forte. Nenhum destes passos apaga os seus arquivos.</p>
+</header>
+
+<h2>1. Um programa travou</h2>
+<p>Feche a janela. Se ela não fechar, abra o <span class="menu">Monitor do Sistema</span> no menu, ache o programa e clique em <b>Finalizar</b>. Atalho: <kbd>Ctrl</kbd>+<kbd>Esc</kbd>.</p>
+
+<h2>2. Apaguei ou estraguei um arquivo</h2>
+<p>Botão direito no Dolphin, <span class="menu">Versões anteriores</span>. Veja <a href="atualizacoes.html">a máquina do tempo</a>.</p>
+
+<h2>3. O sistema ficou estranho depois de instalar algo</h2>
+<p>Remova o que instalou pelo app <span class="menu">Programas do LumeBSD</span>. Se não resolver, volte o sistema para uma foto de antes da instalação:</p>
+<pre><code>lume tempo linha       # as fotos, numeradas
+lume tempo voltar 3    # como root: volta para a foto 3</code></pre>
+
+<h2>4. Ficou estranho depois de uma atualização</h2>
+<p>Em <span class="menu">Atualizações do LumeBSD</span>, <b>Voltar para a versão anterior</b>, e reinicie.</p>
+
+<h2>5. A tela ficou preta ou travou ao iniciar</h2>
+<p>Desligue segurando o botão e ligue de novo. Se o driver de vídeo foi o culpado, o LumeBSD percebe e volta para o modo sem aceleração. Depois, <code>lume hardware</code> mostra o que aconteceu.</p>
+<p>Se o problema começou numa atualização, ela também volta sozinha para a versão anterior no boot seguinte.</p>
+
+<h2>6. Nada disso resolveu</h2>
+<p>No menu de boot do LumeBSD (logo depois de ligar), a opção de ambientes de boot permite iniciar qualquer versão guardada do sistema. E para pedir ajuda, abra um relato em <a href="https://github.com/Kalel047/lumebsd/issues">github.com/Kalel047/lumebsd/issues</a> com a saída de:</p>
+<pre><code>lume
+lume hardware
+lume atualizar estado</code></pre>
+
+<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+</main>
+</body>
+</html>

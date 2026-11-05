@@ -1,0 +1,44 @@
+/* Ajuda do LumeBSD: a mesma cara do tema Papel (estética e-ink). */
+:root {
+	--papel: #f2efe8; --tinta: #1f1f1f; --apagado: #66625a;
+	--linha: #cfc9bc; --cartao: #fbf9f4; --destaque: #8a5a00;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--papel: #1d1c1a; --tinta: #e8e4da; --apagado: #a39e93;
+		--linha: #3b3934; --cartao: #252420; --destaque: #e0b25c;
+	}
+}
+* { box-sizing: border-box; }
+body {
+	margin: 0; background: var(--papel); color: var(--tinta);
+	font: 17px/1.6 "Noto Serif", Georgia, serif;
+}
+main { max-width: 820px; margin: 0 auto; padding: 40px 24px 80px; }
+header { border-bottom: 2px solid var(--tinta); margin-bottom: 28px; padding-bottom: 12px; }
+header p { margin: 4px 0 0; color: var(--apagado); }
+nav.trilha { font: 14px "Noto Sans", sans-serif; margin-bottom: 18px; }
+h1 { font-size: 2em; margin: 0; line-height: 1.2; }
+h2 { font-size: 1.3em; margin: 36px 0 8px; border-bottom: 1px solid var(--linha); padding-bottom: 4px; }
+h3 { font-size: 1.05em; margin: 22px 0 4px; }
+a { color: var(--destaque); }
+code, kbd {
+	font: 0.88em "Noto Sans Mono", monospace; background: var(--cartao);
+	border: 1px solid var(--linha); border-radius: 4px; padding: 1px 5px;
+}
+pre { background: var(--cartao); border: 1px solid var(--linha); border-radius: 6px; padding: 10px 14px; overflow-x: auto; }
+pre code { border: 0; padding: 0; background: none; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.cartao {
+	display: block; background: var(--cartao); border: 1px solid var(--linha);
+	border-radius: 8px; padding: 14px 16px; color: var(--tinta); text-decoration: none;
+}
+a.cartao:hover { border-color: var(--tinta); }
+.cartao b { display: block; font-size: 1.08em; margin-bottom: 2px; }
+.cartao span { color: var(--apagado); font-size: 0.93em; }
+table { border-collapse: collapse; width: 100%; font-size: 0.95em; margin: 8px 0; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+th { font-family: "Noto Sans", sans-serif; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--apagado); }
+.nota { border-left: 3px solid var(--destaque); padding: 4px 14px; background: var(--cartao); }
+.menu { font-family: "Noto Sans", sans-serif; font-weight: 600; }
+footer { margin-top: 48px; color: var(--apagado); font-size: 0.9em; border-top: 1px solid var(--linha); padding-top: 12px; }

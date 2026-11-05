@@ -36,12 +36,12 @@ eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
 
 | Caminho (árvore do FreeBSD) | O que é |
 |---|---|
-| `usr.bin/lume/` | `lume(1)`, em C: painel, emblema, dicas, e o despachante dos subcomandos `lume configurar/hardware/video/wifi/desktop/instalar/tema/atualizar/tempo` |
-| `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh, inclusive `lume-atualizar` e `lume-tempo`), o tema Papel (`tema/`, com o menu "Versões anteriores" do Dolphin) e o `cron` da máquina do tempo |
+| `usr.bin/lume/` | `lume(1)`, em C: painel, emblema, dicas, e o despachante dos subcomandos `lume configurar/hardware/video/wifi/desktop/instalar/tema/atualizar/tempo/loja/compat/ajuda` |
+| `usr.sbin/lume-configurar/` | os scripts `lume-*` (sh, inclusive `lume-atualizar`, `lume-tempo`, `lume-loja` e `lume-compat`), o tema Papel (`tema/`, com o menu "Versões anteriores" do Dolphin), o catálogo da loja (`loja/`), a Ajuda em HTML (`ajuda/`) e o `cron` da máquina do tempo |
 | `usr.sbin/vigia/` | o gerenciador de serviços, em C (`vigiad` e o cliente `vigia`) |
 | `usr.sbin/forja/` | a forja (sh), `forja.conf` e `forja(8)` |
 | `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), pacotes da base nova (`lume_pacotes`), vigia |
-| `app/lume-atualizacoes/` (fora da árvore do FreeBSD) | o app Atualizações do LumeBSD (Qt 6), o ícone, os atalhos e a política do polkit |
+| `app/lume-atualizacoes/`, `app/lume-programas/` (fora da árvore do FreeBSD) | os apps Atualizações e Programas do LumeBSD (Qt 6), os ícones, os atalhos e as políticas do polkit |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
 | `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=1.1`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
@@ -236,7 +236,9 @@ por linhas `@chave a=b c=d` (`@estado`, `@nova`, `@em_dia`, `@passo n
 total texto`, `@progresso pct` durante o download, `@pronto`, `@falhou`,
 `@erro`). O que precisa de root vai pelo `pkexec` com a ação polkit
 `org.lumebsd.atualizar` (`auth_admin_keep`; no FreeBSD, administrador é o
-grupo `wheel`). Reiniciar é pelo `org.kde.Shutdown` da sessão.
+grupo `wheel`). Reiniciar é pelo `pkexec lume-atualizar reiniciar`, depois
+de uma confirmação (o `org.kde.Shutdown` da sessão não reinicia no
+FreeBSD).
 
 `lume-atualizacoes --bandeja` entra com a sessão (autostart): procura 90 s
 depois e a cada 6 h e só põe um ícone na bandeja, com um aviso, quando há
@@ -344,6 +346,67 @@ fim abre o Dolphin com o arquivo recuperado selecionado. O `lume tema`
 instala o menu, e o `automatico` também, para quem atualizou com o KDE já
 instalado. O painel do `lume` lê `/var/db/lume/tempo-estado` (gravado pelo
 script) e mostra a idade da última foto, em vermelho com mais de 2 dias.
+
+## Programas (`lume loja`)
+
+O público do LumeBSD (estudantes e professores de exatas e de sociais
+aplicadas, e quem só quer um computador que funcione) chega procurando o
+programa que já conhece. Por isso a loja é um **catálogo curado**, não a
+lista crua de 30 mil pacotes: `usr.sbin/lume-configurar/loja/catalogo`,
+uma linha por programa:
+
+```
+id|categoria|nome|pacotes|kits|parecido com|descrição|ícone|abrir
+octave|ciencia|GNU Octave|octave octave-forge-signal ...|exatas|MATLAB, Simulink|...|octave|
+office365|web|Microsoft 365|web:https://www.office.com/|geral|Word, Excel, PowerPoint|...|x-office-document|
+```
+
+- **pacotes**: os oficiais do FreeBSD. `+linux` liga antes a camada Linux;
+  `web:URL` é um app da web (um `.desktop` que abre o site no Chromium ou
+  no Chrome com `--app=`, em janela própria, ou no Firefox).
+- **parecido com**: a busca acha por eles; é o que faz "matlab" achar o
+  Octave.
+- **kits**: `@kit id|Nome|descrição|kits incluídos`. Exatas e Sociais
+  aplicadas incluem o Uso geral. O instalador pergunta o kit e roda
+  `lume-loja kit` no chroot depois do desktop.
+- **abrir**: um atalho de menu que o LumeBSD põe junto (`loja/atalhos`),
+  para pacotes que não trazem um (o JupyterLab).
+
+O CI (`ferramentas/conferir-catalogo.py`, toda semana) confere que cada
+pacote existe no quarterly do FreeBSD 15 e mostra quanto cada kit baixa,
+descontando o que já vem com o desktop.
+
+`lume-loja` faz o trabalho; o app `app/lume-programas` (Qt 6, mesmo
+esquema do app de atualizações) lê o catálogo direto e chama `lume-loja
+--maquina` para `estado` (`@instalado id`), `tamanho` (o que ocupa a
+mais, pelo `pkg rquery` sem root, com as dependências que faltam),
+`instalar`, `remover` e `kit` (`@passo`, `@pacote`, `@progresso`,
+`@pronto`, `@erro`). O progresso vem das linhas `[i/n] Fetching` e
+`[i/n] Installing` do `pkg`: baixar é a primeira metade da barra,
+instalar a segunda. Root pelo `pkexec` com a ação `org.lumebsd.programas`;
+apps da web não pedem senha (vão para o menu do usuário).
+
+Antes de instalar ou remover, `lume-tempo antes` tira uma foto do sistema.
+**Remover** não usa `pkg delete` (que levaria junto o que depende do
+pacote): marca os pacotes do programa como automáticos (`pkg set -A 1`) e
+roda `pkg autoremove`, que só tira o que nada mais usa; os do desktop e os
+de outros programas instalados do catálogo nem são marcados.
+
+### Compatibilidade (`lume compat`)
+
+- **Windows**: o Wine (programa `windows` do catálogo). O
+  `loja/lume-windows.desktop` é o app padrão dos tipos `.exe`/`.msi`/`.bat`
+  (no `mimeapps.list` do sistema) e chama `lume-compat abrir`: sem o Wine,
+  pergunta (kdialog) e abre `lume-programas --instalar windows`, que
+  instala com a senha e o progresso e fecha; depois `wine start /unix`.
+- **Linux**: `lume compat linux ligar` liga `linux_enable` e roda
+  `service linux start` (o módulo e as montagens de `/compat/linux`).
+
+### Ajuda (`lume ajuda`)
+
+Páginas HTML em `/usr/share/lume/ajuda`, com o visual do tema Papel (e modo
+escuro), abertas no navegador pelo `lume-ajuda` (com atalhos: `lume ajuda
+windows`, `lume ajuda wifi`...). O CI confere os links entre elas.
 
 ## Identidade e compatibilidade
 

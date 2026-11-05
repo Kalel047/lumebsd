@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi, som, tela e impressora</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+<header>
+<h1>Wi-Fi, som, tela e impressora</h1>
+<p>Conectar e conferir o hardware.</p>
+</header>
+
+<h2>Wi-Fi</h2>
+<p>Clique no ícone de rede, na bandeja (canto inferior direito), escolha a rede e digite a senha. O LumeBSD lembra dela.</p>
+<p>Sem a janela gráfica (por exemplo, logo depois de instalar), use o terminal como root:</p>
+<pre><code>lume wifi</code></pre>
+<p>Ele procura as redes, pergunta qual e a senha, e guarda a escolha.</p>
+<p class="nota">Nenhuma rede aparece? Rode <code>lume hardware</code>: ele diz se a placa Wi-Fi tem driver. Enquanto isso, um cabo de rede ou o celular ligado por USB (ancoragem) resolvem.</p>
+
+<h2>Conferir o computador inteiro</h2>
+<pre><code>lume hardware</code></pre>
+<p>Mostra, item por item, o que o LumeBSD reconheceu: processador, vídeo, Wi-Fi, som, câmera, bateria, e o que está faltando. É o melhor jeito de testar um notebook pelo pendrive, antes de instalar.</p>
+
+<h2>Tela e vídeo</h2>
+<p>O LumeBSD escolhe o driver de vídeo sozinho (Intel ou NVIDIA). Se um driver travar, ele volta no próximo boot para um modo sem aceleração, que sempre funciona. Para testar ou trocar:</p>
+<pre><code>lume video testar
+lume video auto</code></pre>
+<p>Resolução, escala (telas pequenas com muita resolução) e o segundo monitor ficam em <span class="menu">Configurações do Sistema › Telas</span>.</p>
+
+<h2>Som</h2>
+<p>O volume fica na bandeja. Para escolher a saída (alto-falante, fone, HDMI), clique com o botão direito no ícone de som, ou abra <span class="menu">Configurações do Sistema › Som</span>.</p>
+
+<h2>Câmera</h2>
+<p>Câmeras USB funcionam nos apps da web (Meet, Teams, Zoom) e nos programas. O navegador pede permissão na primeira vez.</p>
+
+<h2>Impressora</h2>
+<p>Abra <span class="menu">Configurações do Sistema › Impressoras</span> e clique em <b>Adicionar</b>. Impressoras de rede modernas costumam aparecer sozinhas.</p>
+
+<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+</main>
+</body>
+</html>

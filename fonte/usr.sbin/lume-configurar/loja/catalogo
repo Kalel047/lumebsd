@@ -1,0 +1,165 @@
+# Catálogo de programas do LumeBSD (lume loja e o app Programas do LumeBSD).
+#
+# Linhas de programa, campos separados por |:
+#   id|categoria|nome|pacotes|kits|parecido com|descrição|ícone|abrir
+#
+# pacotes   pacotes oficiais do FreeBSD (o CI confere que existem);
+#           "+linux" liga antes a camada Linux (lume compat linux);
+#           "web:URL" é um app da web (atalho no menu, sem pacote)
+# kits      kits que trazem o programa (veja @kit)
+# parecido  programas conhecidos que ele substitui (a busca acha por eles)
+# ícone     nome do ícone do tema (Breeze), ou vazio
+# abrir     atalho do menu que o LumeBSD põe junto (em loja/atalhos), para
+#           programas cujo pacote não traz um
+#
+# @categoria id|Nome|ícone
+# @kit id|Nome|descrição|kits que ele inclui
+
+@categoria escritorio|Escritório|applications-office
+@categoria ciencia|Ciência e matemática|applications-science
+@categoria dados|Estatística e dados|office-chart-line
+@categoria engenharia|Engenharia e CAD|applications-engineering
+@categoria escrita|Escrita, LaTeX e referências|accessories-text-editor
+@categoria programacao|Programação|applications-development
+@categoria web|Na web|applications-internet
+@categoria internet|Internet e conversa|internet-web-browser
+@categoria graficos|Gráficos e design|applications-graphics
+@categoria multimidia|Música e vídeo|applications-multimedia
+@categoria educacao|Educação|applications-education
+@categoria financas|Finanças|office-chart-pie
+@categoria sistema|Sistema e compatibilidade|applications-system
+
+@kit geral|Uso geral|Escritório completo em português, fontes compatíveis com o Office, vídeo, anotações em PDF e os principais apps da web (Office 365, Teams, Google Drive, WhatsApp).|
+@kit exatas|Exatas e engenharia|Cálculo numérico parecido com o MATLAB, Python científico com Jupyter, álgebra simbólica, gráficos, GeoGebra e LaTeX pelo Overleaf. Inclui o Uso geral.|geral
+@kit sociais|Sociais aplicadas|Estatística e econometria com R (RKWard, com menus), Python para dados, gerenciador de referências (ABNT) e Power BI na web. Para Economia, Administração, Contabilidade, Direito e afins. Inclui o Uso geral.|geral
+
+# --- Escritório ----------------------------------------------------------
+libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
+fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|
+xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
+thunderbird|escritorio|Thunderbird|thunderbird||Outlook|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
+calligra|escritorio|Calligra|calligra||Microsoft Office|Outra suíte de escritório, do KDE: textos, planilhas e apresentações.|calligrawords|
+projectlibre|escritorio|ProjectLibre|projectlibre||Microsoft Project|Cronogramas e gráficos de Gantt para projetos.|projectlibre|
+freeplane|escritorio|Freeplane|freeplane||XMind, MindManager|Mapas mentais para estudar e organizar ideias.|freeplane|
+kontact|escritorio|Kontact|kontact korganizer||Outlook|E-mail, agenda e tarefas integrados ao KDE.|kontact|
+pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|
+
+# --- Ciência e matemática ------------------------------------------------
+octave|ciencia|GNU Octave|octave octave-forge-signal octave-forge-control octave-forge-statistics octave-forge-symbolic octave-forge-optim octave-forge-io|exatas|MATLAB, Simulink|Linguagem de cálculo numérico compatível com o MATLAB: a maioria dos scripts .m roda sem mudar. Vem com os pacotes de sinais, controle, estatística, simbólico e otimização.|octave|
+python-ciencia|ciencia|Python científico|python312 py312-numpy py312-scipy py312-matplotlib py312-pandas py312-sympy py312-jupyterlab py312-ipykernel|exatas|MATLAB, Anaconda, Spyder|Python com NumPy, SciPy, Matplotlib, Pandas e SymPy, e o JupyterLab para cadernos (.ipynb).|jupyter|jupyterlab.desktop
+wxmaxima|ciencia|wxMaxima|wxmaxima|exatas|Mathematica, Maple|Álgebra simbólica: derivadas, integrais, limites, equações e séries, com resposta exata.|wxmaxima|
+geogebra|ciencia|GeoGebra|geogebra|exatas|GeoGebra|Geometria, gráficos de funções e cálculo de forma visual.|geogebra|
+labplot|ciencia|LabPlot|labplot|exatas|Origin, SigmaPlot|Gráficos científicos e ajuste de curvas a partir de planilhas e arquivos de dados.|labplot|
+qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
+kmplot|ciencia|KmPlot|kmplot kalgebra||Calculadora gráfica|Gráficos de funções em 2D e 3D, rápidos e simples.|kmplot|
+gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|
+kalzium|ciencia|Kalzium e Avogadro|kalzium avogadro2||ChemDraw|Tabela periódica completa e editor de moléculas em 3D.|kalzium|
+step|ciencia|Step|step||PhET|Simulador de física interativo: molas, gravidade, colisões.|step|
+stellarium|ciencia|Stellarium|stellarium||Planetário|O céu em 3D, de qualquer lugar e data.|stellarium|
+paraview|ciencia|ParaView|paraview||Tecplot|Visualização de dados científicos e simulações grandes.|paraview|
+
+# --- Estatística e dados -------------------------------------------------
+r|dados|R e RKWard|R rkward R-cran-ggplot2 R-cran-readxl R-cran-rmarkdown|sociais|SPSS, Stata, RStudio|A linguagem R com o RKWard, uma interface com menus para análises, gráficos e relatórios. Lê planilhas do Excel.|rkward|
+gretl|dados|gretl|gretl||EViews, Stata|Econometria com menus: regressões, séries temporais, testes e previsões. Usado em cursos de Economia. Traz junto parte do LaTeX (baixa cerca de 1,5 GB).|gretl|
+python-dados|dados|Python para dados|python312 py312-pandas py312-statsmodels py312-seaborn py312-scikit-learn py312-jupyterlab py312-ipykernel|sociais|SPSS, Stata, Excel|Pandas, Statsmodels, Seaborn e scikit-learn no JupyterLab: análise, estatística e aprendizado de máquina.|jupyter|jupyterlab.desktop
+sqlitebrowser|dados|DB Browser for SQLite|sqlitebrowser||Microsoft Access|Abrir, editar e consultar bancos de dados SQLite.|sqlitebrowser|
+dbeaver|dados|DBeaver|dbeaver||SQL Server Management Studio|Cliente de banco de dados: PostgreSQL, MySQL, SQL Server, Oracle e outros.|dbeaver|
+qgis|dados|QGIS|qgis||ArcGIS|Mapas e geoprocessamento (geografia, urbanismo, agronomia, meio ambiente).|qgis|
+
+# --- Engenharia e CAD ----------------------------------------------------
+freecad|engenharia|FreeCAD|FreeCAD||SolidWorks, Inventor, Fusion 360|Modelagem 3D paramétrica de peças e montagens, com desenho técnico.|freecad|
+librecad|engenharia|LibreCAD|librecad||AutoCAD|Desenho técnico em 2D; abre e salva DXF.|librecad|
+kicad|engenharia|KiCad|kicad||Altium, Eagle, Proteus|Esquemas eletrônicos e placas de circuito impresso.|kicad|
+qucs|engenharia|Qucs-S e ngspice|qucs-s ngspice_rework||Multisim, LTspice, PSpice|Simulação de circuitos analógicos e digitais.|qucs|
+logisim|engenharia|Digital e Logisim|digital logisim||Logisim|Circuitos lógicos e sistemas digitais para as aulas.|logisim|
+openscad|engenharia|OpenSCAD|openscad||Tinkercad|Peças 3D descritas em código, prontas para impressão 3D.|openscad|
+gmsh|engenharia|Gmsh e Elmer|gmsh elmerfem||ANSYS, COMSOL|Malhas e simulação por elementos finitos.|gmsh|
+sweethome3d|engenharia|Sweet Home 3D|sweethome3d||SketchUp, Planner 5D|Plantas de casa e decoração em 2D e 3D.|sweethome3d|
+blender|engenharia|Blender|blender||3ds Max, Maya, Cinema 4D|Modelagem, animação e renderização 3D.|blender|
+arduino|engenharia|Arduino|arduino18||Arduino IDE|Programar placas Arduino.|arduino|
+
+# --- Escrita, LaTeX e referências ----------------------------------------
+zotero|escrita|Zotero|zotero|sociais|Mendeley, EndNote|Guarda as referências da pesquisa e gera citações e bibliografia no padrão ABNT, no LibreOffice e no Word.|zotero|
+latex|escrita|LaTeX completo|texlive-full texstudio||MiKTeX, TeXworks|Todo o TeX Live com o TeXstudio, para escrever TCC, artigos e teses sem internet. Baixa vários GB.|texstudio|
+lyx|escrita|LyX|lyx||Word com LaTeX|Escreve em LaTeX vendo o documento quase como fica (precisa do LaTeX completo).|lyx|
+ghostwriter|escrita|Ghostwriter|ghostwriter||Typora, iA Writer|Editor de Markdown sem distrações.|ghostwriter|
+joplin|escrita|Joplin|joplin-desktop||Evernote, OneNote, Notion|Anotações e listas, com sincronização na nuvem.|joplin|
+anki|escrita|Anki|anki||Quizlet|Cartões de memória com repetição espaçada para estudar.|anki|
+calibre|escrita|Calibre|calibre||Kindle|Organiza e converte livros digitais.|calibre|
+
+# --- Programação ---------------------------------------------------------
+vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
+python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|
+c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|
+codeblocks|programacao|Code::Blocks|codeblocks||Dev-C++|IDE simples para C e C++, comum nas disciplinas de introdução.|codeblocks|
+java|programacao|Java 21|openjdk21||Java|O JDK 21 para compilar e rodar programas em Java.|java|
+eclipse|programacao|Eclipse|eclipse openjdk21||Eclipse|IDE para Java.|eclipse|
+netbeans|programacao|NetBeans|netbeans||NetBeans|IDE para Java.|netbeans|
+pycharm|programacao|PyCharm|pycharm||PyCharm|IDE para Python, da JetBrains.|pycharm|
+node|programacao|Node.js|node24||Node.js|JavaScript fora do navegador.|nodejs|
+rust|programacao|Rust|rust||Rust|A linguagem Rust e o cargo.|rust|
+go|programacao|Go|go||Go|A linguagem Go.|go|
+git|programacao|Git com interface|git-cola meld||GitHub Desktop|Git com janelas: commits, histórico e comparação de arquivos.|git-cola|
+
+# --- Na web (atalhos no menu que abrem o site como um app) ---------------
+office365|web|Microsoft 365|web:https://www.office.com/|geral|Word, Excel, PowerPoint, OneDrive|O Word, o Excel e o PowerPoint da Microsoft, no navegador, com a sua conta (da faculdade ou pessoal).|x-office-document|
+teams|web|Microsoft Teams|web:https://teams.microsoft.com/|geral|Teams|Aulas, reuniões e chat do Teams, no navegador.|system-users|
+outlook|web|Outlook|web:https://outlook.office.com/mail/||Outlook|O e-mail da Microsoft (e o institucional).|internet-mail|
+googledrive|web|Google Drive|web:https://drive.google.com/|geral|Google Docs, Planilhas, Apresentações|Os arquivos e documentos do Google.|folder-cloud|
+whatsapp|web|WhatsApp|web:https://web.whatsapp.com/|geral|WhatsApp|O WhatsApp no computador, pelo celular.|dialog-messages|
+meet|web|Google Meet|web:https://meet.google.com/||Meet|Videochamadas do Google.|camera-web|
+zoom|web|Zoom|web:https://app.zoom.us/wc/home||Zoom|Reuniões do Zoom pelo navegador.|camera-web|
+classroom|web|Google Sala de Aula|web:https://classroom.google.com/||Classroom|Turmas, tarefas e notas do Google Classroom.|applications-education|
+overleaf|web|Overleaf|web:https://www.overleaf.com/project|exatas|LaTeX, TeXstudio|LaTeX no navegador, com os modelos de TCC e artigos, em grupo e sem instalar nada.|text-x-tex|
+desmos|web|Desmos|web:https://www.desmos.com/calculator|exatas|Calculadora gráfica|Calculadora gráfica rápida e bonita.|accessories-calculator|
+wolfram|web|Wolfram Alpha|web:https://www.wolframalpha.com/||Mathematica|Respostas e contas passo a passo, do mesmo fabricante do Mathematica.|accessories-calculator|
+powerbi|web|Power BI|web:https://app.powerbi.com/|sociais|Power BI|Painéis e relatórios do Power BI, no navegador.|office-chart-bar|
+canva|web|Canva|web:https://www.canva.com/||Canva|Apresentações, posts e cartazes.|applications-graphics|
+photopea|web|Photopea|web:https://www.photopea.com/||Photoshop|Editor de imagens parecido com o Photoshop, no navegador; abre .psd.|applications-graphics|
+notion|web|Notion|web:https://www.notion.so/||Notion|Anotações e organização.|document-edit|
+
+# --- Internet e conversa -------------------------------------------------
+chromium|internet|Chromium|chromium||Google Chrome|O navegador do projeto do Chrome. Os apps da web abrem nele em janela própria.|chromium|
+chrome|internet|Google Chrome|+linux linux-chrome||Google Chrome|O Chrome do Google (versão Linux, pela camada Linux), com as contas e extensões do Google.|google-chrome|
+telegram|internet|Telegram|telegram-desktop||Telegram|O Telegram no computador.|telegram|
+discord|internet|Discord|+linux linux-discord||Discord|O Discord (versão Linux, pela camada Linux).|discord|
+nextcloud|internet|Nextcloud|nextcloudclient||OneDrive, Dropbox|Sincroniza uma pasta com um servidor Nextcloud.|nextcloud|
+qbittorrent|internet|qBittorrent|qbittorrent||uTorrent|Downloads por torrent.|qbittorrent|
+krdc|internet|Área de trabalho remota|krdc freerdp||Conexão de Área de Trabalho Remota|Acessar outro computador por RDP (Windows) ou VNC.|krdc|
+kdeconnect|internet|KDE Connect|kdeconnect-kde||Phone Link|Liga o celular ao computador: arquivos, notificações e área de transferência.|kdeconnect|
+
+# --- Gráficos e design ---------------------------------------------------
+gimp|graficos|GIMP|gimp||Photoshop|Edição e retoque de fotos.|gimp|
+krita|graficos|Krita|krita||Photoshop, Procreate|Pintura e desenho digital.|krita|
+inkscape|graficos|Inkscape|inkscape||Illustrator, CorelDRAW|Desenho vetorial: logos, cartazes e diagramas.|inkscape|
+scribus|graficos|Scribus|scribus||InDesign|Diagramação de revistas, folhetos e livros.|scribus|
+drawio|graficos|draw.io|drawio||Visio, Lucidchart|Fluxogramas, diagramas UML e organogramas.|drawio|
+dia|graficos|Dia|dia||Visio|Diagramas simples, leve.|dia|
+kolourpaint|graficos|KolourPaint|kolourpaint||Paint|Desenho simples, como o Paint.|kolourpaint|
+
+# --- Música e vídeo ------------------------------------------------------
+vlc|multimidia|VLC|vlc|geral|Windows Media Player|Toca qualquer vídeo ou música.|vlc|
+kdenlive|multimidia|Kdenlive|kdenlive||Premiere, Vegas, CapCut|Edição de vídeo.|kdenlive|
+shotcut|multimidia|Shotcut|shotcut||Premiere|Edição de vídeo, mais simples.|shotcut|
+obs|multimidia|OBS Studio|obs-studio||OBS|Gravar a tela e fazer transmissões ao vivo.|com.obsproject.Studio|
+audacity|multimidia|Audacity|audacity||Audition|Gravar e editar áudio.|audacity|
+elisa|multimidia|Elisa|elisa||Groove, iTunes|Tocador de músicas.|elisa|
+
+# --- Educação ------------------------------------------------------------
+kig|educacao|Kig|kig||Cabri|Geometria interativa.|kig|
+marble|educacao|Marble|marble||Google Earth|Globo e atlas.|marble|
+gcompris|educacao|GCompris|gcompris-qt||Jogos educativos|Mais de 100 atividades para crianças de 2 a 10 anos.|gcompris-qt|
+minuet|educacao|Minuet|minuet||Teoria musical|Treino de ouvido e teoria musical.|minuet|
+kturtle|educacao|KTurtle|kturtle||Logo|Primeiros passos em programação, com a tartaruga.|kturtle|
+
+# --- Finanças ------------------------------------------------------------
+kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken|Controle das contas e do orçamento pessoal.|kmymoney|
+gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas, pessoal ou de pequena empresa.|gnucash|
+
+# --- Sistema e compatibilidade -------------------------------------------
+windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
+linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|
+virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
+filelight|sistema|Filelight|filelight||WinDirStat|Mostra o que está ocupando o disco.|filelight|
+keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass|Cofre de senhas.|keepassxc|
+skanlite|sistema|Scanner|skanlite||Digitalizador do Windows|Digitalizar documentos e fotos.|skanlite|

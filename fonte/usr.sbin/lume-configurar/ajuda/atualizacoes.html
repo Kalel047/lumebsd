@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atualizações e máquina do tempo</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+<header>
+<h1>Atualizações e máquina do tempo</h1>
+<p>O sistema em dia, sem medo de quebrar.</p>
+</header>
+
+<h2>Atualizar o sistema</h2>
+<p>Quando sai uma versão nova, um aviso aparece na bandeja. Abra <span class="menu">Atualizações do LumeBSD</span> (pelo aviso ou pelo menu), leia as novidades e clique em <b>Instalar</b>. No fim, ele oferece reiniciar.</p>
+<p>A versão nova é instalada à parte; a de agora fica guardada. Se o computador não iniciar direito com ela, ele volta sozinho para a anterior no boot seguinte, e o app explica o que aconteceu. Seus arquivos não mudam em nenhum caso.</p>
+<p>Mudou de ideia depois de atualizar? No app, <b>Voltar para a versão anterior</b>.</p>
+<pre><code>lume atualizar              # pelo terminal: procura e mostra
+lume atualizar aplicar      # instala (como root)
+lume atualizar voltar       # volta para a anterior</code></pre>
+
+<h2>Máquina do tempo</h2>
+<p>O LumeBSD tira uma foto do disco por hora (só quando algo mudou) e guarda as das últimas 24 horas, uma por dia no último mês e uma por semana nos últimos seis meses. As fotos quase não ocupam espaço: guardam só o que mudou.</p>
+
+<h3>Recuperar um arquivo apagado ou estragado</h3>
+<p>No Dolphin, clique com o botão direito no arquivo (ou na pasta onde ele estava) e escolha <span class="menu">Versões anteriores</span>. Escolha o momento e clique em recuperar: a versão antiga volta com outro nome, ao lado da atual.</p>
+<pre><code>lume tempo versoes ARQUIVO     # as versões guardadas
+lume tempo recuperar ARQUIVO   # traz a versão anterior mais nova</code></pre>
+
+<h3>Voltar o sistema inteiro</h3>
+<p>Uma instalação deixou o sistema estranho? O sistema pode voltar para uma foto de antes, sem mexer nas suas pastas. O LumeBSD tira uma foto sozinho antes de cada atualização e de cada instalação pela forja.</p>
+<pre><code>lume tempo linha          # a linha do tempo, com as fotos numeradas
+lume tempo voltar 3       # volta para a foto 3 (como root)</code></pre>
+<p>O sistema de agora fica guardado, para desfazer.</p>
+
+<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+</main>
+</body>
+</html>

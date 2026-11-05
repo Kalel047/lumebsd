@@ -1,0 +1,62 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 4, 2026
+.Dt LUME-PROGRAMAS 1
+.Os
+.Sh NAME
+.Nm lume-programas
+.Nd Programas do LumeBSD, a loja de programas por área
+.Sh SYNOPSIS
+.Nm
+.Op Fl -instalar Ar programa
+.Sh DESCRIPTION
+.Nm
+é o app gráfico de programas do LumeBSD, no menu do KDE em
+.Sy Sistema > Programas do LumeBSD .
+Ele mostra o catálogo do LumeBSD em português: kits por área
+.Pq Uso geral, Exatas e engenharia, Sociais aplicadas ,
+categorias e uma busca que acha também pelo programa que a pessoa usava
+no Windows ou no Mac
+.Pq quem usava o MATLAB procura Qq matlab e acha o GNU Octave .
+.Pp
+Instalar pede a senha do usuário
+.Pq um administrador, do grupo wheel
+e mostra o progresso do download e da instalação.
+Os apps da web
+.Pq Microsoft 365, Teams, Overleaf...
+viram atalhos no menu, sem senha.
+Remover tira só o que nenhum outro programa usa; os arquivos do usuário
+ficam.
+.Pp
+O trabalho é todo do
+.Nm lume loja ;
+o que precisa de root passa pelo
+.Xr pkexec 1 ,
+com a ação
+.Sy org.lumebsd.programas
+do polkit.
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Fl -instalar Ar programa
+Abre já instalando o
+.Ar programa
+.Pq um id do catálogo, como Cm windows
+e fecha no fim.
+O
+.Nm lume compat
+usa isto para instalar o Wine quando alguém abre um programa do Windows
+pela primeira vez.
+.El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa /usr/share/lume/loja/catalogo
+O catálogo: programas, categorias e kits.
+.It Pa /var/db/lume/kits
+Os kits instalados.
+.El
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr lume-atualizacoes 1 ,
+.Xr lume-loja 8 ,
+.Xr pkg 8

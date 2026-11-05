@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instalar programas</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+<header>
+<h1>Instalar programas</h1>
+<p>Tudo pelo app <span class="menu">Programas do LumeBSD</span>, no menu.</p>
+</header>
+
+<h2>Comece por um kit</h2>
+<p>Na primeira tela do app, escolha a sua área. Um kit instala de uma vez os programas que ela usa:</p>
+<table>
+<tr><th>Kit</th><th>O que vem</th></tr>
+<tr><td><b>Uso geral</b></td><td>LibreOffice em português, as fontes do Office (Arial, Times, Calibri…), VLC, Xournal++ para anotar PDFs, e atalhos para o Microsoft 365, o Teams, o Google Drive e o WhatsApp.</td></tr>
+<tr><td><b>Exatas e engenharia</b></td><td>O Uso geral, mais o GNU Octave (parecido com o MATLAB), Python científico com Jupyter, wxMaxima, GeoGebra, LabPlot, Qalculate!, Desmos e o Overleaf para LaTeX.</td></tr>
+<tr><td><b>Sociais aplicadas</b></td><td>O Uso geral, mais R com o RKWard (estatística e econometria com menus), Python para dados, Zotero (referências no padrão ABNT) e o Power BI na web.</td></tr>
+</table>
+<p>O app mostra quanto o kit ocupa antes de começar. Precisa de internet; leva alguns minutos.</p>
+
+<h2>Procure pelo programa que você já conhece</h2>
+<p>A busca, no alto do app, acha também pelo nome do programa do Windows ou do Mac: procure <i>matlab</i> e aparece o Octave; <i>excel</i>, o LibreOffice e o Microsoft 365; <i>autocad</i>, o LibreCAD e o FreeCAD. Veja a lista completa em <a href="trocando.html">Vindo do Windows ou do Mac</a>.</p>
+
+<h2>Instalar, abrir e remover</h2>
+<ul>
+<li><b>Instalar</b> pede a sua senha e mostra o progresso. Depois, o programa aparece no menu, e o botão vira <b>Abrir</b>.</li>
+<li><b>Apps da web</b> (marcados “na web”) não instalam nada: o botão <b>Pôr no menu</b> cria um atalho que abre o site como um app, em janela própria se o Chromium estiver instalado.</li>
+<li><b>Remover</b> tira o programa e só o que nenhum outro usa. Os seus arquivos não são apagados.</li>
+<li>Em <span class="menu">Instalados</span>, à esquerda, ficam os programas do catálogo que você já tem.</li>
+</ul>
+
+<h2>Pelo terminal</h2>
+<pre><code>lume loja                    # os kits e o resumo
+lume loja procurar matlab    # acha pelo programa que você usava
+lume loja instalar octave    # como root (su -)
+lume loja kit exatas         # um kit inteiro
+lume loja lista ciencia      # uma categoria</code></pre>
+<p>O LumeBSD usa os pacotes oficiais do FreeBSD: são mais de 30 mil. O que não está no catálogo do app instala com <code>pkg install NOME</code> (procure com <code>pkg search NOME</code>), ou compilado com as suas opções pela <code>forja</code>.</p>
+
+<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+</main>
+</body>
+</html>

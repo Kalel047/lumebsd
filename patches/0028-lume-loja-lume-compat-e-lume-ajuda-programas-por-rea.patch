@@ -1,0 +1,1758 @@
+From 698e7da73f64edde043e76955b37851423b6d993 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 4 Nov 2026 22:02:48 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20loja,=20lume=20compat=20e=20lume=20ajuda?=
+ =?UTF-8?q?:=20programas=20por=20=C3=A1rea?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O catálogo curado da loja (loja/catalogo): mais de 100 programas em
+português, por categoria, com os programas conhecidos que cada um
+substitui, e kits por área (Uso geral, Exatas e engenharia, Sociais
+aplicadas). O instalador pergunta o kit e o instala depois do desktop.
+
+lume-loja instala pelos pacotes oficiais (com progresso para o app),
+remove só o que nada mais usa (pkg set -A 1 e autoremove) e põe os apps
+da web no menu. lume-compat: dois cliques num .exe oferecem o Wine;
+a camada Linux liga sozinha. lume-ajuda: o guia em HTML.
+
+Também: CUPS ligado com o desktop.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.bin/lume/lume.c                           |  13 +-
+ usr.sbin/lume-configurar/Makefile             |  20 +-
+ .../lume-configurar/ajuda/atualizacoes.html   |  42 ++
+ .../ajuda/compatibilidade.html                |  46 ++
+ usr.sbin/lume-configurar/ajuda/estilo.css     |  44 ++
+ usr.sbin/lume-configurar/ajuda/index.html     |  36 ++
+ usr.sbin/lume-configurar/ajuda/internet.html  |  46 ++
+ .../lume-configurar/ajuda/lume-ajuda.desktop  |  13 +
+ usr.sbin/lume-configurar/ajuda/problemas.html |  44 ++
+ usr.sbin/lume-configurar/ajuda/programas.html |  49 ++
+ usr.sbin/lume-configurar/ajuda/trocando.html  |  75 +++
+ .../loja/atalhos/jupyterlab.desktop           |  10 +
+ usr.sbin/lume-configurar/loja/catalogo        | 165 +++++++
+ .../lume-configurar/loja/lume-windows.desktop |  12 +
+ usr.sbin/lume-configurar/lume-ajuda.sh        |  34 ++
+ usr.sbin/lume-configurar/lume-compat.8        |  61 +++
+ usr.sbin/lume-configurar/lume-compat.sh       | 106 ++++
+ usr.sbin/lume-configurar/lume-desktop.sh      |   2 +-
+ usr.sbin/lume-configurar/lume-instalar.sh     |  33 +-
+ usr.sbin/lume-configurar/lume-loja.8          | 108 +++++
+ usr.sbin/lume-configurar/lume-loja.sh         | 456 ++++++++++++++++++
+ usr.sbin/lume-configurar/lume-tema.sh         |  51 +-
+ 22 files changed, 1451 insertions(+), 15 deletions(-)
+ create mode 100644 usr.sbin/lume-configurar/ajuda/atualizacoes.html
+ create mode 100644 usr.sbin/lume-configurar/ajuda/compatibilidade.html
+ create mode 100644 usr.sbin/lume-configurar/ajuda/estilo.css
+ create mode 100644 usr.sbin/lume-configurar/ajuda/index.html
+ create mode 100644 usr.sbin/lume-configurar/ajuda/internet.html
+ create mode 100644 usr.sbin/lume-configurar/ajuda/lume-ajuda.desktop
+ create mode 100644 usr.sbin/lume-configurar/ajuda/problemas.html
+ create mode 100644 usr.sbin/lume-configurar/ajuda/programas.html
+ create mode 100644 usr.sbin/lume-configurar/ajuda/trocando.html
+ create mode 100644 usr.sbin/lume-configurar/loja/atalhos/jupyterlab.desktop
+ create mode 100644 usr.sbin/lume-configurar/loja/catalogo
+ create mode 100644 usr.sbin/lume-configurar/loja/lume-windows.desktop
+ create mode 100644 usr.sbin/lume-configurar/lume-ajuda.sh
+ create mode 100644 usr.sbin/lume-configurar/lume-compat.8
+ create mode 100644 usr.sbin/lume-configurar/lume-compat.sh
+ create mode 100644 usr.sbin/lume-configurar/lume-loja.8
+ create mode 100644 usr.sbin/lume-configurar/lume-loja.sh
+
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 7fc397994..f5f643e11 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -35,7 +35,7 @@
+ #include <unistd.h>
+ 
+ #define	LUME_NAME	"LumeBSD"
+-#define	LUME_VERSION	"1.2"
++#define	LUME_VERSION	"1.3"
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+@@ -49,7 +49,7 @@
+ /* Subcomandos que são scripts em /usr/sbin/lume-<nome>. */
+ static const char *scripts[] = {
+ 	"configurar", "hardware", "video", "wifi", "desktop", "instalar",
+-	"tema", "atualizar", "tempo",
++	"tema", "atualizar", "tempo", "loja", "compat", "ajuda",
+ };
+ #define	VIGIA_SOCKET	"/var/run/vigia.sock"
+ 
+@@ -65,6 +65,10 @@ static int use_color;
+ 
+ static const char *tips[] = {
+ 	"lume sem argumentos mostra o painel do sistema.",
++	"Usava o MATLAB? lume loja procurar matlab mostra o que usar no lugar.",
++	"Um kit por área: lume loja kit exatas (ou sociais, ou geral).",
++	"Dois cliques num .exe abrem o programa do Windows com o Wine.",
++	"lume ajuda abre o guia do sistema em português.",
+ 	"Apagou sem querer? lume tempo recuperar ARQUIVO traz de volta.",
+ 	"jail(8) isola serviços inteiros com custo quase zero.",
+ 	"service -e lista todos os serviços habilitados no boot.",
+@@ -391,7 +395,10 @@ usage(void)
+ 	    "     lume tema [papel | padrao]\n"
+ 	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
+ 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
+-	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n");
++	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"
++	    "     lume loja [lista | procurar | info | instalar | remover | kit]\n"
++	    "     lume compat [linux ligar | windows | abrir ARQUIVO]\n"
++	    "     lume ajuda [programas | trocando | windows | wifi | problemas]\n");
+ 	exit(1);
+ }
+ 
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index 09f977fb1..78f578650 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -1,9 +1,9 @@
+ SCRIPTS=	lume-configurar.sh lume-hardware.sh lume-video.sh lume-wifi.sh \
+ 	lume-desktop.sh lume-instalar.sh lume-tema.sh lume-atualizar.sh \
+-	lume-tempo.sh
+-MAN=	lume-configurar.8 lume-tempo.8
++	lume-tempo.sh lume-loja.sh lume-compat.sh lume-ajuda.sh
++MAN=	lume-configurar.8 lume-tempo.8 lume-loja.8 lume-compat.8
+ 
+-FILESGROUPS=	FILES TEMA CRON
++FILESGROUPS=	FILES TEMA CRON LOJA ATALHOS AJUDA
+ FILESDIR=	${SHAREDIR}/lume
+ FILES=		desktop.txt
+ 
+@@ -17,6 +17,20 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
+ 		tema/gtk-settings.ini tema/papel.png tema/papel-noite.png \
+ 		tema/navegador.svg tema/lume-tempo.desktop
+ 
++# Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
++# programas do Windows com dois cliques (lume compat).
++LOJADIR=	${SHAREDIR}/lume/loja
++LOJA=		loja/catalogo loja/lume-windows.desktop
++ATALHOSDIR=	${SHAREDIR}/lume/loja/atalhos
++ATALHOS=	loja/atalhos/jupyterlab.desktop
++
++# A Ajuda do LumeBSD (lume ajuda), em HTML.
++AJUDADIR=	${SHAREDIR}/lume/ajuda
++AJUDA=		ajuda/index.html ajuda/programas.html ajuda/trocando.html \
++		ajuda/compatibilidade.html ajuda/internet.html \
++		ajuda/atualizacoes.html ajuda/problemas.html ajuda/estilo.css \
++		ajuda/lume-ajuda.desktop
++
+ # Máquina do tempo: o cron confere a cada 15 minutos (lume tempo).
+ CRONDIR=	/etc/cron.d
+ CRON=		cron-lume-tempo
+diff --git a/usr.sbin/lume-configurar/ajuda/atualizacoes.html b/usr.sbin/lume-configurar/ajuda/atualizacoes.html
+new file mode 100644
+index 000000000..0ac732d8f
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/atualizacoes.html
+@@ -0,0 +1,42 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Atualizações e máquina do tempo</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>Atualizações e máquina do tempo</h1>
++<p>O sistema em dia, sem medo de quebrar.</p>
++</header>
++
++<h2>Atualizar o sistema</h2>
++<p>Quando sai uma versão nova, um aviso aparece na bandeja. Abra <span class="menu">Atualizações do LumeBSD</span> (pelo aviso ou pelo menu), leia as novidades e clique em <b>Instalar</b>. No fim, ele oferece reiniciar.</p>
++<p>A versão nova é instalada à parte; a de agora fica guardada. Se o computador não iniciar direito com ela, ele volta sozinho para a anterior no boot seguinte, e o app explica o que aconteceu. Seus arquivos não mudam em nenhum caso.</p>
++<p>Mudou de ideia depois de atualizar? No app, <b>Voltar para a versão anterior</b>.</p>
++<pre><code>lume atualizar              # pelo terminal: procura e mostra
++lume atualizar aplicar      # instala (como root)
++lume atualizar voltar       # volta para a anterior</code></pre>
++
++<h2>Máquina do tempo</h2>
++<p>O LumeBSD tira uma foto do disco por hora (só quando algo mudou) e guarda as das últimas 24 horas, uma por dia no último mês e uma por semana nos últimos seis meses. As fotos quase não ocupam espaço: guardam só o que mudou.</p>
++
++<h3>Recuperar um arquivo apagado ou estragado</h3>
++<p>No Dolphin, clique com o botão direito no arquivo (ou na pasta onde ele estava) e escolha <span class="menu">Versões anteriores</span>. Escolha o momento e clique em recuperar: a versão antiga volta com outro nome, ao lado da atual.</p>
++<pre><code>lume tempo versoes ARQUIVO     # as versões guardadas
++lume tempo recuperar ARQUIVO   # traz a versão anterior mais nova</code></pre>
++
++<h3>Voltar o sistema inteiro</h3>
++<p>Uma instalação deixou o sistema estranho? O sistema pode voltar para uma foto de antes, sem mexer nas suas pastas. O LumeBSD tira uma foto sozinho antes de cada atualização e de cada instalação pela forja.</p>
++<pre><code>lume tempo linha          # a linha do tempo, com as fotos numeradas
++lume tempo voltar 3       # volta para a foto 3 (como root)</code></pre>
++<p>O sistema de agora fica guardado, para desfazer.</p>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/ajuda/compatibilidade.html b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+new file mode 100644
+index 000000000..7ee4ffeb4
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+@@ -0,0 +1,46 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Programas do Windows e do Linux</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>Programas do Windows e do Linux</h1>
++<p>Quatro caminhos, do mais leve ao mais pesado.</p>
++</header>
++
++<h2>1. Pela web</h2>
++<p>Muita coisa que a faculdade usa já roda no navegador: Microsoft 365 (Word, Excel, PowerPoint), Teams, Outlook, Google Drive, Meet, Zoom, Classroom, Overleaf, Power BI, Canva. No app <span class="menu">Programas do LumeBSD</span>, em <span class="menu">Na web</span>, o botão <b>Pôr no menu</b> cria um atalho que abre o site como um app.</p>
++<p>Com o <b>Chromium</b> instalado, cada app da web abre em janela própria, sem barra de endereço; sem ele, abre numa janela do Firefox.</p>
++
++<h2>2. Programas do Windows (Wine)</h2>
++<p>O Wine roda muitos programas .exe sem precisar do Windows. Para usar:</p>
++<ol>
++<li>Dê dois cliques no .exe (ou .msi) no Dolphin.</li>
++<li>Na primeira vez, o LumeBSD oferece instalar o Wine (cerca de 700 MB) e pede a sua senha.</li>
++<li>O programa abre. Instaladores criam atalhos no menu, como no Windows.</li>
++</ol>
++<p>Os programas ficam numa “unidade C:” só sua, na pasta <code>.wine</code> da sua pasta pessoal.</p>
++<h3>O que costuma funcionar</h3>
++<p>Programas de escritório e utilitários mais simples, programas antigos, muitos jogos antigos, softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício).</p>
++<h3>O que costuma não funcionar</h3>
++<p>Programas com proteção anticópia ou antitrapaça, drivers de equipamentos (placas de aquisição, gravadores de microcontrolador do fabricante), e programas grandes que dependem de partes profundas do Windows, como as versões recentes do MATLAB, do SolidWorks, do AutoCAD e do pacote Adobe. Para esses, veja os caminhos 3 e 4.</p>
++<p>Quer saber antes de tentar? O site <a href="https://appdb.winehq.org/">appdb.winehq.org</a> mostra a experiência de outras pessoas com cada programa.</p>
++
++<h2>3. Programas do Linux</h2>
++<p>O FreeBSD tem uma camada que roda programas feitos para Linux. O LumeBSD a liga sozinho quando você instala, pelo app, um programa que precisa dela (o Google Chrome e o Discord, por exemplo). Em <span class="menu">Sistema e compatibilidade</span>, <b>Programas do Linux</b> instala a base para quem quer rodar outros.</p>
++<pre><code>lume compat                # o que está ligado
++lume compat linux ligar    # como root</code></pre>
++
++<h2>4. Uma máquina virtual</h2>
++<p>Para o programa que não roda de outro jeito, instale o <b>VirtualBox</b> (em <span class="menu">Sistema e compatibilidade</span>) e rode um Windows inteiro numa janela. Precisa de uma licença do Windows, de 8 GB de memória ou mais no computador e de uns 60 GB livres no disco. Muitas faculdades também oferecem laboratórios virtuais ou licenças acessadas pela web; vale perguntar.</p>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/ajuda/estilo.css b/usr.sbin/lume-configurar/ajuda/estilo.css
+new file mode 100644
+index 000000000..a0e2fc057
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/estilo.css
+@@ -0,0 +1,44 @@
++/* Ajuda do LumeBSD: a mesma cara do tema Papel (estética e-ink). */
++:root {
++	--papel: #f2efe8; --tinta: #1f1f1f; --apagado: #66625a;
++	--linha: #cfc9bc; --cartao: #fbf9f4; --destaque: #8a5a00;
++}
++@media (prefers-color-scheme: dark) {
++	:root {
++		--papel: #1d1c1a; --tinta: #e8e4da; --apagado: #a39e93;
++		--linha: #3b3934; --cartao: #252420; --destaque: #e0b25c;
++	}
++}
++* { box-sizing: border-box; }
++body {
++	margin: 0; background: var(--papel); color: var(--tinta);
++	font: 17px/1.6 "Noto Serif", Georgia, serif;
++}
++main { max-width: 820px; margin: 0 auto; padding: 40px 24px 80px; }
++header { border-bottom: 2px solid var(--tinta); margin-bottom: 28px; padding-bottom: 12px; }
++header p { margin: 4px 0 0; color: var(--apagado); }
++nav.trilha { font: 14px "Noto Sans", sans-serif; margin-bottom: 18px; }
++h1 { font-size: 2em; margin: 0; line-height: 1.2; }
++h2 { font-size: 1.3em; margin: 36px 0 8px; border-bottom: 1px solid var(--linha); padding-bottom: 4px; }
++h3 { font-size: 1.05em; margin: 22px 0 4px; }
++a { color: var(--destaque); }
++code, kbd {
++	font: 0.88em "Noto Sans Mono", monospace; background: var(--cartao);
++	border: 1px solid var(--linha); border-radius: 4px; padding: 1px 5px;
++}
++pre { background: var(--cartao); border: 1px solid var(--linha); border-radius: 6px; padding: 10px 14px; overflow-x: auto; }
++pre code { border: 0; padding: 0; background: none; }
++.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
++.cartao {
++	display: block; background: var(--cartao); border: 1px solid var(--linha);
++	border-radius: 8px; padding: 14px 16px; color: var(--tinta); text-decoration: none;
++}
++a.cartao:hover { border-color: var(--tinta); }
++.cartao b { display: block; font-size: 1.08em; margin-bottom: 2px; }
++.cartao span { color: var(--apagado); font-size: 0.93em; }
++table { border-collapse: collapse; width: 100%; font-size: 0.95em; margin: 8px 0; }
++th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--linha); vertical-align: top; }
++th { font-family: "Noto Sans", sans-serif; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--apagado); }
++.nota { border-left: 3px solid var(--destaque); padding: 4px 14px; background: var(--cartao); }
++.menu { font-family: "Noto Sans", sans-serif; font-weight: 600; }
++footer { margin-top: 48px; color: var(--apagado); font-size: 0.9em; border-top: 1px solid var(--linha); padding-top: 12px; }
+diff --git a/usr.sbin/lume-configurar/ajuda/index.html b/usr.sbin/lume-configurar/ajuda/index.html
+new file mode 100644
+index 000000000..aa031bc82
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/index.html
+@@ -0,0 +1,36 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Ajuda do LumeBSD</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<header>
++<h1>Ajuda do LumeBSD</h1>
++<p>O guia do sistema, em português. Sem decorar comandos.</p>
++</header>
++
++<div class="grade">
++<a class="cartao" href="programas.html"><b>Instalar programas</b><span>A loja, os kits por área (Exatas, Sociais aplicadas, Uso geral) e como achar o que você precisa.</span></a>
++<a class="cartao" href="trocando.html"><b>Vindo do Windows ou do Mac</b><span>O que usar no lugar do MATLAB, do Excel, do AutoCAD, do SPSS e de outros.</span></a>
++<a class="cartao" href="compatibilidade.html"><b>Programas do Windows e do Linux</b><span>Abrir um .exe, usar o Office e o Teams pela web, e quando vale uma máquina virtual.</span></a>
++<a class="cartao" href="internet.html"><b>Wi-Fi, som, tela e impressora</b><span>Conectar, conferir o hardware e o que fazer quando algo não funciona.</span></a>
++<a class="cartao" href="atualizacoes.html"><b>Atualizações e máquina do tempo</b><span>Manter o sistema em dia, recuperar um arquivo apagado e voltar no tempo.</span></a>
++<a class="cartao" href="problemas.html"><b>Quando algo dá errado</b><span>Os passos, do mais simples ao mais forte, para consertar sem perder nada.</span></a>
++</div>
++
++<h2>O básico em um minuto</h2>
++<ul>
++<li>O <span class="menu">menu</span> fica no canto inferior esquerdo. Digite o nome do que procura logo que ele abrir.</li>
++<li><span class="menu">Programas do LumeBSD</span> instala programas; <span class="menu">Atualizações do LumeBSD</span> mantém o sistema em dia. Os dois pedem a sua senha.</li>
++<li>Seus arquivos ficam na pasta pessoal (no <span class="menu">Dolphin</span>, o gerenciador de arquivos). A máquina do tempo tira uma foto dela por hora.</li>
++<li>Prefere o terminal? O comando <code>lume</code> mostra o painel do sistema, e <code>lume ajuda</code> abre esta página.</li>
++</ul>
++
++<footer>LumeBSD “Farol”, sobre o FreeBSD. Código e problemas: <a href="https://github.com/Kalel047/lumebsd">github.com/Kalel047/lumebsd</a>.</footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/ajuda/internet.html b/usr.sbin/lume-configurar/ajuda/internet.html
+new file mode 100644
+index 000000000..b5f193bcf
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/internet.html
+@@ -0,0 +1,46 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Wi-Fi, som, tela e impressora</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>Wi-Fi, som, tela e impressora</h1>
++<p>Conectar e conferir o hardware.</p>
++</header>
++
++<h2>Wi-Fi</h2>
++<p>Clique no ícone de rede, na bandeja (canto inferior direito), escolha a rede e digite a senha. O LumeBSD lembra dela.</p>
++<p>Sem a janela gráfica (por exemplo, logo depois de instalar), use o terminal como root:</p>
++<pre><code>lume wifi</code></pre>
++<p>Ele procura as redes, pergunta qual e a senha, e guarda a escolha.</p>
++<p class="nota">Nenhuma rede aparece? Rode <code>lume hardware</code>: ele diz se a placa Wi-Fi tem driver. Enquanto isso, um cabo de rede ou o celular ligado por USB (ancoragem) resolvem.</p>
++
++<h2>Conferir o computador inteiro</h2>
++<pre><code>lume hardware</code></pre>
++<p>Mostra, item por item, o que o LumeBSD reconheceu: processador, vídeo, Wi-Fi, som, câmera, bateria, e o que está faltando. É o melhor jeito de testar um notebook pelo pendrive, antes de instalar.</p>
++
++<h2>Tela e vídeo</h2>
++<p>O LumeBSD escolhe o driver de vídeo sozinho (Intel ou NVIDIA). Se um driver travar, ele volta no próximo boot para um modo sem aceleração, que sempre funciona. Para testar ou trocar:</p>
++<pre><code>lume video testar
++lume video auto</code></pre>
++<p>Resolução, escala (telas pequenas com muita resolução) e o segundo monitor ficam em <span class="menu">Configurações do Sistema › Telas</span>.</p>
++
++<h2>Som</h2>
++<p>O volume fica na bandeja. Para escolher a saída (alto-falante, fone, HDMI), clique com o botão direito no ícone de som, ou abra <span class="menu">Configurações do Sistema › Som</span>.</p>
++
++<h2>Câmera</h2>
++<p>Câmeras USB funcionam nos apps da web (Meet, Teams, Zoom) e nos programas. O navegador pede permissão na primeira vez.</p>
++
++<h2>Impressora</h2>
++<p>Abra <span class="menu">Configurações do Sistema › Impressoras</span> e clique em <b>Adicionar</b>. Impressoras de rede modernas costumam aparecer sozinhas.</p>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/ajuda/lume-ajuda.desktop b/usr.sbin/lume-configurar/ajuda/lume-ajuda.desktop
+new file mode 100644
+index 000000000..68e701bf4
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/lume-ajuda.desktop
+@@ -0,0 +1,13 @@
++[Desktop Entry]
++Type=Application
++Name=LumeBSD Help
++Name[pt_BR]=Ajuda do LumeBSD
++Name[pt]=Ajuda do LumeBSD
++GenericName=Help
++GenericName[pt_BR]=Ajuda
++Comment=Guide to LumeBSD, in Portuguese
++Comment[pt_BR]=O guia do sistema: programas, Windows, Wi-Fi, atualizações e problemas
++Exec=/usr/sbin/lume-ajuda
++Icon=help-contents
++Categories=System;Documentation;
++Keywords=ajuda;help;manual;guia;suporte;como;
+diff --git a/usr.sbin/lume-configurar/ajuda/problemas.html b/usr.sbin/lume-configurar/ajuda/problemas.html
+new file mode 100644
+index 000000000..23b32a334
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/problemas.html
+@@ -0,0 +1,44 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Quando algo dá errado</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>Quando algo dá errado</h1>
++<p>Do mais simples ao mais forte. Nenhum destes passos apaga os seus arquivos.</p>
++</header>
++
++<h2>1. Um programa travou</h2>
++<p>Feche a janela. Se ela não fechar, abra o <span class="menu">Monitor do Sistema</span> no menu, ache o programa e clique em <b>Finalizar</b>. Atalho: <kbd>Ctrl</kbd>+<kbd>Esc</kbd>.</p>
++
++<h2>2. Apaguei ou estraguei um arquivo</h2>
++<p>Botão direito no Dolphin, <span class="menu">Versões anteriores</span>. Veja <a href="atualizacoes.html">a máquina do tempo</a>.</p>
++
++<h2>3. O sistema ficou estranho depois de instalar algo</h2>
++<p>Remova o que instalou pelo app <span class="menu">Programas do LumeBSD</span>. Se não resolver, volte o sistema para uma foto de antes da instalação:</p>
++<pre><code>lume tempo linha       # as fotos, numeradas
++lume tempo voltar 3    # como root: volta para a foto 3</code></pre>
++
++<h2>4. Ficou estranho depois de uma atualização</h2>
++<p>Em <span class="menu">Atualizações do LumeBSD</span>, <b>Voltar para a versão anterior</b>, e reinicie.</p>
++
++<h2>5. A tela ficou preta ou travou ao iniciar</h2>
++<p>Desligue segurando o botão e ligue de novo. Se o driver de vídeo foi o culpado, o LumeBSD percebe e volta para o modo sem aceleração. Depois, <code>lume hardware</code> mostra o que aconteceu.</p>
++<p>Se o problema começou numa atualização, ela também volta sozinha para a versão anterior no boot seguinte.</p>
++
++<h2>6. Nada disso resolveu</h2>
++<p>No menu de boot do LumeBSD (logo depois de ligar), a opção de ambientes de boot permite iniciar qualquer versão guardada do sistema. E para pedir ajuda, abra um relato em <a href="https://github.com/Kalel047/lumebsd/issues">github.com/Kalel047/lumebsd/issues</a> com a saída de:</p>
++<pre><code>lume
++lume hardware
++lume atualizar estado</code></pre>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/ajuda/programas.html b/usr.sbin/lume-configurar/ajuda/programas.html
+new file mode 100644
+index 000000000..153fa293b
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/programas.html
+@@ -0,0 +1,49 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Instalar programas</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>Instalar programas</h1>
++<p>Tudo pelo app <span class="menu">Programas do LumeBSD</span>, no menu.</p>
++</header>
++
++<h2>Comece por um kit</h2>
++<p>Na primeira tela do app, escolha a sua área. Um kit instala de uma vez os programas que ela usa:</p>
++<table>
++<tr><th>Kit</th><th>O que vem</th></tr>
++<tr><td><b>Uso geral</b></td><td>LibreOffice em português, as fontes do Office (Arial, Times, Calibri…), VLC, Xournal++ para anotar PDFs, e atalhos para o Microsoft 365, o Teams, o Google Drive e o WhatsApp.</td></tr>
++<tr><td><b>Exatas e engenharia</b></td><td>O Uso geral, mais o GNU Octave (parecido com o MATLAB), Python científico com Jupyter, wxMaxima, GeoGebra, LabPlot, Qalculate!, Desmos e o Overleaf para LaTeX.</td></tr>
++<tr><td><b>Sociais aplicadas</b></td><td>O Uso geral, mais R com o RKWard (estatística e econometria com menus), Python para dados, Zotero (referências no padrão ABNT) e o Power BI na web.</td></tr>
++</table>
++<p>O app mostra quanto o kit ocupa antes de começar. Precisa de internet; leva alguns minutos.</p>
++
++<h2>Procure pelo programa que você já conhece</h2>
++<p>A busca, no alto do app, acha também pelo nome do programa do Windows ou do Mac: procure <i>matlab</i> e aparece o Octave; <i>excel</i>, o LibreOffice e o Microsoft 365; <i>autocad</i>, o LibreCAD e o FreeCAD. Veja a lista completa em <a href="trocando.html">Vindo do Windows ou do Mac</a>.</p>
++
++<h2>Instalar, abrir e remover</h2>
++<ul>
++<li><b>Instalar</b> pede a sua senha e mostra o progresso. Depois, o programa aparece no menu, e o botão vira <b>Abrir</b>.</li>
++<li><b>Apps da web</b> (marcados “na web”) não instalam nada: o botão <b>Pôr no menu</b> cria um atalho que abre o site como um app, em janela própria se o Chromium estiver instalado.</li>
++<li><b>Remover</b> tira o programa e só o que nenhum outro usa. Os seus arquivos não são apagados.</li>
++<li>Em <span class="menu">Instalados</span>, à esquerda, ficam os programas do catálogo que você já tem.</li>
++</ul>
++
++<h2>Pelo terminal</h2>
++<pre><code>lume loja                    # os kits e o resumo
++lume loja procurar matlab    # acha pelo programa que você usava
++lume loja instalar octave    # como root (su -)
++lume loja kit exatas         # um kit inteiro
++lume loja lista ciencia      # uma categoria</code></pre>
++<p>O LumeBSD usa os pacotes oficiais do FreeBSD: são mais de 30 mil. O que não está no catálogo do app instala com <code>pkg install NOME</code> (procure com <code>pkg search NOME</code>), ou compilado com as suas opções pela <code>forja</code>.</p>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/ajuda/trocando.html b/usr.sbin/lume-configurar/ajuda/trocando.html
+new file mode 100644
+index 000000000..8dc1b5dce
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/trocando.html
+@@ -0,0 +1,75 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>Vindo do Windows ou do Mac</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>Vindo do Windows ou do Mac</h1>
++<p>O que usar no lugar de cada programa. Todos estão no app <span class="menu">Programas do LumeBSD</span>.</p>
++</header>
++
++<p class="nota">Nenhum substituto é idêntico. Os desta página abrem os mesmos tipos de arquivo ou fazem o mesmo trabalho; quando a faculdade exige o programa original, veja <a href="compatibilidade.html">Programas do Windows e do Linux</a>.</p>
++
++<h2>Escritório</h2>
++<table>
++<tr><th>Você usava</th><th>No LumeBSD</th><th>Observação</th></tr>
++<tr><td>Word, Excel, PowerPoint</td><td>LibreOffice, ou o Microsoft 365 na web</td><td>O LibreOffice abre e salva .docx, .xlsx e .pptx. Com as fontes do Office instaladas (kit Uso geral), a paginação fica igual. Macros VBA complexas e o Power Query só no Microsoft 365.</td></tr>
++<tr><td>Outlook</td><td>Thunderbird, ou o Outlook na web</td><td>O e-mail institucional costuma funcionar nos dois.</td></tr>
++<tr><td>OneNote, Notability</td><td>Xournal++, Joplin</td><td>O Xournal++ escreve por cima de PDFs.</td></tr>
++<tr><td>Teams, Zoom, Meet</td><td>Os apps da web</td><td>Câmera, microfone e compartilhar a tela funcionam pelo navegador.</td></tr>
++<tr><td>Project</td><td>ProjectLibre</td><td>Abre arquivos .mpp.</td></tr>
++<tr><td>Visio</td><td>draw.io, Dia</td><td>O draw.io também abre arquivos .vsdx.</td></tr>
++<tr><td>Mendeley, EndNote</td><td>Zotero</td><td>Importa a biblioteca do Mendeley e cita no padrão ABNT.</td></tr>
++</table>
++
++<h2>Exatas e engenharia</h2>
++<table>
++<tr><th>Você usava</th><th>No LumeBSD</th><th>Observação</th></tr>
++<tr><td>MATLAB</td><td>GNU Octave</td><td>Mesma linguagem: a maioria dos scripts .m roda sem mudar. Os pacotes de sinais, controle, estatística e simbólico vêm junto. Simulink não tem equivalente direto.</td></tr>
++<tr><td>Mathematica, Maple</td><td>wxMaxima, SymPy (Python), Wolfram Alpha na web</td><td>Contas simbólicas com resposta exata.</td></tr>
++<tr><td>Anaconda, Spyder</td><td>Python científico com JupyterLab</td><td>NumPy, SciPy, Matplotlib, Pandas e SymPy prontos.</td></tr>
++<tr><td>Origin, SigmaPlot</td><td>LabPlot, gnuplot</td><td>Gráficos e ajuste de curvas.</td></tr>
++<tr><td>AutoCAD</td><td>LibreCAD (2D), FreeCAD (3D)</td><td>Trocam arquivos por DXF. O formato .dwg não tem suporte completo.</td></tr>
++<tr><td>SolidWorks, Inventor, Fusion 360</td><td>FreeCAD</td><td>Modelagem paramétrica com desenho técnico; importa STEP.</td></tr>
++<tr><td>Multisim, LTspice, Proteus</td><td>Qucs-S com ngspice, KiCad</td><td>Simulação de circuitos e placas.</td></tr>
++<tr><td>ANSYS, COMSOL</td><td>Gmsh e Elmer</td><td>Elementos finitos; bons para estudo, menos polidos.</td></tr>
++<tr><td>Calculadora gráfica</td><td>GeoGebra, Desmos, KmPlot</td><td></td></tr>
++<tr><td>MiKTeX, TeXworks</td><td>Overleaf (web) ou LaTeX completo com TeXstudio</td><td>O Overleaf não instala nada e tem os modelos de TCC.</td></tr>
++</table>
++
++<h2>Sociais aplicadas e dados</h2>
++<table>
++<tr><th>Você usava</th><th>No LumeBSD</th><th>Observação</th></tr>
++<tr><td>SPSS</td><td>R com RKWard</td><td>O RKWard tem menus para as análises mais comuns e lê arquivos .sav.</td></tr>
++<tr><td>Stata, EViews</td><td>R com RKWard, gretl</td><td>O gretl foi feito para econometria, com menus.</td></tr>
++<tr><td>RStudio</td><td>RKWard, ou JupyterLab</td><td>O RStudio não tem versão para FreeBSD.</td></tr>
++<tr><td>Excel para análise</td><td>LibreOffice Calc, Python com Pandas</td><td>Tabelas dinâmicas e gráficos no Calc; para planilhas grandes, Pandas.</td></tr>
++<tr><td>Power BI</td><td>Power BI na web</td><td>Ver e editar relatórios publicados.</td></tr>
++<tr><td>ArcGIS</td><td>QGIS</td><td>Lê shapefiles e os formatos do IBGE.</td></tr>
++<tr><td>Access</td><td>DB Browser for SQLite, Kexi, DBeaver</td><td></td></tr>
++<tr><td>QuickBooks, Money</td><td>GnuCash, KMyMoney</td><td></td></tr>
++</table>
++
++<h2>Imagem, vídeo e o resto</h2>
++<table>
++<tr><th>Você usava</th><th>No LumeBSD</th><th>Observação</th></tr>
++<tr><td>Photoshop</td><td>GIMP, Krita, Photopea na web</td><td>O Photopea abre .psd.</td></tr>
++<tr><td>Illustrator, CorelDRAW</td><td>Inkscape</td><td>Abre .ai e .pdf.</td></tr>
++<tr><td>InDesign</td><td>Scribus</td><td></td></tr>
++<tr><td>Premiere, CapCut</td><td>Kdenlive, Shotcut</td><td></td></tr>
++<tr><td>Paint</td><td>KolourPaint</td><td></td></tr>
++<tr><td>Canva</td><td>Canva na web</td><td></td></tr>
++<tr><td>Chrome</td><td>Firefox (já vem), Chromium, ou o Chrome pela camada Linux</td><td></td></tr>
++<tr><td>Explorador de Arquivos, Finder</td><td>Dolphin</td><td>Já vem. Botão direito, <span class="menu">Versões anteriores</span>, para a máquina do tempo.</td></tr>
++</table>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/loja/atalhos/jupyterlab.desktop b/usr.sbin/lume-configurar/loja/atalhos/jupyterlab.desktop
+new file mode 100644
+index 000000000..643d4f71f
+--- /dev/null
++++ b/usr.sbin/lume-configurar/loja/atalhos/jupyterlab.desktop
+@@ -0,0 +1,10 @@
++[Desktop Entry]
++Type=Application
++Name=JupyterLab
++Comment=Python notebooks in the browser
++Comment[pt_BR]=Cadernos de Python (.ipynb) no navegador; feche esta janela para parar
++Exec=/usr/local/bin/jupyter-lab --notebook-dir=~
++Icon=jupyter
++Terminal=true
++Categories=Development;Science;Education;
++Keywords=python;notebook;ipynb;jupyter;caderno;
+diff --git a/usr.sbin/lume-configurar/loja/catalogo b/usr.sbin/lume-configurar/loja/catalogo
+new file mode 100644
+index 000000000..866b16d00
+--- /dev/null
++++ b/usr.sbin/lume-configurar/loja/catalogo
+@@ -0,0 +1,165 @@
++# Catálogo de programas do LumeBSD (lume loja e o app Programas do LumeBSD).
++#
++# Linhas de programa, campos separados por |:
++#   id|categoria|nome|pacotes|kits|parecido com|descrição|ícone|abrir
++#
++# pacotes   pacotes oficiais do FreeBSD (o CI confere que existem);
++#           "+linux" liga antes a camada Linux (lume compat linux);
++#           "web:URL" é um app da web (atalho no menu, sem pacote)
++# kits      kits que trazem o programa (veja @kit)
++# parecido  programas conhecidos que ele substitui (a busca acha por eles)
++# ícone     nome do ícone do tema (Breeze), ou vazio
++# abrir     atalho do menu que o LumeBSD põe junto (em loja/atalhos), para
++#           programas cujo pacote não traz um
++#
++# @categoria id|Nome|ícone
++# @kit id|Nome|descrição|kits que ele inclui
++
++@categoria escritorio|Escritório|applications-office
++@categoria ciencia|Ciência e matemática|applications-science
++@categoria dados|Estatística e dados|office-chart-line
++@categoria engenharia|Engenharia e CAD|applications-engineering
++@categoria escrita|Escrita, LaTeX e referências|accessories-text-editor
++@categoria programacao|Programação|applications-development
++@categoria web|Na web|applications-internet
++@categoria internet|Internet e conversa|internet-web-browser
++@categoria graficos|Gráficos e design|applications-graphics
++@categoria multimidia|Música e vídeo|applications-multimedia
++@categoria educacao|Educação|applications-education
++@categoria financas|Finanças|office-chart-pie
++@categoria sistema|Sistema e compatibilidade|applications-system
++
++@kit geral|Uso geral|Escritório completo em português, fontes compatíveis com o Office, vídeo, anotações em PDF e os principais apps da web (Office 365, Teams, Google Drive, WhatsApp).|
++@kit exatas|Exatas e engenharia|Cálculo numérico parecido com o MATLAB, Python científico com Jupyter, álgebra simbólica, gráficos, GeoGebra e LaTeX pelo Overleaf. Inclui o Uso geral.|geral
++@kit sociais|Sociais aplicadas|Estatística e econometria com R (RKWard, com menus), Python para dados, gerenciador de referências (ABNT) e Power BI na web. Para Economia, Administração, Contabilidade, Direito e afins. Inclui o Uso geral.|geral
++
++# --- Escritório ----------------------------------------------------------
++libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
++fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|
++xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
++thunderbird|escritorio|Thunderbird|thunderbird||Outlook|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
++calligra|escritorio|Calligra|calligra||Microsoft Office|Outra suíte de escritório, do KDE: textos, planilhas e apresentações.|calligrawords|
++projectlibre|escritorio|ProjectLibre|projectlibre||Microsoft Project|Cronogramas e gráficos de Gantt para projetos.|projectlibre|
++freeplane|escritorio|Freeplane|freeplane||XMind, MindManager|Mapas mentais para estudar e organizar ideias.|freeplane|
++kontact|escritorio|Kontact|kontact korganizer||Outlook|E-mail, agenda e tarefas integrados ao KDE.|kontact|
++pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|
++
++# --- Ciência e matemática ------------------------------------------------
++octave|ciencia|GNU Octave|octave octave-forge-signal octave-forge-control octave-forge-statistics octave-forge-symbolic octave-forge-optim octave-forge-io|exatas|MATLAB, Simulink|Linguagem de cálculo numérico compatível com o MATLAB: a maioria dos scripts .m roda sem mudar. Vem com os pacotes de sinais, controle, estatística, simbólico e otimização.|octave|
++python-ciencia|ciencia|Python científico|python312 py312-numpy py312-scipy py312-matplotlib py312-pandas py312-sympy py312-jupyterlab py312-ipykernel|exatas|MATLAB, Anaconda, Spyder|Python com NumPy, SciPy, Matplotlib, Pandas e SymPy, e o JupyterLab para cadernos (.ipynb).|jupyter|jupyterlab.desktop
++wxmaxima|ciencia|wxMaxima|wxmaxima|exatas|Mathematica, Maple|Álgebra simbólica: derivadas, integrais, limites, equações e séries, com resposta exata.|wxmaxima|
++geogebra|ciencia|GeoGebra|geogebra|exatas|GeoGebra|Geometria, gráficos de funções e cálculo de forma visual.|geogebra|
++labplot|ciencia|LabPlot|labplot|exatas|Origin, SigmaPlot|Gráficos científicos e ajuste de curvas a partir de planilhas e arquivos de dados.|labplot|
++qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
++kmplot|ciencia|KmPlot|kmplot kalgebra||Calculadora gráfica|Gráficos de funções em 2D e 3D, rápidos e simples.|kmplot|
++gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|
++kalzium|ciencia|Kalzium e Avogadro|kalzium avogadro2||ChemDraw|Tabela periódica completa e editor de moléculas em 3D.|kalzium|
++step|ciencia|Step|step||PhET|Simulador de física interativo: molas, gravidade, colisões.|step|
++stellarium|ciencia|Stellarium|stellarium||Planetário|O céu em 3D, de qualquer lugar e data.|stellarium|
++paraview|ciencia|ParaView|paraview||Tecplot|Visualização de dados científicos e simulações grandes.|paraview|
++
++# --- Estatística e dados -------------------------------------------------
++r|dados|R e RKWard|R rkward R-cran-ggplot2 R-cran-readxl R-cran-rmarkdown|sociais|SPSS, Stata, RStudio|A linguagem R com o RKWard, uma interface com menus para análises, gráficos e relatórios. Lê planilhas do Excel.|rkward|
++gretl|dados|gretl|gretl||EViews, Stata|Econometria com menus: regressões, séries temporais, testes e previsões. Usado em cursos de Economia. Traz junto parte do LaTeX (baixa cerca de 1,5 GB).|gretl|
++python-dados|dados|Python para dados|python312 py312-pandas py312-statsmodels py312-seaborn py312-scikit-learn py312-jupyterlab py312-ipykernel|sociais|SPSS, Stata, Excel|Pandas, Statsmodels, Seaborn e scikit-learn no JupyterLab: análise, estatística e aprendizado de máquina.|jupyter|jupyterlab.desktop
++sqlitebrowser|dados|DB Browser for SQLite|sqlitebrowser||Microsoft Access|Abrir, editar e consultar bancos de dados SQLite.|sqlitebrowser|
++dbeaver|dados|DBeaver|dbeaver||SQL Server Management Studio|Cliente de banco de dados: PostgreSQL, MySQL, SQL Server, Oracle e outros.|dbeaver|
++qgis|dados|QGIS|qgis||ArcGIS|Mapas e geoprocessamento (geografia, urbanismo, agronomia, meio ambiente).|qgis|
++
++# --- Engenharia e CAD ----------------------------------------------------
++freecad|engenharia|FreeCAD|FreeCAD||SolidWorks, Inventor, Fusion 360|Modelagem 3D paramétrica de peças e montagens, com desenho técnico.|freecad|
++librecad|engenharia|LibreCAD|librecad||AutoCAD|Desenho técnico em 2D; abre e salva DXF.|librecad|
++kicad|engenharia|KiCad|kicad||Altium, Eagle, Proteus|Esquemas eletrônicos e placas de circuito impresso.|kicad|
++qucs|engenharia|Qucs-S e ngspice|qucs-s ngspice_rework||Multisim, LTspice, PSpice|Simulação de circuitos analógicos e digitais.|qucs|
++logisim|engenharia|Digital e Logisim|digital logisim||Logisim|Circuitos lógicos e sistemas digitais para as aulas.|logisim|
++openscad|engenharia|OpenSCAD|openscad||Tinkercad|Peças 3D descritas em código, prontas para impressão 3D.|openscad|
++gmsh|engenharia|Gmsh e Elmer|gmsh elmerfem||ANSYS, COMSOL|Malhas e simulação por elementos finitos.|gmsh|
++sweethome3d|engenharia|Sweet Home 3D|sweethome3d||SketchUp, Planner 5D|Plantas de casa e decoração em 2D e 3D.|sweethome3d|
++blender|engenharia|Blender|blender||3ds Max, Maya, Cinema 4D|Modelagem, animação e renderização 3D.|blender|
++arduino|engenharia|Arduino|arduino18||Arduino IDE|Programar placas Arduino.|arduino|
++
++# --- Escrita, LaTeX e referências ----------------------------------------
++zotero|escrita|Zotero|zotero|sociais|Mendeley, EndNote|Guarda as referências da pesquisa e gera citações e bibliografia no padrão ABNT, no LibreOffice e no Word.|zotero|
++latex|escrita|LaTeX completo|texlive-full texstudio||MiKTeX, TeXworks|Todo o TeX Live com o TeXstudio, para escrever TCC, artigos e teses sem internet. Baixa vários GB.|texstudio|
++lyx|escrita|LyX|lyx||Word com LaTeX|Escreve em LaTeX vendo o documento quase como fica (precisa do LaTeX completo).|lyx|
++ghostwriter|escrita|Ghostwriter|ghostwriter||Typora, iA Writer|Editor de Markdown sem distrações.|ghostwriter|
++joplin|escrita|Joplin|joplin-desktop||Evernote, OneNote, Notion|Anotações e listas, com sincronização na nuvem.|joplin|
++anki|escrita|Anki|anki||Quizlet|Cartões de memória com repetição espaçada para estudar.|anki|
++calibre|escrita|Calibre|calibre||Kindle|Organiza e converte livros digitais.|calibre|
++
++# --- Programação ---------------------------------------------------------
++vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
++python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|
++c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|
++codeblocks|programacao|Code::Blocks|codeblocks||Dev-C++|IDE simples para C e C++, comum nas disciplinas de introdução.|codeblocks|
++java|programacao|Java 21|openjdk21||Java|O JDK 21 para compilar e rodar programas em Java.|java|
++eclipse|programacao|Eclipse|eclipse openjdk21||Eclipse|IDE para Java.|eclipse|
++netbeans|programacao|NetBeans|netbeans||NetBeans|IDE para Java.|netbeans|
++pycharm|programacao|PyCharm|pycharm||PyCharm|IDE para Python, da JetBrains.|pycharm|
++node|programacao|Node.js|node24||Node.js|JavaScript fora do navegador.|nodejs|
++rust|programacao|Rust|rust||Rust|A linguagem Rust e o cargo.|rust|
++go|programacao|Go|go||Go|A linguagem Go.|go|
++git|programacao|Git com interface|git-cola meld||GitHub Desktop|Git com janelas: commits, histórico e comparação de arquivos.|git-cola|
++
++# --- Na web (atalhos no menu que abrem o site como um app) ---------------
++office365|web|Microsoft 365|web:https://www.office.com/|geral|Word, Excel, PowerPoint, OneDrive|O Word, o Excel e o PowerPoint da Microsoft, no navegador, com a sua conta (da faculdade ou pessoal).|x-office-document|
++teams|web|Microsoft Teams|web:https://teams.microsoft.com/|geral|Teams|Aulas, reuniões e chat do Teams, no navegador.|system-users|
++outlook|web|Outlook|web:https://outlook.office.com/mail/||Outlook|O e-mail da Microsoft (e o institucional).|internet-mail|
++googledrive|web|Google Drive|web:https://drive.google.com/|geral|Google Docs, Planilhas, Apresentações|Os arquivos e documentos do Google.|folder-cloud|
++whatsapp|web|WhatsApp|web:https://web.whatsapp.com/|geral|WhatsApp|O WhatsApp no computador, pelo celular.|dialog-messages|
++meet|web|Google Meet|web:https://meet.google.com/||Meet|Videochamadas do Google.|camera-web|
++zoom|web|Zoom|web:https://app.zoom.us/wc/home||Zoom|Reuniões do Zoom pelo navegador.|camera-web|
++classroom|web|Google Sala de Aula|web:https://classroom.google.com/||Classroom|Turmas, tarefas e notas do Google Classroom.|applications-education|
++overleaf|web|Overleaf|web:https://www.overleaf.com/project|exatas|LaTeX, TeXstudio|LaTeX no navegador, com os modelos de TCC e artigos, em grupo e sem instalar nada.|text-x-tex|
++desmos|web|Desmos|web:https://www.desmos.com/calculator|exatas|Calculadora gráfica|Calculadora gráfica rápida e bonita.|accessories-calculator|
++wolfram|web|Wolfram Alpha|web:https://www.wolframalpha.com/||Mathematica|Respostas e contas passo a passo, do mesmo fabricante do Mathematica.|accessories-calculator|
++powerbi|web|Power BI|web:https://app.powerbi.com/|sociais|Power BI|Painéis e relatórios do Power BI, no navegador.|office-chart-bar|
++canva|web|Canva|web:https://www.canva.com/||Canva|Apresentações, posts e cartazes.|applications-graphics|
++photopea|web|Photopea|web:https://www.photopea.com/||Photoshop|Editor de imagens parecido com o Photoshop, no navegador; abre .psd.|applications-graphics|
++notion|web|Notion|web:https://www.notion.so/||Notion|Anotações e organização.|document-edit|
++
++# --- Internet e conversa -------------------------------------------------
++chromium|internet|Chromium|chromium||Google Chrome|O navegador do projeto do Chrome. Os apps da web abrem nele em janela própria.|chromium|
++chrome|internet|Google Chrome|+linux linux-chrome||Google Chrome|O Chrome do Google (versão Linux, pela camada Linux), com as contas e extensões do Google.|google-chrome|
++telegram|internet|Telegram|telegram-desktop||Telegram|O Telegram no computador.|telegram|
++discord|internet|Discord|+linux linux-discord||Discord|O Discord (versão Linux, pela camada Linux).|discord|
++nextcloud|internet|Nextcloud|nextcloudclient||OneDrive, Dropbox|Sincroniza uma pasta com um servidor Nextcloud.|nextcloud|
++qbittorrent|internet|qBittorrent|qbittorrent||uTorrent|Downloads por torrent.|qbittorrent|
++krdc|internet|Área de trabalho remota|krdc freerdp||Conexão de Área de Trabalho Remota|Acessar outro computador por RDP (Windows) ou VNC.|krdc|
++kdeconnect|internet|KDE Connect|kdeconnect-kde||Phone Link|Liga o celular ao computador: arquivos, notificações e área de transferência.|kdeconnect|
++
++# --- Gráficos e design ---------------------------------------------------
++gimp|graficos|GIMP|gimp||Photoshop|Edição e retoque de fotos.|gimp|
++krita|graficos|Krita|krita||Photoshop, Procreate|Pintura e desenho digital.|krita|
++inkscape|graficos|Inkscape|inkscape||Illustrator, CorelDRAW|Desenho vetorial: logos, cartazes e diagramas.|inkscape|
++scribus|graficos|Scribus|scribus||InDesign|Diagramação de revistas, folhetos e livros.|scribus|
++drawio|graficos|draw.io|drawio||Visio, Lucidchart|Fluxogramas, diagramas UML e organogramas.|drawio|
++dia|graficos|Dia|dia||Visio|Diagramas simples, leve.|dia|
++kolourpaint|graficos|KolourPaint|kolourpaint||Paint|Desenho simples, como o Paint.|kolourpaint|
++
++# --- Música e vídeo ------------------------------------------------------
++vlc|multimidia|VLC|vlc|geral|Windows Media Player|Toca qualquer vídeo ou música.|vlc|
++kdenlive|multimidia|Kdenlive|kdenlive||Premiere, Vegas, CapCut|Edição de vídeo.|kdenlive|
++shotcut|multimidia|Shotcut|shotcut||Premiere|Edição de vídeo, mais simples.|shotcut|
++obs|multimidia|OBS Studio|obs-studio||OBS|Gravar a tela e fazer transmissões ao vivo.|com.obsproject.Studio|
++audacity|multimidia|Audacity|audacity||Audition|Gravar e editar áudio.|audacity|
++elisa|multimidia|Elisa|elisa||Groove, iTunes|Tocador de músicas.|elisa|
++
++# --- Educação ------------------------------------------------------------
++kig|educacao|Kig|kig||Cabri|Geometria interativa.|kig|
++marble|educacao|Marble|marble||Google Earth|Globo e atlas.|marble|
++gcompris|educacao|GCompris|gcompris-qt||Jogos educativos|Mais de 100 atividades para crianças de 2 a 10 anos.|gcompris-qt|
++minuet|educacao|Minuet|minuet||Teoria musical|Treino de ouvido e teoria musical.|minuet|
++kturtle|educacao|KTurtle|kturtle||Logo|Primeiros passos em programação, com a tartaruga.|kturtle|
++
++# --- Finanças ------------------------------------------------------------
++kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken|Controle das contas e do orçamento pessoal.|kmymoney|
++gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas, pessoal ou de pequena empresa.|gnucash|
++
++# --- Sistema e compatibilidade -------------------------------------------
++windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
++linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|
++virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
++filelight|sistema|Filelight|filelight||WinDirStat|Mostra o que está ocupando o disco.|filelight|
++keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass|Cofre de senhas.|keepassxc|
++skanlite|sistema|Scanner|skanlite||Digitalizador do Windows|Digitalizar documentos e fotos.|skanlite|
+diff --git a/usr.sbin/lume-configurar/loja/lume-windows.desktop b/usr.sbin/lume-configurar/loja/lume-windows.desktop
+new file mode 100644
+index 000000000..57fac97b8
+--- /dev/null
++++ b/usr.sbin/lume-configurar/loja/lume-windows.desktop
+@@ -0,0 +1,12 @@
++[Desktop Entry]
++Type=Application
++Name=Windows program
++Name[pt_BR]=Programa do Windows
++Name[pt]=Programa do Windows
++Comment=Run with Wine (offers to install it the first time)
++Comment[pt_BR]=Abre com o Wine (na primeira vez, oferece instalar)
++Exec=/usr/sbin/lume-compat abrir %f
++Icon=wine
++NoDisplay=true
++Terminal=false
++MimeType=application/x-ms-dos-executable;application/x-msdownload;application/vnd.microsoft.portable-executable;application/x-msi;application/x-ms-installer;application/x-bat;
+diff --git a/usr.sbin/lume-configurar/lume-ajuda.sh b/usr.sbin/lume-configurar/lume-ajuda.sh
+new file mode 100644
+index 000000000..aee95a71e
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-ajuda.sh
+@@ -0,0 +1,34 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-ajuda - abre a Ajuda do LumeBSD (páginas em /usr/share/lume/ajuda)
++# no navegador. "lume ajuda windows" vai direto ao assunto.
++#
++
++D=/usr/share/lume/ajuda
++
++case "${1:-}" in
++"")				t=index ;;
++programas|loja|kit|kits)	t=programas ;;
++trocando|equivalentes|matlab|excel|office)	t=trocando ;;
++windows|exe|wine|linux|compat|compatibilidade|web)	t=compatibilidade ;;
++wifi|internet|rede|som|video|vídeo|tela|impressora)	t=internet ;;
++atualizar|atualizacoes|atualizações|tempo|backup)	t=atualizacoes ;;
++problemas|erro|socorro)		t=problemas ;;
++*)	echo "uso: lume ajuda [programas | trocando | windows | wifi | atualizar | problemas]" >&2
++	exit 1 ;;
++esac
++f=$D/$t.html
++[ -f "$f" ] || { echo "lume ajuda: $f não encontrado" >&2; exit 1; }
++
++if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
++	echo "  A Ajuda do LumeBSD abre no desktop (menu > Ajuda do LumeBSD)."
++	echo "  Os arquivos ficam em $D; os comandos têm manual: man lume"
++	exit 0
++fi
++for b in xdg-open firefox chrome; do
++	command -v $b >/dev/null 2>&1 && exec $b "$f"
++done
++echo "lume ajuda: nenhum navegador encontrado; abra $f" >&2
++exit 1
+diff --git a/usr.sbin/lume-configurar/lume-compat.8 b/usr.sbin/lume-configurar/lume-compat.8
+new file mode 100644
+index 000000000..5f59280bb
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-compat.8
+@@ -0,0 +1,61 @@
++.\"
++.\" SPDX-License-Identifier: BSD-2-Clause
++.\"
++.Dd November 4, 2026
++.Dt LUME-COMPAT 8
++.Os
++.Sh NAME
++.Nm lume-compat
++.Nd programas do Windows e do Linux no LumeBSD
++.Sh SYNOPSIS
++.Nm
++.Op Cm estado
++.Nm
++.Cm linux
++.Op Cm ligar | desligar
++.Nm
++.Cm windows
++.Nm
++.Cm abrir
++.Ar arquivo
++.Sh DESCRIPTION
++.Nm
++.Pq ou Nm lume compat
++cuida de rodar programas feitos para outros sistemas.
++.Bl -tag -width "Windows"
++.It Windows
++O Wine, instalado com
++.Ql lume loja instalar windows .
++Dois cliques num
++.Pa .exe ,
++.Pa .msi
++ou
++.Pa .bat
++no Dolphin chamam
++.Nm Cm abrir ,
++que na primeira vez oferece instalar o Wine pelo app
++.Xr lume-programas 1 .
++Cada usuário tem a sua
++.Dq unidade C:
++em
++.Pa ~/.wine .
++.It Linux
++A camada Linux do FreeBSD
++.Pq Xr linux 4 :
++.Cm linux ligar
++liga
++.Va linux_enable
++no
++.Xr rc.conf 5
++e carrega o módulo agora.
++O
++.Xr lume-loja 8
++faz isso sozinho antes de instalar um programa para Linux, como o
++Google Chrome.
++.El
++.Sh SEE ALSO
++.Xr lume 1 ,
++.Xr lume-programas 1 ,
++.Xr wine 1 ,
++.Xr linux 4 ,
++.Xr lume-loja 8
+diff --git a/usr.sbin/lume-configurar/lume-compat.sh b/usr.sbin/lume-configurar/lume-compat.sh
+new file mode 100644
+index 000000000..4480dbdcf
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-compat.sh
+@@ -0,0 +1,106 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-compat - programas de outros sistemas no LumeBSD.
++#
++#   Windows: o Wine roda muitos .exe; dois cliques num .exe (ou .msi) no
++#            Dolphin passam por "lume-compat abrir", que oferece instalar o
++#            Wine na primeira vez.
++#   Linux:   a camada Linux do FreeBSD (linux64.ko e as montagens de
++#            /compat/linux) roda programas feitos para Linux, como o Chrome
++#            e o Discord; os pacotes linux-* dependem dela.
++#
++
++PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
++export PATH
++
++[ "$(id -u)" -eq 0 ] && root=s || root=n
++
++ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
++erro() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
++precisa_root() { [ $root = s ] || erro "precisa ser root (su -)"; }
++
++tem_wine()  { [ -x /usr/local/bin/wine ]; }
++linux_on()  { kldstat -q -m linuxelf 2>/dev/null || kldstat -q -n linux64 2>/dev/null; }
++linux_cfg() { [ "$(sysrc -n linux_enable 2>/dev/null)" = YES ]; }
++
++estado() {
++	echo
++	if tem_wine; then
++		ok "Windows: Wine $(wine --version 2>/dev/null | sed 's/^wine-//') instalado (dois cliques num .exe)"
++	else
++		echo "  · Windows: desligado (lume loja instalar windows)"
++	fi
++	if linux_on && linux_cfg; then
++		ok "Linux: camada ligada$( [ -d /compat/linux/usr ] && echo ', com o Rocky Linux 9 em /compat/linux')"
++	elif linux_cfg; then
++		echo "  · Linux: ligada no boot, ainda não carregada (lume compat linux ligar)"
++	else
++		echo "  · Linux: desligada (lume compat linux ligar)"
++	fi
++	echo
++	echo "  Apps da web (Office 365, Teams, Overleaf...): lume loja lista web"
++	echo
++}
++
++linux() {
++	case "${1:-}" in
++	ligar)
++		precisa_root
++		sysrc -q linux_enable=YES >/dev/null
++		# Carrega o módulo e monta /compat/linux/{proc,sys,dev}.
++		service linux start >/dev/null 2>&1 || service linux restart >/dev/null 2>&1
++		linux_on || erro "não deu para carregar a camada Linux (kldload linux64)"
++		ok "Camada Linux ligada (e no boot)."
++		[ -d /compat/linux/usr ] ||
++		    echo "  Para os programas: lume loja instalar linux (ou chrome, discord)"
++		;;
++	desligar)
++		precisa_root
++		sysrc -q linux_enable=NO >/dev/null
++		ok "Camada Linux desligada a partir do próximo boot."
++		;;
++	*)	estado ;;
++	esac
++}
++
++# Abre um .exe/.msi/.bat com o Wine (o atalho "Programa do Windows" do
++# Dolphin chama isto). Na primeira vez, oferece instalar o Wine pelo app
++# Programas do LumeBSD, que pede a senha e mostra o progresso.
++abrir() {
++	f=$1
++	[ -f "$f" ] || erro "arquivo não encontrado: $f"
++	if ! tem_wine; then
++		if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null; then
++			kdialog --title "Programa do Windows" --yes-label "Instalar" \
++			    --no-label "Cancelar" --yesno "<b>${f##*/}</b> é um programa do Windows.<br><br>O LumeBSD abre muitos deles com o <b>Wine</b>, que ainda não está instalado (baixa cerca de 700 MB).<br><br>Instalar agora?" ||
++			    exit 0
++			/usr/bin/lume-programas --instalar windows
++			tem_wine || exit 0
++		else
++			erro "o Wine não está instalado: lume loja instalar windows"
++		fi
++	fi
++	# A primeira vez cria a "unidade C:" em ~/.wine e demora um pouco.
++	if [ ! -d "${WINEPREFIX:-$HOME/.wine}" ] && command -v kdialog >/dev/null; then
++		kdialog --title "Programa do Windows" --passivepopup \
++		    "Preparando o Wine na primeira vez; leva cerca de um minuto." 20 &
++	fi
++	cd "$(dirname "$f")" || exit 1
++	case "$f" in
++	*.[mM][sS][iI])	exec wine msiexec /i "$f" ;;
++	*.[bB][aA][tT]|*.[cC][mM][dD])	exec wine cmd /c "$f" ;;
++	*)		exec wine start /unix "$f" ;;
++	esac
++}
++
++case "${1:-}" in
++""|estado)	estado ;;
++linux)		shift; linux "$@" ;;
++windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe abrem o programa."
++		else echo "  Para programas do Windows: lume loja instalar windows"; fi ;;
++abrir)		shift; abrir "$1" ;;
++*)	echo "uso: lume compat [estado | linux [ligar | desligar] | windows | abrir ARQUIVO]" >&2
++	exit 1 ;;
++esac
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+index a11790717..1026cd814 100644
+--- a/usr.sbin/lume-configurar/lume-desktop.sh
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -68,7 +68,7 @@ if [ "$escolha" = intel ]; then
+ 	    echo "  ! Firmwares Intel não instalados; tente: pkg install -g 'gpu-firmware-intel-kmod-*'"
+ fi
+ 
+-sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES \
++sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES cupsd_enable=YES \
+     lume_video_enable=YES >/dev/null
+ sysrc -q kld_list+="cuse" >/dev/null
+ # Quem é do grupo wheel ganha vídeo e câmera.
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 9e76c0534..d53865a9a 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -13,7 +13,8 @@
+ # Variáveis para testes automatizados (todas opcionais):
+ #   LUME_DISCO, LUME_SENHA_DISCO, LUME_CONFIRMA=APAGAR, LUME_DESKTOP=s|n,
+ #   LUME_SWAP (padrão 8g), LUME_CONSOLE_SERIAL=1 (console também na serial),
+-#   LUME_REPO_URL (espelho de pacotes, veja lume-desktop)
++#   LUME_REPO_URL (espelho de pacotes, veja lume-desktop),
++#   LUME_KIT=geral|exatas|sociais|"" (os programas da área; vazio: nenhum)
+ #
+ 
+ # Lista oficial dos arquivos do sistema (METALOG do build), com dono,
+@@ -60,7 +61,7 @@ roda()
+     morrer "lume instalar roda a partir do pendrive do LumeBSD"
+ : > "$LOG"
+ 
+-printf "\n  ${NEGRITO}LumeBSD 1.2 \"Farol\" - instalação${FIM}\n\n"
++printf "\n  ${NEGRITO}LumeBSD 1.3 \"Farol\" - instalação${FIM}\n\n"
+ 
+ # --- 1. escolher o disco ------------------------------------------------
+ 
+@@ -154,6 +155,24 @@ else
+ 	desktop=n
+ fi
+ 
++# Os programas da área de quem vai usar (lume loja kit), junto com o desktop.
++kit=
++if [ "$desktop" = s ]; then
++	if [ -n "${LUME_KIT+x}" ]; then
++		kit=$LUME_KIT
++	else
++		echo
++		echo "  Para que você vai usar o computador? Os programas da área vêm junto."
++		echo "    1) Uso geral: escritório em português, vídeo, apps da web (~400 MB)"
++		echo "    2) Exatas e engenharia: Octave (como o MATLAB), Python, GeoGebra (~850 MB)"
++		echo "    3) Sociais aplicadas: R, estatística, Zotero (~1,2 GB)"
++		echo "    4) Só o desktop; escolho depois no app Programas do LumeBSD"
++		printf "  Opção [1]: "
++		read -r r
++		case "$r" in 2) kit=exatas ;; 3) kit=sociais ;; 4) kit= ;; *) kit=geral ;; esac
++	fi
++fi
++
+ # --- 4. instalar ----------------------------------------------------------
+ 
+ echo
+@@ -237,7 +256,7 @@ fdesc			/dev/fd	fdescfs	rw	0	0
+ proc			/proc	procfs	rw	0	0
+ EOF
+ cat > "$ALVO/boot/loader.conf" <<EOF
+-# LumeBSD 1.2 - notebook
++# LumeBSD 1.3 - notebook
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+@@ -261,7 +280,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
+ cat >> "$ALVO/etc/make.conf" <<'EOF'
+ # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
+-# diz "LumeBSD 1.2-FAROL", que o configure dos programas não conhece; a
++# diz "LumeBSD 1.3-FAROL", que o configure dos programas não conhece; a
+ # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
+ .if !defined(_OSRELEASE)
+ _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
+@@ -330,6 +349,12 @@ if [ "$desktop" = s ]; then
+ 	chroot "$ALVO" env LUME_REPO_URL="${LUME_REPO_URL:-}" \
+ 	    /usr/sbin/lume-desktop 2>&1 | tee -a "$LOG" |
+ 	    sed 's/^/    /' || echo "    (o desktop pode ser instalado depois com: lume desktop)"
++	if [ -n "$kit" ] && [ -x "$ALVO/usr/local/bin/plasmashell" ]; then
++		echo "  • Instalando os programas do kit $kit..."
++		chroot "$ALVO" env LUME_SEM_FOTO=1 /usr/sbin/lume-loja kit "$kit" 2>&1 |
++		    tee -a "$LOG" | sed 's/^/    /' ||
++		    echo "    (o kit pode ser instalado depois no app Programas do LumeBSD)"
++	fi
+ fi
+ 
+ passo "Finalizando"
+diff --git a/usr.sbin/lume-configurar/lume-loja.8 b/usr.sbin/lume-configurar/lume-loja.8
+new file mode 100644
+index 000000000..f85c884f4
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-loja.8
+@@ -0,0 +1,108 @@
++.\"
++.\" SPDX-License-Identifier: BSD-2-Clause
++.\"
++.Dd November 4, 2026
++.Dt LUME-LOJA 8
++.Os
++.Sh NAME
++.Nm lume-loja
++.Nd os programas do LumeBSD, por área e em português
++.Sh SYNOPSIS
++.Nm
++.Nm
++.Cm lista
++.Op Ar categoria
++.Nm
++.Cm procurar
++.Ar texto
++.Nm
++.Cm info
++.Ar programa
++.Nm
++.Cm instalar
++.Ar programa ...
++.Nm
++.Cm remover
++.Ar programa ...
++.Nm
++.Cm kit
++.Op Ar kit
++.Sh DESCRIPTION
++.Nm
++.Pq ou Nm lume loja
++instala programas a partir de um catálogo curado em português, com
++categorias, kits por área e, para cada programa, os programas conhecidos
++que ele substitui.
++A busca acha também por eles:
++.Ql lume loja procurar matlab
++mostra o GNU Octave.
++O app gráfico é o
++.Xr lume-programas 1 .
++.Pp
++Os programas vêm dos pacotes oficiais do FreeBSD.
++Os apps da web
++.Pq Microsoft 365, Teams, Overleaf...
++viram atalhos no menu, que abrem o site em janela própria no Chromium ou
++no Chrome, quando instalados, ou no Firefox.
++Programas para Linux ligam antes a camada Linux
++.Pq Xr lume-compat 8 .
++.Pp
++Os kits:
++.Bl -tag -width "sociais"
++.It Cm geral
++Uso geral: LibreOffice em português, fontes compatíveis com o Office,
++VLC, Xournal++ e os apps da web mais usados.
++.It Cm exatas
++Exatas e engenharia: GNU Octave, Python científico com JupyterLab,
++wxMaxima, GeoGebra, LabPlot, Qalculate!, Desmos e Overleaf.
++Inclui o
++.Cm geral .
++.It Cm sociais
++Sociais aplicadas: R com RKWard, Python para dados, Zotero e Power BI.
++Inclui o
++.Cm geral .
++.El
++.Pp
++Instalar e remover precisam de root
++.Pq o app usa o Xr pkexec 1 ,
++exceto os apps da web, que um usuário põe no próprio menu.
++Antes, uma foto do sistema vai para a máquina do tempo
++.Pq Nm lume tempo voltar desfaz .
++Remover marca os pacotes do programa como automáticos e deixa o
++.Xr pkg 8
++tirar só o que nada mais usa; os do desktop e os de outros programas
++instalados do catálogo ficam.
++.Sh COMMANDS
++.Bl -tag -width indent
++.It Cm lista Op Ar categoria
++Os programas, por categoria, com uma marca nos instalados.
++.It Cm procurar Ar texto
++Procura no nome, nos programas parecidos e na descrição.
++.It Cm info Ar programa
++Descrição, pacotes e quanto ocupa no disco.
++.It Cm instalar Ar programa ...
++Instala; com
++.Fl -maquina
++antes do comando, escreve o progresso em linhas
++.Dq @chave valor
++para o app.
++.It Cm remover Ar programa ...
++Remove.
++.It Cm kit Op Ar kit
++Sem argumento, os kits; com um, instala todos os programas dele.
++.El
++.Sh FILES
++.Bl -tag -width indent
++.It Pa /usr/share/lume/loja/catalogo
++Programas, categorias e kits; o formato está no começo do arquivo.
++.It Pa /usr/share/lume/loja/atalhos
++Atalhos do menu para programas cujo pacote não traz um.
++.It Pa /var/db/lume/kits
++Os kits instalados.
++.El
++.Sh SEE ALSO
++.Xr lume 1 ,
++.Xr lume-programas 1 ,
++.Xr lume-compat 8 ,
++.Xr lume-tempo 8 ,
++.Xr pkg 8
+diff --git a/usr.sbin/lume-configurar/lume-loja.sh b/usr.sbin/lume-configurar/lume-loja.sh
+new file mode 100644
+index 000000000..2f4138ca1
+--- /dev/null
++++ b/usr.sbin/lume-configurar/lume-loja.sh
+@@ -0,0 +1,456 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# lume-loja - os programas do LumeBSD: um catálogo em português, por
++# categoria e por kit (Uso geral, Exatas, Sociais aplicadas), com os
++# programas que cada um substitui ("parecido com o MATLAB").
++#
++# Instala pelos pacotes oficiais do FreeBSD; os apps da web viram atalhos no
++# menu. O app "Programas do LumeBSD" (lume-programas) é a cara disto; ele
++# chama este script com --maquina (linhas "@chave valor").
++#
++
++PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
++export PATH
++
++CAT=${LUME_LOJA_CATALOGO:-/usr/share/lume/loja/catalogo}
++ATALHOS=/usr/share/lume/loja/atalhos
++DESKTOP=/usr/share/lume/desktop.txt
++KITS=/var/db/lume/kits
++SISTEMA=/usr/local/share/applications
++[ "$(id -u)" -eq 0 ] && root=s || root=n
++
++MAQUINA=n
++if [ "${1:-}" = --maquina ]; then
++	MAQUINA=s
++	shift
++fi
++
++app()   { [ $MAQUINA = s ] && echo "@$*"; return 0; }
++msg()   { [ $MAQUINA = s ] && echo "$*" || echo "  $*"; }
++ok()    { [ $MAQUINA = s ] && echo "$*" || printf '  \033[32m✓\033[0m %s\n' "$*"; }
++erro()  {
++	if [ $MAQUINA = s ]; then echo "@erro $*"
++	else printf '  \033[31m✗\033[0m %s\n' "$*" >&2; fi
++	exit 1
++}
++precisa_root() { [ $root = s ] || erro "precisa ser root (su -), ou use o app Programas do LumeBSD"; }
++
++[ -r "$CAT" ] || erro "catálogo não encontrado: $CAT"
++
++# --- o catálogo ------------------------------------------------------------
++
++# Linhas de programa (sem comentários e sem @).
++itens() { grep -v '^#' "$CAT" | grep -v '^@' | grep '|'; }
++
++# campo ID N: o campo N (1..9) do programa ID.
++campo() { itens | awk -F'|' -v id="$1" -v n="$2" '$1 == id { print $n; exit }'; }
++
++existe() { itens | awk -F'|' -v id="$1" '$1 == id { e = 1 } END { exit !e }'; }
++
++# Os pacotes de verdade do programa (sem +linux e web:).
++pacotes_de() { for p in $(campo "$1" 4); do case "$p" in +*|web:*) ;; *) echo "$p" ;; esac; done; }
++
++url_de() { for p in $(campo "$1" 4); do case "$p" in web:*) echo "${p#web:}" ;; esac; done; }
++
++e_web() { [ -n "$(url_de "$1")" ]; }
++
++# Programas de um kit, com os kits que ele inclui.
++kit_nome() { grep "^@kit $1|" "$CAT" | cut -d'|' -f2; }
++kit_inclui() { grep "^@kit $1|" "$CAT" | cut -d'|' -f4; }
++programas_do_kit() {
++	ks="$1 $(kit_inclui "$1")"
++	itens | awk -F'|' -v ks="$ks" '
++	    BEGIN { n = split(ks, k, " ") }
++	    { split($5, m, " "); for (i in m) for (j = 1; j <= n; j++)
++	        if (m[i] == k[j]) { print $1; next } }'
++}
++
++# --- o que já está instalado -----------------------------------------------
++
++INSTALADOS=
++carregar_instalados() { INSTALADOS=$(pkg query '%n' 2>/dev/null | tr '\n' ' '); }
++pkg_ok() { case " $INSTALADOS " in *" $1 "*) return 0 ;; esac; return 1; }
++
++atalho_web() {
++	for d in "$SISTEMA" "$HOME/.local/share/applications"; do
++		[ -f "$d/lume-web-$1.desktop" ] && { echo "$d/lume-web-$1.desktop"; return 0; }
++	done
++	return 1
++}
++
++instalado() {
++	if e_web "$1"; then
++		atalho_web "$1" >/dev/null
++		return
++	fi
++	for p in $(pacotes_de "$1"); do
++		pkg_ok "$p" || return 1
++	done
++	return 0
++}
++
++# --- abrir apps da web -----------------------------------------------------
++
++# Abre o site como um app: no Chromium (ou Chrome) em janela própria; sem
++# eles, numa janela nova do Firefox.
++web() {
++	url=$(url_de "$1")
++	[ -n "$url" ] || erro "não é um app da web: $1"
++	for b in chrome chromium linux-chrome; do
++		if command -v $b >/dev/null 2>&1; then
++			exec $b --app="$url" --class="lume-web-$1"
++		fi
++	done
++	exec firefox --new-window "$url"
++}
++
++criar_atalho_web() {
++	id=$1
++	if [ $root = s ]; then d=$SISTEMA; else d=$HOME/.local/share/applications; fi
++	mkdir -p "$d"
++	cat > "$d/lume-web-$id.desktop" <<-EOF
++	[Desktop Entry]
++	Type=Application
++	Name=$(campo "$id" 3)
++	Comment=$(campo "$id" 7)
++	Exec=/usr/sbin/lume-loja web $id
++	Icon=$(campo "$id" 8)
++	Categories=Network;WebBrowser;
++	Keywords=$(campo "$id" 6 | tr ',' ';');web;
++	StartupWMClass=lume-web-$id
++	EOF
++	chmod 0644 "$d/lume-web-$id.desktop"
++}
++
++# Atalhos de menu que o LumeBSD traz para programas sem um (o JupyterLab).
++por_atalhos() {
++	for id in $(itens | awk -F'|' '$9 != "" { print $1 }'); do
++		a=$(campo "$id" 9)
++		[ -f "$ATALHOS/$a" ] || continue
++		if instalado "$id"; then
++			install -m 0644 "$ATALHOS/$a" "$SISTEMA/lume-$a"
++		fi
++	done
++	# Atalhos de programas que saíram.
++	for f in "$SISTEMA"/lume-*.desktop; do
++		[ -f "$f" ] || continue
++		a=${f##*/lume-}
++		[ -f "$ATALHOS/$a" ] || continue
++		usa=n
++		for id in $(itens | awk -F'|' -v a="$a" '$9 == a { print $1 }'); do
++			instalado "$id" && usa=s
++		done
++		[ $usa = n ] && rm -f "$f"
++	done
++	command -v update-desktop-database >/dev/null 2>&1 &&
++	    update-desktop-database -q "$SISTEMA" 2>/dev/null
++	return 0
++}
++
++# --- instalar e remover ----------------------------------------------------
++
++# Roda o pkg e traduz o "[3/40] Fetching ..." / "[3/40] Installing ..." em
++# progresso: baixar é a primeira metade, instalar a segunda.
++pkg_com_progresso() {
++	pkg "$@" 2>&1 | awk -v maq=$MAQUINA '
++	    function pct(p) { if (maq == "s") { printf "@progresso %d\n", p; fflush() } }
++	    /^\[[0-9]+\/[0-9]+\] / {
++		split(substr($1, 2, length($1) - 2), a, "/")
++		if ($2 == "Fetching") { pct(a[1] * 50 / a[2]); fase = "Baixando" }
++		else if ($2 ~ /^(Installing|Upgrading|Reinstalling|Extracting)/) {
++			pct(50 + a[1] * 50 / a[2]); fase = "Instalando" }
++		else if ($2 ~ /^Deinstalling/) { pct(a[1] * 100 / a[2]); fase = "Removendo" }
++		nome = $3; sub(/:$/, "", nome); sub(/\.\.\.$/, "", nome)
++		# O pkg escreve "Installing" e "Extracting" do mesmo pacote.
++		if (fase nome == ultimo) next
++		ultimo = fase nome
++		if (maq == "s") printf "@pacote %s %s\n", fase, nome
++		else printf "    %s %s (%s)\n", fase, nome, $1
++		fflush(); next
++	    }
++	    { print; fflush() }'
++	# O status do pkg, não o do awk.
++	return 0
++}
++
++garantir_pkg() {
++	export ASSUME_ALWAYS_YES=yes
++	if ! pkg -N >/dev/null 2>&1; then
++		msg "Preparando o pkg..."
++		pkg bootstrap -f -q >/dev/null 2>&1 || erro "não deu para preparar o pkg (tem internet?)"
++	fi
++}
++
++instalar() {
++	[ $# -gt 0 ] || erro "uso: lume loja instalar PROGRAMA..."
++	for id in "$@"; do existe "$id" || erro "programa desconhecido: $id (veja: lume loja lista)"; done
++	carregar_instalados
++	pks='' web_ids='' linux=n
++	for id in "$@"; do
++		if e_web "$id"; then web_ids="$web_ids $id"; continue; fi
++		for p in $(pacotes_de "$id"); do pks="$pks $p"; done
++		case " $(campo "$id" 4) " in *" +linux "*) linux=s ;; esac
++	done
++	[ -n "$pks" ] && precisa_root
++
++	if [ -n "$pks" ]; then
++		garantir_pkg
++		# Uma foto do sistema antes, para voltar (lume tempo voltar).
++		[ -x /usr/sbin/lume-tempo ] && [ -z "${LUME_SEM_FOTO:-}" ] &&
++		    /usr/sbin/lume-tempo antes "lume loja instalar $*" >/dev/null 2>&1
++		if [ $linux = s ]; then
++			app "passo 0 3 Ligando a camada Linux"
++			/usr/sbin/lume-compat linux ligar >/dev/null 2>&1 ||
++			    erro "não deu para ligar a camada Linux (lume compat linux ligar)"
++		fi
++		app "passo 1 3 Procurando os programas"
++		msg "Atualizando a lista de pacotes..."
++		pkg update -q >/dev/null 2>&1 || erro "não deu para baixar a lista de pacotes. Tem internet?"
++		app "passo 2 3 Baixando e instalando"
++		msg "Instalando:$pks"
++		pkg_com_progresso install -y $pks
++		carregar_instalados
++		falta=
++		for p in $pks; do pkg_ok "$p" || falta="$falta $p"; done
++		[ -z "$falta" ] || erro "não deu para instalar:$falta"
++		app "passo 3 3 Arrumando o menu"
++		# Programas do Windows de 32 bits (a maioria dos instaladores).
++		case " $pks " in *" wine "*)
++			if [ -x /usr/local/share/wine/pkg32.sh ]; then
++				msg "Preparando o Wine para programas de 32 bits..."
++				/usr/local/share/wine/pkg32.sh install -y wine mesa-dri >/dev/null 2>&1 ||
++				    msg "(sem o suporte a 32 bits; programas de 64 bits funcionam)"
++			fi ;;
++		esac
++		[ $root = s ] && por_atalhos
++	fi
++	for id in $web_ids; do
++		criar_atalho_web "$id"
++	done
++	app "progresso 100"
++	ok "Instalado: $*"
++	app "pronto"
++}
++
++remover() {
++	[ $# -gt 0 ] || erro "uso: lume loja remover PROGRAMA..."
++	for id in "$@"; do existe "$id" || erro "programa desconhecido: $id"; done
++	carregar_instalados
++	pks=
++	for id in "$@"; do
++		if e_web "$id"; then
++			f=$(atalho_web "$id") && { rm -f "$f" 2>/dev/null || erro "sem permissão para apagar $f"; }
++			continue
++		fi
++		pks="$pks $(pacotes_de "$id")"
++	done
++	if [ -n "$(echo $pks)" ]; then
++		precisa_root
++		# Ficam: os do desktop e os de outros programas instalados (o Python
++		# do "Python científico" não sai se o "Python para dados" usa).
++		fica=$(sed 's/#.*//' "$DESKTOP" 2>/dev/null | tr -s ' \n' ' ')
++		for id in $(itens | cut -d'|' -f1); do
++			case " $* " in *" $id "*) continue ;; esac
++			e_web "$id" && continue
++			instalado "$id" && fica="$fica $(pacotes_de "$id" | tr '\n' ' ')"
++		done
++		sai=
++		for p in $pks; do
++			case " $fica " in *" $p "*) continue ;; esac
++			pkg_ok "$p" && sai="$sai $p"
++		done
++		if [ -n "$sai" ]; then
++			[ -x /usr/sbin/lume-tempo ] &&
++			    /usr/sbin/lume-tempo antes "lume loja remover $*" >/dev/null 2>&1
++			app "passo 1 1 Removendo"
++			# Marca como "automático" e deixa o pkg tirar só o que nada mais
++			# usa: nunca leva junto um programa de que outro depende.
++			pkg set -y -A 1 $sai >/dev/null 2>&1
++			pkg_com_progresso autoremove -y
++		fi
++		por_atalhos
++	fi
++	app "progresso 100"
++	ok "Removido: $*"
++	app "pronto"
++}
++
++# --- kits ------------------------------------------------------------------
++
++kit() {
++	if [ $# -eq 0 ]; then
++		grep '^@kit ' "$CAT" | sed 's/^@kit //' | while IFS='|' read -r id nome desc _; do
++			marca=" "
++			grep -qx "$id" "$KITS" 2>/dev/null && marca="✓"
++			printf '  %s %-8s %s\n' "$marca" "$id" "$nome"
++			echo "$desc" | fold -s -w 66 | sed 's/^/             /'
++		done
++		echo
++		echo "  Instalar um kit: lume loja kit exatas"
++		return
++	fi
++	kid=$1
++	grep -q "^@kit $kid|" "$CAT" || erro "kit desconhecido: $kid (veja: lume loja kit)"
++	msg "Kit $(kit_nome "$kid"):"
++	# shellcheck disable=SC2046
++	instalar $(programas_do_kit "$kid")
++	mkdir -p "${KITS%/*}"
++	{ cat "$KITS" 2>/dev/null; echo "$kid"; for k in $(kit_inclui "$kid"); do echo "$k"; done; } |
++	    sort -u > "$KITS.novo" && mv "$KITS.novo" "$KITS"
++}
++
++# --- consultar -------------------------------------------------------------
++
++lista() {
++	carregar_instalados
++	grep '^@categoria ' "$CAT" | sed 's/^@categoria //' | while IFS='|' read -r cid cnome _; do
++		[ -n "${1:-}" ] && [ "$1" != "$cid" ] && continue
++		printf '\n  \033[1m%s\033[0m (%s)\n' "$cnome" "$cid"
++		itens | awk -F'|' -v c="$cid" '$2 == c { print $1 }' | while read -r id; do
++			marca=" "
++			instalado "$id" && marca="✓"
++			p=$(campo "$id" 6)
++			printf '  %s %-16s %s%s\n' "$marca" "$id" "$(campo "$id" 3)" "${p:+  (parecido: $p)}"
++		done
++	done
++	echo
++}
++
++procurar() {
++	[ $# -gt 0 ] || erro "uso: lume loja procurar TEXTO"
++	carregar_instalados
++	achou=n
++	for id in $(itens | grep -i -- "$*" | cut -d'|' -f1); do
++		achou=s
++		marca=" "
++		instalado "$id" && marca="✓"
++		printf '  %s %-16s %s\n' "$marca" "$id" "$(campo "$id" 3)"
++		p=$(campo "$id" 6)
++		[ -n "$p" ] && printf '      parecido com: %s\n' "$p"
++		campo "$id" 7 | fold -s -w 66 | sed 's/^/      /'
++	done
++	[ $achou = s ] || msg "Nada encontrado para \"$*\"."
++}
++
++info() {
++	existe "$1" || erro "programa desconhecido: $1"
++	carregar_instalados
++	printf '  %s\n' "$(campo "$1" 3)"
++	campo "$1" 7 | fold -s -w 70 | sed 's/^/  /'
++	p=$(campo "$1" 6)
++	[ -n "$p" ] && echo "  Parecido com: $p"
++	if e_web "$1"; then
++		echo "  Site: $(url_de "$1")"
++	else
++		echo "  Pacotes: $(pacotes_de "$1" | tr '\n' ' ')"
++		t=$(tamanho "$1")
++		[ -n "$t" ] && [ "$t" -gt 0 ] && echo "  Ocupa: cerca de $((t / 1048576)) MB a mais no disco"
++	fi
++	if instalado "$1"; then echo "  ✓ Instalado"; else echo "  Instalar: lume loja instalar $1"; fi
++}
++
++# Quanto os programas ocupam a mais no disco, com as dependências que ainda
++# não estão instaladas (pelo catálogo do repositório, sem precisar de root).
++tamanho() {
++	pks=
++	for id in "$@"; do pks="$pks $(pacotes_de "$id" | tr '\n' ' ')"; done
++	[ -n "$(echo $pks)" ] || { echo 0; return; }
++	{ pkg rquery -a 'T %n %sb' 2>/dev/null; pkg rquery -a 'D %n %dn' 2>/dev/null; } |
++	    awk -v pedidos="$pks" -v inst="$INSTALADOS" '
++	    $1 == "T" { tam[$2] = $3; next }
++	    $1 == "D" { deps[$2] = deps[$2] " " $3 }
++	    END {
++		n = split(inst, a, " "); for (i = 1; i <= n; i++) tem[a[i]] = 1
++		n = split(pedidos, f, " ")
++		while (n > 0) {
++			p = f[n--]
++			if (p in visto || p in tem) continue
++			visto[p] = 1; total += tam[p]
++			m = split(deps[p], d, " ")
++			for (i = 1; i <= m; i++) f[++n] = d[i]
++		}
++		print total + 0
++	    }'
++}
++
++# Para o app: o que está instalado, os kits e a camada de compatibilidade.
++estado() {
++	carregar_instalados
++	# Num awk só (o app chama a cada mudança).
++	itens | awk -F'|' -v inst="$INSTALADOS" -v sis="$SISTEMA" \
++	    -v casa="$HOME/.local/share/applications" '
++	    BEGIN { n = split(inst, a, " "); for (i = 1; i <= n; i++) tem[a[i]] = 1 }
++	    {
++		ok = 1; web = 0; m = split($4, p, " ")
++		for (i = 1; i <= m; i++) {
++			if (p[i] ~ /^web:/) web = 1
++			else if (p[i] !~ /^\+/ && !(p[i] in tem)) ok = 0
++		}
++		if (web) ok = (system("test -f " sis "/lume-web-" $1 ".desktop -o -f \"" \
++		    casa "/lume-web-" $1 ".desktop\"") == 0)
++		if (ok) print "@instalado " $1
++	    }'
++	[ -f "$KITS" ] && while read -r k; do echo "@kit $k"; done < "$KITS"
++	if pkg -N >/dev/null 2>&1 && pkg rquery '%n' pkg >/dev/null 2>&1; then
++		echo "@repo ok"
++	else
++		echo "@repo vazio"
++	fi
++	echo "@fim"
++}
++
++# O atalho (.desktop) que abre o programa.
++abrir() {
++	existe "$1" || erro "programa desconhecido: $1"
++	e_web "$1" && web "$1"
++	a=$(campo "$1" 9)
++	f=
++	if [ -n "$a" ] && [ -f "$SISTEMA/lume-$a" ]; then
++		f=$SISTEMA/lume-$a
++	else
++		for p in $(pacotes_de "$1"); do
++			f=$(pkg info -l "$p" 2>/dev/null | awk '/\/share\/applications\/.*\.desktop$/ { print $1; exit }')
++			[ -n "$f" ] && break
++		done
++	fi
++	[ -n "$f" ] || erro "$(campo "$1" 3) não tem atalho no menu; use pelo terminal"
++	if command -v kioclient >/dev/null 2>&1; then
++		exec kioclient exec "$f"
++	fi
++	cmd=$(awk -F= '/^Exec=/ { sub(/^Exec=/, ""); print; exit }' "$f" | sed 's/ *%[a-zA-Z]//g')
++	exec sh -c "$cmd"
++}
++
++resumo() {
++	echo
++	echo "  Programas do LumeBSD: $(itens | wc -l | tr -d ' ') programas, em português, por área."
++	echo
++	kit
++	echo
++	echo "  lume loja lista [categoria]   tudo, por categoria"
++	echo "  lume loja procurar TEXTO      acha também pelo nome do programa"
++	echo "                                que você usava (ex.: matlab, excel)"
++	echo "  lume loja instalar PROGRAMA   lume loja remover PROGRAMA"
++	echo
++	echo "  No menu: Programas do LumeBSD."
++	echo
++}
++
++case "${1:-}" in
++"")		resumo ;;
++lista)		shift; lista "$@" ;;
++procurar)	shift; procurar "$@" ;;
++info)		shift; info "$@" ;;
++instalar)	shift; instalar "$@" ;;
++remover)	shift; remover "$@" ;;
++kit)		shift; kit "$@" ;;
++web)		shift; web "$1" ;;
++abrir)		shift; abrir "$1" ;;
++estado)		estado ;;
++tamanho)	shift; carregar_instalados; echo "@tamanho $(tamanho "$@")" ;;
++atalhos)	precisa_root; por_atalhos ;;
++*)	echo "uso: lume loja [lista | procurar | info | instalar | remover | kit]" >&2
++	exit 1 ;;
++esac
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 848713a93..0019ff3e9 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -7,10 +7,12 @@
+ #   lume tema           mostra qual tema está em uso
+ #   lume tema papel     aplica o Papel (o lume desktop já faz isso)
+ #   lume tema padrao    volta ao visual original do KDE
+-#   lume tema integrar  põe no KDE o que é do sistema: o app Atualizações do
+-#                       LumeBSD (menu, aviso na sessão, polkit) e o
+-#                       "Versões anteriores" do Dolphin (o tema chama isto, e
+-#                       o lume_saude também, depois de uma atualização)
++#   lume tema integrar  põe no KDE o que é do sistema: os apps Atualizações
++#                       e Programas do LumeBSD (menu, aviso na sessão,
++#                       polkit), a Ajuda, os dois cliques num .exe (lume
++#                       compat) e o "Versões anteriores" do Dolphin (o tema
++#                       chama isto, e o lume_saude também, depois de uma
++#                       atualização)
+ #
+ # Papel, tinta e cinzas; sem animações, sombras nem transparência; fontes
+ # IBM Plex; ícones Breeze convertidos para tons de cinza; papel de parede
+@@ -161,6 +163,47 @@ integrar()
+ 		instalar $A/org.lumebsd.atualizar.policy \
+ 		    $P/share/polkit-1/actions/org.lumebsd.atualizar.policy 0644
+ 	fi
++	# A loja de programas.
++	if [ -x /usr/bin/lume-programas ]; then
++		instalar $A/lume-programas.desktop \
++		    $P/share/applications/lume-programas.desktop 0644
++		instalar $A/org.lumebsd.programas.policy \
++		    $P/share/polkit-1/actions/org.lumebsd.programas.policy 0644
++	fi
++	# A Ajuda do LumeBSD, no menu.
++	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
++	    $P/share/applications/lume-ajuda.desktop 0644
++	# Dois cliques num .exe: lume-compat abrir (oferece o Wine na primeira vez).
++	instalar /usr/share/lume/loja/lume-windows.desktop \
++	    $P/share/applications/lume-windows.desktop 0644
++	padrao_mime "application/x-ms-dos-executable application/x-msdownload application/vnd.microsoft.portable-executable application/x-msi application/x-ms-installer" \
++	    lume-windows.desktop
++	# Impressoras: o CUPS vem com o desktop; quem atualizou de antes da 1.3
++	# não o tinha ligado (vale a partir do próximo boot).
++	if [ -x $P/sbin/cupsd ] && [ -z "$(sysrc -qn cupsd_enable 2>/dev/null)" ]; then
++		sysrc -q cupsd_enable=YES >/dev/null 2>&1
++	fi
++	# Os atalhos dos programas da loja que precisam de um (o JupyterLab).
++	[ -x /usr/sbin/lume-loja ] && /usr/sbin/lume-loja atalhos >/dev/null 2>&1
++	command -v update-desktop-database >/dev/null 2>&1 &&
++	    update-desktop-database -q $P/share/applications 2>/dev/null
++	return 0
++}
++
++# padrao_mime "tipos" app.desktop: o app padrão desses tipos, para todos (o
++# mimeapps.list do sistema), sem mexer no que já estiver lá.
++padrao_mime()
++{
++	f=$XDG/mimeapps.list
++	mkdir -p $XDG
++	[ -f $f ] || printf '[Default Applications]\n' > $f
++	grep -q '^\[Default Applications\]' $f || printf '\n[Default Applications]\n' >> $f
++	for t in $1; do
++		grep -q "^$t=" $f && continue
++		awk -v l="$t=$2" '{ print } /^\[Default Applications\]$/ { print l }' $f > $f.novo &&
++		    mv $f.novo $f
++	done
++	chmod 0644 $f
+ }
+ 
+ padrao()
