@@ -2,16 +2,16 @@
 # Diagnóstico e testes da sessão gráfica no QEMU (fase "sessao" do
 # teste-pendrive.py): roda no LumeBSD como root, baixado do espelho.
 # Uso: sh sessao-diagnostico.sh atalho|exe|senha|loja|kdialog|cores|tecla|dbus|
-#      teclas|cadeia1..cadeia4|w32|dmg|dmg2
+#      teclas|cadeia1..cadeia4|w32|dmg|dmg2|mac|motor
 # Diagnóstico da sessão gráfica: atalho do filtro e o fluxo do .exe.
 for n in plasmashell kwin_x11 ksmserver kded6; do
-	pid=$(pgrep -n -u fabiano $n)
+	pid=$(pgrep -n -u kalel $n)
 	E=$(procstat -e $pid 2>/dev/null | tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=')
 	[ -n "$E" ] && break
 done
 eval "$(echo "$E" | sed 's/^/export /')"
 echo "DISPLAY=$DISPLAY via $n"
-U="su -m fabiano -c"
+U="su -m kalel -c"
 janelas() { $U 'xdotool search --onlyvisible --name . 2>/dev/null | while read w; do xdotool getwindowname $w; done | sort -u'; }
 case "$1" in
 atalho)
@@ -21,8 +21,8 @@ atalho)
 	echo "--- invocar LumeTinta pelo D-Bus"; $U 'qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut LumeTinta' 2>&1
 	;;
 exe)
-	ls -la /home/fabiano/Downloads
-	$U 'env HOME=/home/fabiano daemon -o /tmp/compat32.log sh -x /usr/sbin/lume-compat abrir /home/fabiano/Downloads/calculadora32.exe'
+	ls -la /home/kalel/Downloads
+	$U 'env HOME=/home/kalel daemon -o /tmp/compat32.log sh -x /usr/sbin/lume-compat abrir /home/kalel/Downloads/calculadora32.exe'
 	sleep 40; echo "--- janelas 1"; janelas
 	$U 'xdotool search --onlyvisible --name "Programa do Windows" windowactivate --sync key Return' 2>&1
 	sleep 60; echo "--- janelas 2"; janelas
@@ -32,8 +32,8 @@ exe)
 esac
 case "$1" in
 cores)
-	$U 'env HOME=/home/fabiano daemon -f gwenview /home/fabiano/Imagens/cores.png' 2>/dev/null
-	$U 'env HOME=/home/fabiano daemon -f okular /home/fabiano/Imagens/cores.png' 2>/dev/null
+	$U 'env HOME=/home/kalel daemon -f gwenview /home/kalel/Imagens/cores.png' 2>/dev/null
+	$U 'env HOME=/home/kalel daemon -f okular /home/kalel/Imagens/cores.png' 2>/dev/null
 	sleep 50; janelas
 	;;
 tecla)
@@ -43,7 +43,7 @@ dbus)
 	$U 'qdbus6 org.kde.kglobalaccel /component/kwin org.kde.kglobalaccel.Component.invokeShortcut LumeTinta'; sleep 5
 	;;
 teclas)
-	grep -i lume /home/fabiano/.config/kglobalshortcutsrc
+	grep -i lume /home/kalel/.config/kglobalshortcutsrc
 	$U 'xmodmap -pm' 2>&1 | head -12
 	;;
 esac
@@ -56,7 +56,7 @@ senha)
 esac
 case "$1" in
 loja)
-	$U 'env HOME=/home/fabiano daemon -o /tmp/loja.log /usr/bin/lume-programas --instalar windows'
+	$U 'env HOME=/home/kalel daemon -o /tmp/loja.log /usr/bin/lume-programas --instalar windows'
 	sleep 60; echo "--- janelas loja"; janelas
 	ps -axo user,pid,etime,command | grep -E "lume-programas|lume-loja|rquery" | grep -v grep | cut -c1-160
 	cat /tmp/loja.log | grep -v -E "canberra|qt.svg" | tail -20
@@ -82,7 +82,7 @@ tecla() { # tenta até a janela sumir (o KWin pode recusar o foco pedido pelo xd
 case "$1" in
 cadeia1)
 	$U 'xset r off'
-	$U 'env HOME=/home/fabiano LUME_PKG32_REPOS=/tmp/pkg32-repos LUME_PKG32_REPO=espelho32 daemon -o /tmp/compat32.log /usr/sbin/lume-compat abrir /home/fabiano/Downloads/calculadora32.exe'
+	$U 'env HOME=/home/kalel LUME_PKG32_REPOS=/tmp/pkg32-repos LUME_PKG32_REPO=espelho32 daemon -o /tmp/compat32.log /usr/sbin/lume-compat abrir /home/kalel/Downloads/calculadora32.exe'
 	espera "Programa do Windows" 120 && tecla "Programa do Windows" Return
 	pkg info -e wine || { espera "^Instalar" 600 && tecla "^Instalar" Return; }
 	;;
@@ -94,17 +94,17 @@ cadeia3)
 	espera "Programa do Windows" 300 && tecla "Programa do Windows" Return
 	;;
 cadeia4)
-	i=0; until [ -x /home/fabiano/.i386-wine-pkg/usr/local/bin/wine ]; do i=$((i+1)); [ $i -gt 400 ] && break; sleep 5; done
-	ls -l /home/fabiano/.i386-wine-pkg/usr/local/bin/wine; tail -3 /home/fabiano/.cache/lume-wine32.log
+	i=0; until [ -x /home/kalel/.i386-wine-pkg/usr/local/bin/wine ]; do i=$((i+1)); [ $i -gt 400 ] && break; sleep 5; done
+	ls -l /home/kalel/.i386-wine-pkg/usr/local/bin/wine; tail -3 /home/kalel/.cache/lume-wine32.log
 	espera "Calculadora de teste" 900 && echo EXE32-ABRIU
 	tail -15 /tmp/compat32.log | grep -v -E "canberra|qt.svg"
 	;;
 esac
 case "$1" in
 w32)
-	ls -d /home/fabiano/.wine 2>&1; ps -axo user,pid,etime,command | grep -i wine | grep -v grep | cut -c1-150
+	ls -d /home/kalel/.wine 2>&1; ps -axo user,pid,etime,command | grep -i wine | grep -v grep | cut -c1-150
 	rm -f /tmp/w32.log
-	$U 'cd /home/fabiano/Downloads && env HOME=/home/fabiano WINEDEBUG=err+all daemon -o /tmp/w32.log sh -x /usr/local/bin/wine calculadora32.exe'
+	$U 'cd /home/kalel/Downloads && env HOME=/home/kalel WINEDEBUG=err+all daemon -o /tmp/w32.log sh -x /usr/local/bin/wine calculadora32.exe'
 	espera "Calculadora de teste" 600 && echo EXE32-ABRIU
 	ps -axo user,pid,etime,command | grep -i wine | grep -v grep | cut -c1-150
 	grep -v -E "canberra|qt.svg" /tmp/w32.log | tail -25
@@ -112,12 +112,25 @@ w32)
 esac
 case "$1" in
 dmg)
-	printf 'koly' > /home/fabiano/Downloads/Keynote-14.2.dmg && chown fabiano /home/fabiano/Downloads/Keynote-14.2.dmg
-	$U 'env HOME=/home/fabiano daemon -f kioclient exec /home/fabiano/Downloads/Keynote-14.2.dmg'
+	printf 'koly' > /home/kalel/Downloads/Keynote-14.2.dmg && chown kalel /home/kalel/Downloads/Keynote-14.2.dmg
+	$U 'env HOME=/home/kalel daemon -f kioclient exec /home/kalel/Downloads/Keynote-14.2.dmg'
 	espera "Programa do Mac" 180
 	;;
 dmg2)
 	tecla "Programa do Mac" Return
 	espera "Programas do LumeBSD" 180
+	;;
+esac
+case "$1" in
+mac)
+	fetch -qo /tmp/lume-macho http://10.0.2.2:8000/teste/lume-macho && chmod +x /tmp/lume-macho
+	fetch -qo /tmp/ola-mac http://10.0.2.2:8000/teste/ola-mac
+	file /tmp/ola-mac
+	su -m kalel -c '/tmp/lume-macho -v /tmp/ola-mac'; echo "saida=$?"
+	;;
+motor)
+	ls -l /usr/bin/lume-motor
+	su -m kalel -c 'cd /tmp && env HOME=/home/kalel lume-motor --png /tmp/motor --tamanho 640x360 --segundos 6.2' 2>&1 | tail -6
+	ls /tmp/motor | head
 	;;
 esac

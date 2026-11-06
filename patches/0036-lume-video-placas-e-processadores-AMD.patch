@@ -1,0 +1,358 @@
+From 5a77e57a945078b2744074ad3c96c1a3c111331a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 10:09:51 -0300
+Subject: [PATCH] lume video: placas e processadores AMD
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Detecta placas AMD (0x1002) e escolhe o driver pelo chip: amdgpu da
+geração Volcanic Islands em diante (Polaris, Vega, Navi, o vídeo dos
+Ryzen), radeonkms nas anteriores. Notebook Ryzen + NVIDIA usa o vídeo
+integrado, como o Intel + NVIDIA. O lume desktop instala o drm e os
+firmwares AMD; o instalador só copia os firmwares AMD do pendrive para
+computadores com AMD. Processador AMD: microcódigo AMD e o sensor
+amdtemp no lugar do coretemp.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.bin/lume/lume.1                          | 15 +++--
+ usr.bin/lume/lume.c                          |  2 +-
+ usr.sbin/lume-configurar/ajuda/internet.html |  2 +-
+ usr.sbin/lume-configurar/desktop.txt         |  3 +-
+ usr.sbin/lume-configurar/lume-desktop.sh     |  8 ++-
+ usr.sbin/lume-configurar/lume-instalar.sh    | 16 ++++-
+ usr.sbin/lume-configurar/lume-video.sh       | 68 +++++++++++++++-----
+ 7 files changed, 85 insertions(+), 29 deletions(-)
+
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index 7c3c179f8..28eb93476 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -14,7 +14,7 @@
+ .Cm configurar | hardware | wifi | desktop | instalar
+ .Nm
+ .Cm video
+-.Op Cm testar | auto | nvidia | intel | scfb
++.Op Cm testar | auto | nvidia | intel | amd | scfb
+ .Nm
+ .Cm tema
+ .Op Cm papel | padrao
+@@ -49,17 +49,20 @@ Feito para rodar no pendrive antes de instalar.
+ Mostra as placas de vídeo e o driver em uso.
+ .Cm auto
+ .Pq padrão
+-escolhe a cada boot: NVIDIA num desktop, Intel num notebook (inclusive
+-híbrido Intel + NVIDIA, em que a tela está ligada na Intel) e o modo sem
+-aceleração
++escolhe a cada boot: NVIDIA num desktop, o vídeo integrado num notebook
++(inclusive híbrido Intel + NVIDIA ou Ryzen + NVIDIA, em que a tela está
++ligada no integrado), AMD quando só há AMD e o modo sem aceleração
+ .Pq scfb
+-quando não há uma das duas ou o driver falha.
++quando não há nenhuma delas ou o driver falha.
++Placas AMD usam o amdgpu; as antigas (até a geração Sea Islands: Radeon HD
++7000, R7 e R9 200) usam o radeonkms.
+ A geração do driver NVIDIA vem do chip: Turing (GTX 16xx, RTX) em diante
+ usa o atual, Maxwell, Pascal e Volta o 580, Kepler o 470.
+ .Cm testar
+ carrega o driver agora;
+ .Cm nvidia ,
+-.Cm intel
++.Cm intel ,
++.Cm amd
+ e
+ .Cm scfb
+ fixam um deles.
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 7ce1e3492..ebfefc5b4 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -399,7 +399,7 @@ usage(void)
+ 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
+ 	    "     lume tema [papel | padrao | tinta [liga | desliga | 0-100] |\n"
+ 	    "                animacao [refresh | esmaecer | nenhuma]]\n"
+-	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
++	    "     lume video [testar | auto | nvidia | intel | amd | scfb]\n"
+ 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
+ 	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"
+ 	    "     lume loja [lista | procurar | info | instalar | remover | kit]\n"
+diff --git a/usr.sbin/lume-configurar/ajuda/internet.html b/usr.sbin/lume-configurar/ajuda/internet.html
+index b5f193bcf..4906c6350 100644
+--- a/usr.sbin/lume-configurar/ajuda/internet.html
++++ b/usr.sbin/lume-configurar/ajuda/internet.html
+@@ -26,7 +26,7 @@
+ <p>Mostra, item por item, o que o LumeBSD reconheceu: processador, vídeo, Wi-Fi, som, câmera, bateria, e o que está faltando. É o melhor jeito de testar um notebook pelo pendrive, antes de instalar.</p>
+ 
+ <h2>Tela e vídeo</h2>
+-<p>O LumeBSD escolhe o driver de vídeo sozinho (Intel ou NVIDIA). Se um driver travar, ele volta no próximo boot para um modo sem aceleração, que sempre funciona. Para testar ou trocar:</p>
++<p>O LumeBSD escolhe o driver de vídeo sozinho (Intel, AMD ou NVIDIA, inclusive o vídeo dos processadores Ryzen). Se um driver travar, ele volta no próximo boot para um modo sem aceleração, que sempre funciona. Para testar ou trocar:</p>
+ <pre><code>lume video testar
+ lume video auto</code></pre>
+ <p>Resolução, escala (telas pequenas com muita resolução) e o segundo monitor ficam em <span class="menu">Configurações do Sistema › Telas</span>.</p>
+diff --git a/usr.sbin/lume-configurar/desktop.txt b/usr.sbin/lume-configurar/desktop.txt
+index b04ff64fc..b7560e2c2 100644
+--- a/usr.sbin/lume-configurar/desktop.txt
++++ b/usr.sbin/lume-configurar/desktop.txt
+@@ -2,8 +2,9 @@
+ # Base de pacotes e firmware
+ pkg
+ cpu-microcode-intel
++cpu-microcode-amd
+ wifi-firmware-iwlwifi-kmod
+-# Vídeo: X e o modo sem aceleração; o driver da placa (NVIDIA ou Intel) o lume desktop escolhe
++# Vídeo: X e o modo sem aceleração; o driver da placa (NVIDIA, Intel ou AMD) o lume desktop escolhe
+ xorg-minimal
+ xf86-video-scfb
+ xf86-input-libinput
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+index 1026cd814..098a31793 100644
+--- a/usr.sbin/lume-configurar/lume-desktop.sh
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -55,8 +55,10 @@ nvidia)	video="$nvidia_pacote"
+ 	echo "  Placa NVIDIA: $nvidia -> $nvidia_pacote" ;;
+ intel)	video="drm-612-kmod libva-intel-media-driver"
+ 	echo "  Vídeo Intel: $intel" ;;
++amd)	video="drm-612-kmod"
++	echo "  Vídeo AMD: $amd -> $amd_driver" ;;
+ *)	video=
+-	echo "  Sem placa NVIDIA ou Intel: o desktop usa o modo sem aceleração." ;;
++	echo "  Sem placa NVIDIA, Intel ou AMD: o desktop usa o modo sem aceleração." ;;
+ esac
+ 
+ if ! pkg update -q || ! pkg install -q $pacotes $video; then
+@@ -67,6 +69,10 @@ if [ "$escolha" = intel ]; then
+ 	pkg install -q -g 'gpu-firmware-intel-kmod-*' ||
+ 	    echo "  ! Firmwares Intel não instalados; tente: pkg install -g 'gpu-firmware-intel-kmod-*'"
+ fi
++if [ "$escolha" = amd ]; then
++	pkg install -q -g 'gpu-firmware-amd-kmod-*' 'gpu-firmware-radeon-kmod-*' ||
++	    echo "  ! Firmwares AMD não instalados; tente: pkg install -g 'gpu-firmware-amd-kmod-*'"
++fi
+ 
+ sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES cupsd_enable=YES \
+     lume_video_enable=YES >/dev/null
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 85e35d2c7..4ae87b720 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -255,6 +255,11 @@ cat > "$ALVO/etc/fstab" <<EOF
+ fdesc			/dev/fd	fdescfs	rw	0	0
+ proc			/proc	procfs	rw	0	0
+ EOF
++# A CPU: Intel ou AMD (o microcódigo e o sensor de temperatura certos).
++case "$(sysctl -n hw.model 2>/dev/null)" in
++*AMD*)	ucode=amd-ucode.bin; sensor=amdtemp ;;
++*)	ucode=intel-ucode.bin; sensor=coretemp ;;
++esac
+ cat > "$ALVO/boot/loader.conf" <<EOF
+ # LumeBSD 1.4 - notebook
+ zfs_load="YES"
+@@ -263,9 +268,9 @@ geom_eli_load="YES"
+ kern.geom.label.disk_ident.enable="0"
+ kern.geom.label.gptid.enable="0"
+ autoboot_delay="3"
+-# Microcódigo da CPU (pacote cpu-microcode-intel)
++# Microcódigo da CPU (pacote cpu-microcode-intel ou cpu-microcode-amd)
+ cpu_microcode_load="YES"
+-cpu_microcode_name="/boot/firmware/intel-ucode.bin"
++cpu_microcode_name="/boot/firmware/$ucode"
+ # Wi-Fi Intel: liga 802.11n/ac e a economia de energia
+ compat.linuxkpi.iwlwifi_11n_disable="0"
+ compat.linuxkpi.iwlwifi_disable_11ac="0"
+@@ -299,7 +304,7 @@ powerd_enable="YES"
+ powerd_flags="-a hiadaptive -b adaptive"
+ performance_cx_lowest="Cmax"
+ economy_cx_lowest="Cmax"
+-kld_list="acpi_ibm coretemp cpuctl"
++kld_list="acpi_ibm $sensor cpuctl"
+ devmatch_blocklist="if_iwx if_iwm"
+ microcode_update_enable="YES"
+ lume_farol_enable="YES"
+@@ -339,6 +344,11 @@ if [ -n "$pk" ]; then
+ 			[ "$escolha" = nvidia ] &&
+ 			    [ "${nvidia_pacote:-}" = nvidia-driver ] || continue ;;
+ 		esac
++		# Os firmwares de vídeo AMD (uns 120 MB instalados) só vão para
++		# computadores com AMD.
++		case "$p" in */gpu-firmware-amd-kmod-*|*/gpu-firmware-radeon-kmod-*)
++			[ -n "${amd:-}" ] || continue ;;
++		esac
+ 		roda chroot "$ALVO" env ASSUME_ALWAYS_YES=yes pkg add -M "${p#$ALVO}"
+ 	done
+ fi
+diff --git a/usr.sbin/lume-configurar/lume-video.sh b/usr.sbin/lume-configurar/lume-video.sh
+index b630f9229..21c25a32c 100644
+--- a/usr.sbin/lume-configurar/lume-video.sh
++++ b/usr.sbin/lume-configurar/lume-video.sh
+@@ -10,11 +10,14 @@
+ #   lume video auto         escolhe sozinho a cada boot (padrão)
+ #   lume video nvidia       sempre o driver NVIDIA
+ #   lume video intel        sempre o driver Intel (i915, drm 6.12)
++#   lume video amd          sempre o driver AMD (amdgpu; radeonkms nas
++#                           placas antigas, até a geração Sea Islands)
+ #   lume video scfb         sempre o modo sem aceleração (framebuffer UEFI)
+ #
+-# No modo auto: placa NVIDIA num desktop (ou sem vídeo Intel) usa o driver
+-# NVIDIA; notebook híbrido Intel + NVIDIA usa a Intel, que é quem liga na
+-# tela; só Intel usa a Intel; o resto usa o scfb.
++# No modo auto: placa NVIDIA num desktop (ou sem vídeo Intel ou AMD) usa o
++# driver NVIDIA; notebook híbrido Intel + NVIDIA ou Ryzen + NVIDIA usa o
++# vídeo integrado, que é quem liga na tela; só Intel usa a Intel; só AMD
++# (placa ou o vídeo do Ryzen) usa a AMD; o resto usa o scfb.
+ #
+ # Proteção contra travamento: antes de carregar o driver o boot grava
+ # /var/db/lume/video-tentando. Se o computador travar, no boot seguinte o
+@@ -26,7 +29,7 @@ XCONF=/usr/local/etc/X11/xorg.conf.d/10-lume-video.conf
+ 
+ uso()
+ {
+-	echo "uso: lume video [testar | detectar | auto | nvidia | intel | scfb]" >&2
++	echo "uso: lume video [testar | detectar | auto | nvidia | intel | amd | scfb]" >&2
+ 	exit 2
+ }
+ 
+@@ -62,16 +65,37 @@ nvidia_pacote()
+ 	esac
+ }
+ 
++# O driver AMD pelo nome do chip: as gerações até Sea Islands (GCN 1 e 2,
++# e as anteriores, TeraScale) usam o radeonkms; da Volcanic Islands (GCN 3:
++# Tonga, Fiji, Carrizo) em diante, o amdgpu (Polaris, Vega, Navi, os Ryzen).
++amd_driver()
++{
++	case "$1" in
++	*Tahiti*|*Pitcairn*|*"Cape Verde"*|*Verde*|*Oland*|*Hainan*|*Bonaire*|\
++	*Hawaii*|*Kaveri*|*Kabini*|*Mullins*|*Beema*|*Godavari*|*Spectre*|\
++	*Spooky*|*Kalindi*|*Cedar*|*Redwood*|*Juniper*|*Cypress*|*Hemlock*|\
++	*Caicos*|*Turks*|*Barts*|*Cayman*|*Antilles*|*Palm*|*Sumo*|*Wrestler*|\
++	*Aruba*|*Trinity*|*Richland*|*Devastator*|*Scrapper*|*RV[0-9]*|\
++	*RS[0-9]*|*R[1-7][0-9][0-9]*|*"Radeon HD [2-7]"*|*"Radeon R[579] 2"*|\
++	*"FirePro W[5-9]000"*)
++		echo radeonkms ;;
++	*)	echo amdgpu ;;
++	esac
++}
++
+ detectar()
+ {
+ 	nvidia=$(placas | awk -F'|' '$1 == "0x10de" {print $2; exit}')
+ 	intel=$(placas | awk -F'|' '$1 == "0x8086" {print $2; exit}')
++	amd=$(placas | awk -F'|' '$1 == "0x1002" {print $2; exit}')
+ 	bateria=nao
+ 	acpiconf -i 0 >/dev/null 2>&1 && bateria=sim
+-	if [ -n "$nvidia" ] && { [ -z "$intel" ] || [ "$bateria" = nao ]; }; then
++	if [ -n "$nvidia" ] && { [ -z "$intel$amd" ] || [ "$bateria" = nao ]; }; then
+ 		escolha=nvidia
+ 	elif [ -n "$intel" ]; then
+ 		escolha=intel
++	elif [ -n "$amd" ]; then
++		escolha=amd
+ 	else
+ 		escolha=scfb
+ 	fi
+@@ -79,6 +103,8 @@ detectar()
+ 	echo "nvidia=$nvidia"
+ 	[ -n "$nvidia" ] && echo "nvidia_pacote=$(nvidia_pacote "$nvidia")"
+ 	echo "intel=$intel"
++	echo "amd=$amd"
++	[ -n "$amd" ] && echo "amd_driver=$(amd_driver "$amd")"
+ 	echo "bateria=$bateria"
+ }
+ 
+@@ -86,13 +112,14 @@ detectar()
+ 
+ xorg()
+ {
+-	# xorg intel|nvidia|scfb: o Intel usa o "modesetting" que o X acha sozinho
++	# xorg intel|amd|nvidia|scfb: Intel e AMD usam o "modesetting", que o X
++	# acha sozinho
+ 	mkdir -p "$(dirname "$XCONF")"
+ 	case "$1" in
+-	intel)	rm -f "$XCONF"; return ;;
++	intel|amd)	rm -f "$XCONF"; return ;;
+ 	esac
+ 	cat > "$XCONF" <<-EOF
+-	# Criado por lume video ($1). Para mudar: lume video auto|nvidia|intel|scfb
++	# Criado por lume video ($1). Para mudar: lume video auto|nvidia|intel|amd|scfb
+ 	Section "Device"
+ 	    Identifier "Tela"
+ 	    Driver "$1"
+@@ -121,6 +148,14 @@ carregar_intel()
+ 	esperar_dispositivo /dev/dri/card0
+ }
+ 
++carregar_amd()
++{
++	m=$(amd_driver "$(placas | awk -F'|' '$1 == "0x1002" {print $2; exit}')")
++	[ -f /boot/modules/$m.ko ] || return 2
++	kldstat -q -m $m || kldload $m 2>/dev/null || return 1
++	esperar_dispositivo /dev/dri/card0
++}
++
+ carregar_nvidia()
+ {
+ 	[ -f /boot/modules/nvidia-modeset.ko ] || return 2
+@@ -144,8 +179,8 @@ alvo()
+ 	esac
+ }
+ 
+-# tentar intel|nvidia: carrega com a proteção contra travamento.
+-# Grava o estado: intel, nvidia, falhou ou sem-driver.
++# tentar intel|amd|nvidia: carrega com a proteção contra travamento.
++# Grava o estado: intel, amd, nvidia, falhou ou sem-driver.
+ tentar()
+ {
+ 	mkdir -p "$DB"
+@@ -179,7 +214,7 @@ boot()
+ 		return 0
+ 	fi
+ 	case "$quero" in
+-	intel|nvidia)
++	intel|amd|nvidia)
+ 		tentar "$quero" ||
+ 		    echo "lume video: o driver $quero não subiu; usando scfb." ;;
+ 	*)	xorg scfb
+@@ -193,11 +228,12 @@ mostrar()
+ 	estado=$(cat "$DB/video-estado" 2>/dev/null || echo "nunca testado")
+ 	[ -n "$nvidia" ] && echo "  NVIDIA: $nvidia (pacote $(nvidia_pacote "$nvidia"))"
+ 	[ -n "$intel" ] && echo "  Intel:  $intel"
+-	[ -z "$nvidia$intel" ] && echo "  Nenhuma placa NVIDIA ou Intel; o desktop usa o scfb."
++	[ -n "$amd" ] && echo "  AMD:    $amd (driver $amd_driver)"
++	[ -z "$nvidia$intel$amd" ] && echo "  Nenhuma placa NVIDIA, Intel ou AMD; o desktop usa o scfb."
+ 	echo "  modo:   $(modo_atual) -> $(alvo)"
+ 	echo "  estado: $estado"
+ 	case "$estado" in
+-	intel|nvidia) echo "  O driver $estado está ativo: vídeo acelerado." ;;
++	intel|amd|nvidia) echo "  O driver $estado está ativo: vídeo acelerado." ;;
+ 	travou)	echo "  Um driver travou o computador; o desktop usa scfb."
+ 		echo "  Para tentar de novo: lume video auto" ;;
+ 	falhou)	echo "  O driver não reconheceu a placa; o desktop usa scfb." ;;
+@@ -209,7 +245,7 @@ testar()
+ {
+ 	quero=$(alvo)
+ 	case "$quero" in
+-	intel|nvidia) ;;
++	intel|amd|nvidia) ;;
+ 	*)	echo "  Nada para testar: este computador usa o modo scfb."
+ 		return 0 ;;
+ 	esac
+@@ -227,7 +263,7 @@ testar()
+ 			    echo "    Esta placa precisa do $nvidia_pacote; lume desktop instala o certo."
+ 		fi ;;
+ 	esac
+-	dmesg | grep -iE 'i915|drm|nvidia|nvrm' | tail -4 | sed 's/^/    /'
++	dmesg | grep -iE 'i915|amdgpu|radeon|drm|nvidia|nvrm' | tail -4 | sed 's/^/    /'
+ }
+ 
+ case "${1:-}" in
+@@ -241,7 +277,7 @@ case "${1:-}" in
+ detectar)	detectar ;;
+ --boot)		boot ;;
+ testar)		testar ;;
+-auto|nvidia|intel|scfb)
++auto|nvidia|intel|amd|scfb)
+ 		sysrc -q lume_video="$1" >/dev/null
+ 		[ "$1" = auto ] && rm -f "$DB/video-estado"
+ 		[ "$1" = scfb ] && xorg scfb

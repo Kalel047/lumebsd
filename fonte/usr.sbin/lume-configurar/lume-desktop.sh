@@ -55,8 +55,10 @@ nvidia)	video="$nvidia_pacote"
 	echo "  Placa NVIDIA: $nvidia -> $nvidia_pacote" ;;
 intel)	video="drm-612-kmod libva-intel-media-driver"
 	echo "  Vídeo Intel: $intel" ;;
+amd)	video="drm-612-kmod"
+	echo "  Vídeo AMD: $amd -> $amd_driver" ;;
 *)	video=
-	echo "  Sem placa NVIDIA ou Intel: o desktop usa o modo sem aceleração." ;;
+	echo "  Sem placa NVIDIA, Intel ou AMD: o desktop usa o modo sem aceleração." ;;
 esac
 
 if ! pkg update -q || ! pkg install -q $pacotes $video; then
@@ -66,6 +68,10 @@ fi
 if [ "$escolha" = intel ]; then
 	pkg install -q -g 'gpu-firmware-intel-kmod-*' ||
 	    echo "  ! Firmwares Intel não instalados; tente: pkg install -g 'gpu-firmware-intel-kmod-*'"
+fi
+if [ "$escolha" = amd ]; then
+	pkg install -q -g 'gpu-firmware-amd-kmod-*' 'gpu-firmware-radeon-kmod-*' ||
+	    echo "  ! Firmwares AMD não instalados; tente: pkg install -g 'gpu-firmware-amd-kmod-*'"
 fi
 
 sysrc -q dbus_enable=YES sddm_enable=YES webcamd_enable=YES cupsd_enable=YES \

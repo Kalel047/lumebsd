@@ -14,10 +14,12 @@
 #                       chama isto, e o lume_saude também, depois de uma
 #                       atualização), os efeitos do KWin do LumeBSD e os
 #                       atalhos de teclado do KWin (o kglobalacceld no D-Bus)
-#   lume tema tinta [liga | desliga | NÚMERO]
+#   lume tema tinta [liga | desliga | NÚMERO | grao N | viscosidade MS]
 #                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
 #                       papel e tinta; fotos, vídeos e tela cheia ficam com
-#                       cor. NÚMERO é a intensidade, de 0 a 100
+#                       cor. NÚMERO é a intensidade, de 0 a 100; grao, as
+#                       fibras do papel (0 a 100); viscosidade, quanto a tinta
+#                       demora para assentar (ms; 0 desliga)
 #   lume tema animacao [refresh | esmaecer | nenhuma]
 #                       como as janelas abrem e fecham
 #
@@ -303,10 +305,19 @@ tinta()
 		else
 			echo "  filtro e-ink: desligado   (lume tema tinta liga)"
 		fi
+		echo "  papel: grão $(kwin_ler --group Effect-lume_tinta --key Grao --default 40), viscosidade da tinta $(kwin_ler --group Effect-lume_tinta --key Viscosidade --default 35) ms"
 		echo "  Atalhos: Ctrl+Meta+T liga e desliga; Ctrl+Meta+Y só na janela ativa." ;;
 	liga|ligar|on)	kwin_config --group Plugins --key lume_tintaEnabled true ;;
 	desliga|desligar|off)	kwin_config --group Plugins --key lume_tintaEnabled false ;;
-	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100]" >&2; exit 2 ;;
+	grao|grão)
+		case "${2:-}" in ""|*[!0-9]*) echo "uso: lume tema tinta grao 0-100" >&2; exit 2 ;; esac
+		[ "$2" -le 100 ] || { echo "lume tema: grão de 0 a 100" >&2; exit 2; }
+		kwin_config --group Effect-lume_tinta --key Grao "$2" ;;
+	viscosidade)
+		case "${2:-}" in ""|*[!0-9]*) echo "uso: lume tema tinta viscosidade MS (0 desliga)" >&2; exit 2 ;; esac
+		[ "$2" -le 500 ] || { echo "lume tema: viscosidade de 0 a 500 ms" >&2; exit 2; }
+		kwin_config --group Effect-lume_tinta --key Viscosidade "$2" ;;
+	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100 | grao 0-100 | viscosidade MS]" >&2; exit 2 ;;
 	*)	[ "$1" -le 100 ] || { echo "lume tema: intensidade de 0 a 100" >&2; exit 2; }
 		kwin_config --group Effect-lume_tinta --key Intensidade "$1"
 		kwin_config --group Plugins --key lume_tintaEnabled true ;;

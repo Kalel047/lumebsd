@@ -2,8 +2,9 @@
 # Base de pacotes e firmware
 pkg
 cpu-microcode-intel
+cpu-microcode-amd
 wifi-firmware-iwlwifi-kmod
-# Vídeo: X e o modo sem aceleração; o driver da placa (NVIDIA ou Intel) o lume desktop escolhe
+# Vídeo: X e o modo sem aceleração; o driver da placa (NVIDIA, Intel ou AMD) o lume desktop escolhe
 xorg-minimal
 xf86-video-scfb
 xf86-input-libinput

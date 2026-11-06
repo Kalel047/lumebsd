@@ -1,0 +1,32 @@
+From e4a0bef2ef8375570a83045a7dc45a0b6a300cf9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 10:40:01 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20instalar:=20a=20.iso=20gravada=20num=20p?=
+ =?UTF-8?q?endrive=20tamb=C3=A9m=20fica=20de=20fora?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/lume-instalar.sh | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 4ae87b720..1be1cbb24 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -65,8 +65,10 @@ printf "\n  ${NEGRITO}LumeBSD 1.4 \"Farol\" - instalação${FIM}\n\n"
+ 
+ # --- 1. escolher o disco ------------------------------------------------
+ 
+-# O disco do próprio pendrive fica de fora.
+-vivo=$(glabel status 2>/dev/null | awk '$1 == "gpt/lumeroot" {print $3}' |
++# O disco do próprio pendrive fica de fora (o do .img ou o da .iso gravada
++# num pendrive; um DVD já fica de fora por ser cd*).
++vivo=$(glabel status 2>/dev/null |
++    awk '$1 == "gpt/lumeroot" || $1 == "iso9660/LUMEBSD" {print $3; exit}' |
+     sed -E 's/p[0-9]+$//')
+ discos=
+ for d in $(sysctl -n kern.disks); do

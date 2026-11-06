@@ -35,7 +35,7 @@
 #include <unistd.h>
 
 #define	LUME_NAME	"LumeBSD"
-#define	LUME_VERSION	"1.4"
+#define	LUME_VERSION	"1.5"
 #define	LUME_CODENAME	"Farol"
 #define	LUME_MARCA	"/var/db/lume/configurado"
 #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
@@ -399,7 +399,7 @@ usage(void)
 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
 	    "     lume tema [papel | padrao | tinta [liga | desliga | 0-100] |\n"
 	    "                animacao [refresh | esmaecer | nenhuma]]\n"
-	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
+	    "     lume video [testar | auto | nvidia | intel | amd | scfb]\n"
 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
 	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"
 	    "     lume loja [lista | procurar | info | instalar | remover | kit]\n"

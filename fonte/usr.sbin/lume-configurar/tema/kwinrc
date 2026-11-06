@@ -23,6 +23,8 @@ kwin4_effect_scaleEnabled=false
 
 [Effect-lume_tinta]
 Intensidade=100
+Grao=40
+Viscosidade=35
 
 [org.kde.kdecoration2]
 library=org.kde.breeze

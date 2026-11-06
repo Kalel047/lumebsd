@@ -145,9 +145,9 @@ root@thinkpad:~ # lume loja info qalculate
 root@thinkpad:~ # ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg i nfo -e xdotool && echo xdotool-ok
 
 ## .exe de 64 bits
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'i=0; u ntil xdotool search --onlyvisible --name "Calculadora de teste" >/dev/null; do i =$((i+1)); [ $i -gt 72 ] && break; sleep 5; done; xdotool search --onlyvisible - -name "Calculadora de teste" && echo EXE-ABRIU'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'i=0; u ntil xdotool search --onlyvisible --name "Calculadora de teste" >/dev/null; do i =$((i+1)); [ $i -gt 72 ] && break; sleep 5; done; xdotool search --onlyvisible - -name "Calculadora de teste" && echo EXE-ABRIU'
 69206017
 EXE-ABRIU
-root@thinkpad:~ # tail -40 /tmp/compat.log; ps -axo user,pid,etime,command | gre p -i wine | grep -v grep | cut -c1-150; ls /home/fabiano/.wine
+root@thinkpad:~ # tail -40 /tmp/compat.log; ps -axo user,pid,etime,command | gre p -i wine | grep -v grep | cut -c1-150; ls /home/kalel/.wine
 004c:fixme:actctx:parse_depend_manifests Could not find dependent assembly L"Microsoft.Windows.Common-Controls" (6.0.0.0)
 0054:fixme:actctx:parse_depend_manifests Could not find dependent assembly L"Microsoft.Windows.Common-Controls" (6.0.0.0)

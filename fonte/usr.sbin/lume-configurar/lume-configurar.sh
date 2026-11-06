@@ -25,7 +25,7 @@ cabecalho()
 {
 	echo
 	echo "  ============================================================"
-	echo "     LumeBSD 1.4 \"Farol\"  -  assistente de configuração"
+	echo "     LumeBSD 1.5 \"Farol\"  -  assistente de configuração"
 	echo "  ============================================================"
 	echo
 }
@@ -79,7 +79,7 @@ coletar()
 	SENHA_ROOT=$SENHA
 
 	secao 2/6 "Seu usuário"
-	echo "      Login em minúsculas (ex.: fabiano). Deixe vazio para pular."
+	echo "      Login em minúsculas (ex.: kalel). Deixe vazio para pular."
 	while :; do
 		perguntar "Login" ""
 		USUARIO=$RESP

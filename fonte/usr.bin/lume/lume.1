@@ -14,7 +14,7 @@
 .Cm configurar | hardware | wifi | desktop | instalar
 .Nm
 .Cm video
-.Op Cm testar | auto | nvidia | intel | scfb
+.Op Cm testar | auto | nvidia | intel | amd | scfb
 .Nm
 .Cm tema
 .Op Cm papel | padrao
@@ -49,17 +49,20 @@ Feito para rodar no pendrive antes de instalar.
 Mostra as placas de vídeo e o driver em uso.
 .Cm auto
 .Pq padrão
-escolhe a cada boot: NVIDIA num desktop, Intel num notebook (inclusive
-híbrido Intel + NVIDIA, em que a tela está ligada na Intel) e o modo sem
-aceleração
+escolhe a cada boot: NVIDIA num desktop, o vídeo integrado num notebook
+(inclusive híbrido Intel + NVIDIA ou Ryzen + NVIDIA, em que a tela está
+ligada no integrado), AMD quando só há AMD e o modo sem aceleração
 .Pq scfb
-quando não há uma das duas ou o driver falha.
+quando não há nenhuma delas ou o driver falha.
+Placas AMD usam o amdgpu; as antigas (até a geração Sea Islands: Radeon HD
+7000, R7 e R9 200) usam o radeonkms.
 A geração do driver NVIDIA vem do chip: Turing (GTX 16xx, RTX) em diante
 usa o atual, Maxwell, Pascal e Volta o 580, Kepler o 470.
 .Cm testar
 carrega o driver agora;
 .Cm nvidia ,
-.Cm intel
+.Cm intel ,
+.Cm amd
 e
 .Cm scfb
 fixam um deles.
@@ -86,6 +89,13 @@ ou muda a intensidade
 do filtro e-ink, um efeito do KWin que desenha as janelas em papel e
 tinta; fotos, vídeos, editores de imagem e janelas em tela cheia ficam com
 as cores.
+.Cm tinta grao
+.Ar 0-100
+muda as fibras do papel;
+.Cm tinta viscosidade
+.Ar ms
+o tempo que a tinta leva para assentar quando a tela muda (0 desliga; só
+com placa de vídeo).
 Atalhos: Ctrl+Meta+T liga e desliga, Ctrl+Meta+Y só na janela ativa.
 .Cm animacao
 escolhe como as janelas abrem e fecham:

@@ -1,4 +1,4 @@
-# LumeBSD 1.4 "Farol"
+# LumeBSD 1.5 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -26,7 +26,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.4
+        |[_]|        LumeBSD 1.5
         |===|        "Farol"
         |   |
         |===|
@@ -41,6 +41,10 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 | | |
 |---|---|
+| **Papel e tinta de verdade** (1.5) | o filtro e-ink ganhou o **grão do papel** (fibras paradas na tela) e a **viscosidade da tinta**: quando a tela muda, o conteúdo novo assenta sobre o anterior, sem piscar |
+| **Motor de renderização** (1.5) | o protótipo `lume-motor`: desenha direto na placa de vídeo (DRM/KMS), letras e desenhos calculados pelas equações das curvas em cada pixel, papel num compute shader, no modo de maior taxa do monitor ([docs/MOTOR.md](docs/MOTOR.md)) |
+| **AMD e .iso** (1.5) | placas AMD (amdgpu e radeonkms) e processadores Ryzen; além do `.img`, uma **`.iso`** para DVD, máquina virtual ou pendrive |
+| **Mac, começo** (1.5) | o `lume-macho` roda programas do macOS que falam direto com o kernel, traduzindo as chamadas do macOS para as do FreeBSD ([docs/MACOS.md](docs/MACOS.md)) |
 | **A tela de papel** (1.4) | um filtro e-ink desenha as janelas em papel e tinta, que se lê melhor sob luz forte sem aumentar o brilho; fotos, vídeos e tela cheia ficam com cor; as janelas abrem com um **refresh de e-ink** ou esmaecendo |
 | **Loja de cara nova** (1.4) | os Programas do LumeBSD com aparência própria de papel e tinta, como um livro: índice numerado, kits como capítulos |
 | **Windows 32 bits e Mac** (1.4) | `.exe` de 32 bits abrem com o Wine (a parte de 32 bits vem na primeira vez, sem senha); um `.dmg` do Mac mostra o que usar no lugar |
@@ -61,7 +65,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 ### 1. Gravar
 
-Baixe `LumeBSD-1.3-Farol-pendrive.img.xz` das
+Baixe `LumeBSD-1.5-Farol-pendrive.img.xz` (ou a `LumeBSD-1.5-Farol.iso`) das
 [Releases](https://github.com/Kalel047/lumebsd/releases) (ou do último
 [Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml),
 em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
@@ -69,7 +73,13 @@ em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
 
 - **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
   perguntar, **modo DD**.
-- **Linux/FreeBSD**: `dd if=LumeBSD-1.3-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+- **Linux/FreeBSD**: `dd if=LumeBSD-1.5-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+
+A `.iso` serve para gravar num DVD, abrir numa máquina virtual (VirtualBox,
+VMware, QEMU, GNOME Boxes) ou num pendrive com o Ventoy; também pode ser
+gravada direto num pendrive como a `.img` (o Rufus pergunta: escolha o modo
+DD). No sistema ao vivo da `.iso`, o disco é só de leitura e o que muda fica
+na memória.
 
 Na BIOS/UEFI do PC, desligue o *Secure Boot* (o loader do FreeBSD não é
 assinado) e dê boot pelo pendrive (F12 na maioria das placas).
@@ -259,16 +269,16 @@ O FreeBSD tem ZFS e snapshots, mas nada que os tire sozinho nem um jeito
 simples de voltar no tempo. O LumeBSD vem com isso ligado:
 
 ```
-fabiano@farol:~ $ lume tempo versoes Documentos/contrato.odt
+kalel@farol:~ $ lume tempo versoes Documentos/contrato.odt
 
-  /home/fabiano/Documentos/contrato.odt
+  /home/kalel/Documentos/contrato.odt
   hoje 14:00                  48 KB   lume-2026-11-04_14.00.02
   hoje 10:00                  41 KB   lume-2026-11-04_10.00.01
   ontem 18:00                 37 KB   lume-2026-11-03_18.00.03
 
-fabiano@farol:~ $ lume tempo recuperar Documentos/contrato.odt ontem
+kalel@farol:~ $ lume tempo recuperar Documentos/contrato.odt ontem
   ✓ versão de ontem 18:00 recuperada em:
-    /home/fabiano/Documentos/contrato (de 03-11 18.00).odt
+    /home/kalel/Documentos/contrato (de 03-11 18.00).odt
 ```
 
 - **Uma foto por hora**, só quando algo mudou, das pastas pessoais e do
@@ -349,7 +359,9 @@ O desktop vem com um visual próprio inspirado nas telas de e-ink
 - **fontes**: IBM Plex Sans, Serif (títulos das janelas) e Mono (terminal);
 - **filtro e-ink** (1.4): um efeito do KWin desenha cada janela em papel e
   tinta; fotos, vídeos, editores de imagem e janelas em tela cheia ficam
-  com cor (Ctrl+Meta+T liga e desliga, `lume tema tinta`);
+  com cor (Ctrl+Meta+T liga e desliga, `lume tema tinta`); na 1.5, o grão
+  do papel e a viscosidade da tinta (`lume tema tinta grao`,
+  `lume tema tinta viscosidade`);
 - **sem sombras, transparência nem animações de deslizar e crescer**
   (`AnimationDurationFactor=0`): as janelas abrem com o **refresh de
   e-ink**, escuras por um instante e o conteúdo de uma vez, ou esmaecendo
@@ -441,10 +453,12 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0028..0030           lume loja, lume compat, lume ajuda; 1.3
   0031..0034           a tela de papel, Windows 32 bits, Mac, atalhos
                        do KWin; 1.4
-app/                   os apps Atualizações e Programas do LumeBSD (Qt 6) e os
-                       efeitos do KWin (o filtro e-ink e as animações),
-                       fora da árvore do FreeBSD; ferramentas/montar-app.py
-                       os compila
+  0035..0041           AMD, a .iso, papel e tinta, lume-macho; 1.5
+app/                   os apps Atualizações e Programas do LumeBSD (Qt 6), os
+                       efeitos do KWin (o filtro e-ink e as animações) e o
+                       lume-motor, fora da árvore do FreeBSD;
+                       ferramentas/montar-*.py os compilam
+mac/                   lume-macho (programas do macOS) e o programa de teste
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
                        (forja, lume, vigia, lume-configurar, rc.d, tema...)
 conf/                  src.conf (userland) e LUME (kernel)
@@ -477,7 +491,7 @@ O script clona o FreeBSD `releng/15.1`, aplica os patches, compila
 userland e kernel `LUME`, instala num diretório de staging sem precisar de
 root, baixa os pacotes essenciais do repositório trimestral do FreeBSD
 (conferindo os hashes), compila os apps contra o `qt6-base`
-do FreeBSD e gera `LumeBSD-1.3-Farol-pendrive.img` e, em `atualizacao/`, o
+do FreeBSD e gera `LumeBSD-1.5-Farol-pendrive.img`, a `LumeBSD-1.5-Farol.iso` e, em `atualizacao/`, o
 pacote de atualização com o índice e as novidades (`docs/novidades.md`).
 Leva várias horas numa máquina de 2 núcleos (o world é a parte longa).
 
@@ -575,8 +589,13 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
   [máquina do tempo](docs/tempo-sessao.log),
   [atualizações da 1.2](docs/atualizacoes-1.2-sessao.log),
   [programas da 1.3](docs/loja-1.3-sessao.log)
-- [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA
-  (precisa da placa) — no pendrive, rode `lume hardware` e
+- [x] **1.5**: a `.iso` como DVD (UEFI) e como pendrive: o sistema ao vivo
+  com a raiz só de leitura, a instalação a partir do DVD; o filtro com o
+  grão e a viscosidade; o `lume-macho` com um programa do macOS; o
+  `lume-motor` sem tela (quadros em [docs/motor](docs/motor))
+- [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA e as
+  placas AMD (precisam da placa), e o `lume-motor` na tela (precisa de
+  placa de vídeo com KMS) — no pendrive, rode `lume hardware` e
   `lume video testar` antes de instalar
 
 ### Bugs que os testes pegaram (e já estão corrigidos)
@@ -606,7 +625,7 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
 ### Compilando programas à mão
 
-O `uname` do LumeBSD diz `LumeBSD 1.4-FAROL`. Pela forja ou por
+O `uname` do LumeBSD diz `LumeBSD 1.5-FAROL`. Pela forja ou por
 `/usr/ports` isso é resolvido sozinho. Para um `./configure` fora dos
 ports que não reconheça o sistema:
 

@@ -1,0 +1,150 @@
+From 36664c2d11e681d8bb4fd52876867bd469db4736 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 10:56:55 -0300
+Subject: [PATCH] lume compat: programas do macOS pelo lume-macho
+ (experimental)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Dois cliques num executável do Mac (Mach-O de 64 bits ou universal)
+abrem o lume-macho num terminal; lume compat mac testar roda o programa
+de teste. O manual e a Ajuda explicam até onde vai.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ .../ajuda/compatibilidade.html                |  4 +-
+ usr.sbin/lume-configurar/lume-compat.8        | 15 +++++--
+ usr.sbin/lume-configurar/lume-compat.sh       | 42 +++++++++++++++++--
+ 3 files changed, 54 insertions(+), 7 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/ajuda/compatibilidade.html b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+index 9c853ceaf..9bcc9a619 100644
+--- a/usr.sbin/lume-configurar/ajuda/compatibilidade.html
++++ b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+@@ -41,7 +41,9 @@
+ lume compat linux ligar    # como root</code></pre>
+ 
+ <h2>Programas do Mac</h2>
+-<p>Ainda não existe um jeito de rodar programas do Mac no FreeBSD. O LumeBSD começou a estudar o caminho (adaptar o Darling, um projeto que faz isso no Linux), mas é um trabalho longo.</p>
++<p>Os programas do Mac ainda não rodam no LumeBSD, mas o caminho começou. Desde a 1.5, o LumeBSD carrega programas do macOS e traduz as chamadas que eles fazem ao sistema: por enquanto, só os programas mais simples, que não usam as bibliotecas da Apple. Para ver um rodando:</p>
++<pre><code>lume compat mac testar</code></pre>
++<p>Os programas de verdade (Pages, Spotify, Photoshop) usam centenas de bibliotecas do macOS; trazê-las é o próximo passo, com o projeto Darling, e leva tempo.</p>
+ <p>Enquanto isso, dois cliques num arquivo <code>.dmg</code> mostram o que fazer: o LumeBSD lê o nome do programa e procura nos <span class="menu">Programas do LumeBSD</span>. Muitos programas do Mac têm uma versão para Windows (que abre com o Wine), para Linux ou para a web; e para os da Apple há substitutos:</p>
+ <table>
+ <tr><th>No Mac</th><th>No LumeBSD</th></tr>
+diff --git a/usr.sbin/lume-configurar/lume-compat.8 b/usr.sbin/lume-configurar/lume-compat.8
+index 38fee26a7..01082ba51 100644
+--- a/usr.sbin/lume-configurar/lume-compat.8
++++ b/usr.sbin/lume-configurar/lume-compat.8
+@@ -19,7 +19,7 @@
+ .Cm windows32
+ .Nm
+ .Cm mac
+-.Op Ar arquivo
++.Op Cm testar | Ar arquivo
+ .Nm
+ .Cm abrir
+ .Ar arquivo
+@@ -76,8 +76,17 @@ O
+ faz isso sozinho antes de instalar um programa para Linux, como o
+ Google Chrome.
+ .It Mac
+-Nenhum programa do Mac roda no FreeBSD ainda.
+-Dois cliques num
++Experimental: o
++.Xr lume-macho 1
++carrega executáveis do macOS (Mach-O x86-64, também os universais) e
++traduz as chamadas do kernel do macOS para as do FreeBSD.
++Roda os programas que falam direto com o kernel
++.Pq Nm Cm mac testar ;
++os que usam as bibliotecas do macOS (quase todos) ainda não, e dizem isso.
++Dois cliques num executável do Mac abrem o
++.Xr lume-macho 1
++num terminal.
++Para os programas comuns, dois cliques num
+ .Pa .dmg
+ .Pq ou num Pa .pkg No do Mac
+ mostram isso e abrem o
+diff --git a/usr.sbin/lume-configurar/lume-compat.sh b/usr.sbin/lume-configurar/lume-compat.sh
+index 95b0c22d4..6fd1994a5 100644
+--- a/usr.sbin/lume-configurar/lume-compat.sh
++++ b/usr.sbin/lume-configurar/lume-compat.sh
+@@ -14,7 +14,10 @@
+ #   Linux:   a camada Linux do FreeBSD (linux64.ko e as montagens de
+ #            /compat/linux) roda programas feitos para Linux, como o Chrome
+ #            e o Discord; os pacotes linux-* dependem dela.
+-#   Mac:     nada roda programas do Mac no FreeBSD ainda (docs/MACOS.md).
++#   Mac:     o lume-macho (experimental) roda executáveis do macOS que falam
++#            direto com o kernel; os que usam as bibliotecas do macOS (quase
++#            todos) ainda não (docs/MACOS.md). Um .dmg mostra o que usar no
++#            lugar.
+ #            Dois cliques num .dmg explicam e abrem a loja procurando o
+ #            programa: muitos têm versão para Windows ou Linux, ou um
+ #            substituto no catálogo.
+@@ -89,7 +92,7 @@ estado() {
+ 	else
+ 		echo "  · Linux: desligada (lume compat linux ligar)"
+ 	fi
+-	echo "  · Mac: ainda não (dois cliques num .dmg mostram o que usar no lugar)"
++	echo "  · Mac: experimental (lume compat mac testar); dois cliques num .dmg mostram o que usar no lugar"
+ 	echo
+ 	echo "  Apps da web (Office 365, Teams, Overleaf...): lume loja lista web"
+ 	echo
+@@ -258,6 +261,26 @@ abrir_mac() {
+ 	echo "  O que usar no lugar: lume loja procurar \"$n\"   (e lume ajuda mac)"
+ }
+ 
++# Executável do macOS (Mach-O de 64 bits, ou universal): os 4 primeiros
++# bytes. O universal começa como um .class do Java (cafebabe); no Mac, o
++# número seguinte é o de arquiteturas (poucas); no Java, a versão (45+).
++eh_macho() {
++	m=$(od -An -tx1 -N8 "$1" 2>/dev/null | tr -d ' \n')
++	case "$m" in
++	cffaedfe*)	return 0 ;;
++	cafebabe000000[01]?)	return 0 ;;
++	esac
++	return 1
++}
++
++abrir_macho() {
++	f=$1
++	if [ $grafico = s ] && command -v konsole >/dev/null 2>&1; then
++		exec konsole --hold -e /usr/libexec/lume-macho "$f"
++	fi
++	exec /usr/libexec/lume-macho "$f"
++}
++
+ abrir() {
+ 	f=$1
+ 	[ -e "$f" ] || erro "arquivo não encontrado: $f"
+@@ -272,6 +295,9 @@ abrir() {
+ 			aviso "Pacote do FreeBSD" "<b>${f##*/}</b> é um pacote do FreeBSD. Para instalar: <b>pkg add ${f##*/}</b>, como root."
+ 		fi ;;
+ 	*)	[ -f "$f" ] || erro "arquivo não encontrado: $f"
++		if eh_macho "$f"; then
++			abrir_macho "$f"
++		fi
+ 		abrir_windows "$f" ;;
+ 	esac
+ }
+@@ -282,7 +308,17 @@ linux)		shift; linux "$@" ;;
+ windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe abrem o programa."
+ 		else echo "  Para programas do Windows: lume loja instalar windows"; fi ;;
+ windows32)	wine32 && ok "A parte de 32 bits do Wine está pronta para $(id -un)." ;;
+-mac)		shift; [ -n "${1:-}" ] && abrir_mac "$1" || estado ;;
++mac)		shift
++		case "${1:-}" in
++		testar)	echo "  Um programa do macOS (Mach-O) pelo lume-macho:"
++			/usr/libexec/lume-macho /usr/share/lume/mac/ola-mac ;;
++		"")	estado ;;
++		*)	if [ -f "$1" ] && eh_macho "$1"; then
++				/usr/libexec/lume-macho "$@"
++			else
++				abrir_mac "$1"
++			fi ;;
++		esac ;;
+ abrir)		shift; abrir "$1" ;;
+ *)	echo "uso: lume compat [estado | linux [ligar | desligar] | windows | windows32 | abrir ARQUIVO]" >&2
+ 	exit 1 ;;

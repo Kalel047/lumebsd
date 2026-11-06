@@ -483,12 +483,50 @@ bibliotecas de 32 bits do sistema base. Por isso:
 
 ## Programas do Mac
 
-Não há como rodar programas do Mac no FreeBSD hoje. O
-`loja/lume-mac.desktop` é o app padrão de `.dmg`: `lume-compat abrir` tira
+O `loja/lume-mac.desktop` é o app padrão de `.dmg`: `lume-compat abrir` tira
 o nome do programa do arquivo (sem versão, arquitetura e "installer"),
 explica e abre `lume-programas --procurar NOME`. O catálogo tem os
-programas da Apple no campo "parecido com". O estudo de portar o Darling
-está em [MACOS.md](MACOS.md).
+programas da Apple no campo "parecido com".
+
+Desde a 1.5, o `/usr/libexec/lume-macho` (em `mac/`) carrega executáveis
+Mach-O e traduz as chamadas BSD do XNU para as do FreeBSD pelo `ptrace`;
+`lume-compat abrir` reconhece um executável do Mac pelos primeiros bytes e
+o abre num terminal, e `lume compat mac testar` roda o programa de teste
+(`/usr/share/lume/mac/ola-mac`). O estudo e o caminho (a ABI no kernel,
+como o Linuxulator, e o dyld do Darling) estão em [MACOS.md](MACOS.md).
+
+## O motor de renderização
+
+O `lume-motor` (`app/lume-motor`, `/usr/bin/lume-motor`) é o protótipo do
+motor da especificação: DRM/KMS com page flip, curvas resolvidas por pixel
+na GPU (OpenGL ES 3.1), papel num compute shader e a viscosidade da tinta.
+A arquitetura, o que foi medido e o caminho até ele desenhar o desktop
+estão em [MOTOR.md](MOTOR.md). O filtro do KWin (`lume_tinta`) usa o mesmo
+papel e a mesma viscosidade no desktop de hoje: as fibras no shader de cada
+janela, e a viscosidade num passo da tela inteira (`paintScreen`), com dois
+históricos e as janelas sem filtro entrando na hora (recorte por
+`glScissor`).
+
+## Vídeo AMD
+
+`lume video` reconhece as placas pelo fabricante (0x1002) e escolhe o
+driver pelo nome do chip: `radeonkms` até a geração Sea Islands (Tahiti,
+Hawaii, Kaveri e as TeraScale), `amdgpu` dali em diante. Os firmwares
+(`gpu-firmware-amd-kmod-*` e `gpu-firmware-radeon-kmod-*`, uns 36 MB) vão
+no pendrive e o instalador só os copia para computadores com AMD. Com
+processador AMD, o `loader.conf` carrega o `amd-ucode.bin` e o `rc.conf`, o
+`amdtemp`.
+
+## A .iso
+
+`montar-pendrive.py --iso` gera, do mesmo stage, uma `.iso` híbrida: El
+Torito para BIOS (`cdboot`) e UEFI (um ESP FAT12 de 2 MB, como o do
+FreeBSD), e um GPT na área de sistema (com o `isoboot` e o ESP) para
+gravar num pendrive. A raiz é o cd9660, só de leitura (`root_rw_mount=NO`);
+o arquivo `/etc/diskless` faz o `rc.initdiskless` do FreeBSD levar `/etc`,
+`/var`, `/root`, `/mnt` e `/media` para a memória (`/conf/base/*/remount`
+e `md_size`), e o `/tmp` vai para um tmpfs. O instalador deixa de fora o
+disco com o rótulo `iso9660/LUMEBSD`.
 
 ## Identidade e compatibilidade
 

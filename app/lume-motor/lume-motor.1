@@ -1,0 +1,57 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 6, 2026
+.Dt LUME-MOTOR 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-motor
+.Nd o motor de renderização vetorial do LumeBSD (demonstração)
+.Sh SYNOPSIS
+.Nm
+.Op Fl -drm Ar /dev/dri/cardN
+.Op Fl -segundos Ar N
+.Op Fl -viscosidade Ar ms
+.Op Fl -grao Ar 0-100
+.Op Fl -colorido
+.Op Fl -fonte Ar arquivo
+.Nm
+.Fl -png Ar pasta
+.Op Fl -tamanho Ar LxA
+.Op Fl -hz Ar N
+.Op opções
+.Sh DESCRIPTION
+O protótipo do motor de renderização do LumeBSD: desenha direto na placa de
+vídeo, pelo DRM/KMS, sem X11 nem Wayland.
+As letras e os desenhos são curvas de Bézier; a placa calcula, pelas
+equações, quanto de cada pixel está dentro de cada forma (sem bitmaps nem
+atlas de fontes), por isso tudo fica nítido em qualquer zoom.
+Por cima, o papel (fibras geradas num compute shader) e a viscosidade da
+tinta: o quadro novo assenta sobre o anterior, sem o piscar de uma tela de
+e-ink.
+.Pp
+A demonstração mostra uma página, aproxima até 8 vezes e troca um
+parágrafo.
+Na tela, usa a resolução do monitor na maior taxa de atualização que ele
+tem nela (180 Hz, num painel de 180 Hz) e diz o tempo de cada quadro.
+Rode num console de texto, com o driver de vídeo carregado
+.Pq Nm lume video testar
+e sem o X naquele terminal; Enter sai.
+.Bl -tag -width "--viscosidade ms"
+.It Fl -drm Ar dispositivo
+a placa de vídeo (padrão /dev/dri/card0).
+.It Fl -png Ar pasta
+sem tela: grava alguns quadros em PNG, como num painel de 180 Hz.
+.It Fl -hz Ar n
+sem tela: o tempo entre os quadros, como num painel de
+.Ar n
+Hz (padrão 180).
+.It Fl -viscosidade Ar ms
+a constante de tempo da tinta (padrão 35; 0 desliga).
+.It Fl -grao Ar n
+as fibras do papel, de 0 a 100 (padrão 40).
+.It Fl -colorido
+e-ink colorido: pigmentos suaves no lugar da tinta preta.
+.El
+.Sh SEE ALSO
+.Xr lume 1
+.Pp
+A arquitetura: docs/MOTOR.md no repositório do LumeBSD.

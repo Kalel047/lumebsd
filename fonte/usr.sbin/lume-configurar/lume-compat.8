@@ -19,7 +19,7 @@
 .Cm windows32
 .Nm
 .Cm mac
-.Op Ar arquivo
+.Op Cm testar | Ar arquivo
 .Nm
 .Cm abrir
 .Ar arquivo
@@ -76,8 +76,17 @@ O
 faz isso sozinho antes de instalar um programa para Linux, como o
 Google Chrome.
 .It Mac
-Nenhum programa do Mac roda no FreeBSD ainda.
-Dois cliques num
+Experimental: o
+.Xr lume-macho 1
+carrega executáveis do macOS (Mach-O x86-64, também os universais) e
+traduz as chamadas do kernel do macOS para as do FreeBSD.
+Roda os programas que falam direto com o kernel
+.Pq Nm Cm mac testar ;
+os que usam as bibliotecas do macOS (quase todos) ainda não, e dizem isso.
+Dois cliques num executável do Mac abrem o
+.Xr lume-macho 1
+num terminal.
+Para os programas comuns, dois cliques num
 .Pa .dmg
 .Pq ou num Pa .pkg No do Mac
 mostram isso e abrem o

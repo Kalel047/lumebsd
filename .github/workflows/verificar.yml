@@ -97,6 +97,13 @@ jobs:
               libxcb xorgproto libdrm wayland libxkbcommon libglvnd
           python3 ferramentas/montar-efeitos.py --so-compilar freebsd qt efeitos
           file efeitos/*/lume_tinta.so
+          # O lume-motor para o FreeBSD
+          python3 ferramentas/pacotes.py --sem-dependencias qt mesa-libs freetype2 png
+          python3 ferramentas/montar-motor.py --so-compilar freebsd qt lume-motor
+          file lume-motor
+          # O lume-macho e o programa de teste do macOS (Mach-O)
+          python3 ferramentas/montar-mac.py --so-compilar freebsd mac-bin
+          file mac-bin/*
           for j in app/lume-animacoes/*/contents/code/main.js; do node --check "$j"; done
           for m in app/lume-tinta/metadata.json app/lume-animacoes/*/metadata.json; do
             python3 -m json.tool "$m" >/dev/null
@@ -106,6 +113,28 @@ jobs:
                    fonte/usr.sbin/lume-configurar/loja/atalhos/*.desktop; do
             grep -q '^\[Desktop Entry\]' "$d" || { echo "$d"; exit 1; }
           done
+
+      # O lume-motor também no Linux, sem tela (Mesa llvmpipe): desenha a
+      # página, o zoom e a troca de texto, e os quadros vão como artefato.
+      - name: Motor de renderização (desenha sem tela)
+        if: matrix.base == 'fixado'
+        run: |
+          sudo apt-get install -y -q libegl-dev libgles-dev libgbm-dev libdrm-dev \
+              libpng-dev libfreetype-dev libegl-mesa0 libgl1-mesa-dri fonts-ibm-plex
+          cd app/lume-motor
+          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror \
+              $(pkg-config --cflags freetype2 libdrm) -o lume-motor \
+              demo.c motor.c cena.c saida.c \
+              $(pkg-config --libs freetype2) -lEGL -lGLESv2 -lgbm -ldrm -lpng -lm
+          LIBGL_ALWAYS_SOFTWARE=1 timeout 600 ./lume-motor --png quadros --tamanho 640x360 --hz 30 --segundos 6.2
+          ls quadros/*.png
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.base == 'fixado'
+        with:
+          name: motor-quadros
+          path: app/lume-motor/quadros/
+          retention-days: 14
 
       # Cada pacote do catálogo da loja (lume loja e o app Programas do
       # LumeBSD) existe no repositório quarterly do FreeBSD 15; os kits e as

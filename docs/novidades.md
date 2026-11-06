@@ -1,8 +1,30 @@
-# LumeBSD 1.4 "Farol"
+# LumeBSD 1.5 "Farol"
 
-Sobre o FreeBSD 15.1. A tela de papel, a loja nova e mais programas de outros sistemas.
+Sobre o FreeBSD 15.1. Papel e tinta de verdade, um motor de renderização próprio, AMD, a .iso e o começo dos programas do Mac.
 
-## A tela de papel
+## Papel e tinta de verdade
+
+- **Grão do papel**: o filtro e-ink desenha as fibras do papel. O tom varia de leve e as bordas das letras seguem as fibras, como tinta em papel. As fibras ficam paradas na tela, como num leitor de e-ink.
+- **A tinta assenta**: quando a tela muda, o conteúdo novo aparece sobre o anterior numa fração de segundo, sem o piscar de uma tela de e-ink de verdade. Fotos, vídeos e tela cheia mudam na hora. Precisa de placa de vídeo.
+- `lume tema tinta grao 0-100` e `lume tema tinta viscosidade MS` ajustam os dois.
+
+## O motor de renderização
+
+- **lume-motor**: o protótipo do motor de renderização vetorial do LumeBSD. Desenha direto na placa de vídeo, sem X11 nem Wayland, no modo de maior taxa do monitor (180 Hz, se o painel tiver). As letras e os desenhos são calculados pelas equações das curvas em cada pixel: nítidos em qualquer zoom, sem bitmaps de fonte. Tem o papel e a tinta que assenta. Para ver, num console de texto: `lume-motor`.
+
+## Hardware e instalação
+
+- **Placas AMD**: Radeon e o vídeo dos processadores Ryzen, com o driver certo para cada geração. Notebooks Ryzen + NVIDIA usam o vídeo do Ryzen.
+- **Processadores AMD**: o microcódigo e o sensor de temperatura certos.
+- **.iso**: além do pendrive (`.img`), uma `.iso` para DVD, máquina virtual ou pendrive.
+
+## Programas do Mac, o começo
+
+- O LumeBSD já carrega programas do macOS e traduz as chamadas que eles fazem ao sistema: por enquanto, só os mais simples, que não usam as bibliotecas da Apple. Para ver um rodando: `lume compat mac testar`. Os programas comuns ainda não rodam; o caminho está na Ajuda.
+
+## Da 1.4
+
+### A tela de papel
 
 - **Filtro e-ink**: todas as janelas em tons de papel e tinta. Numa tela comum, conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol, sem aumentar o brilho.
 - **Fotos e vídeos ficam com cor**: o filtro sai sozinho de visualizadores de fotos, players de vídeo, editores de imagem e de qualquer janela em tela cheia.
@@ -10,18 +32,18 @@ Sobre o FreeBSD 15.1. A tela de papel, a loja nova e mais programas de outros si
 - **Atalhos de teclado do KDE funcionando**: Alt+Tab, Alt+F4, Meta+W (visão geral) e os outros atalhos das janelas ficavam sem tecla, porque o KWin começava antes do serviço de atalhos. Agora o serviço sobe quando o KWin pede.
 - **Animações das janelas** sem movimento, como no papel: o **refresh de e-ink** (a janela aparece escura por um instante e o conteúdo surge de uma vez) ou o **esmaecer** em tons de cinza (`lume tema animacao esmaecer`).
 
-## Programas do LumeBSD, de cara nova
+### Programas do LumeBSD, de cara nova
 
 - A loja tem uma aparência própria, de papel e tinta: títulos com serifa, um índice como o sumário de um livro e os kits como capítulos. Não depende mais do tema do KDE.
 - A busca acha por todas as palavras, em qualquer ordem ("microsoft excel").
 
-## Mais programas de outros sistemas
+### Mais programas de outros sistemas
 
 - **Programas do Windows de 32 bits**: muitos instaladores e programas antigos. Na primeira vez, o LumeBSD baixa a parte de 32 bits do Wine para a sua pasta (sem senha); depois, dois cliques bastam.
 - **Programas do Mac**: ainda não rodam no FreeBSD, mas dois cliques num `.dmg` mostram o que usar no lugar, com a loja procurando pelo nome. A loja conhece os programas da Apple: Pages, Numbers, Keynote, iMovie, Final Cut, GarageBand, Logic, Fotos, Xcode e outros.
 - Novos no catálogo: Okular, digiKam, darktable, Ardour, MuseScore e KDevelop.
 
-## Também desde a 1.3
+### Também desde a 1.3
 
 - **Programas do LumeBSD**: mais de 100 programas em português, com kits por área (Uso geral, Exatas e engenharia, Sociais aplicadas) e a busca pelo programa que você usava ("matlab" mostra o Octave).
 - **Ajuda do LumeBSD** no menu (`lume ajuda`), agora com a tela de papel e os programas do Mac.
