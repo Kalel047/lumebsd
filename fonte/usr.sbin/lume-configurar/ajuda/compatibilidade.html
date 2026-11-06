@@ -41,7 +41,9 @@
 lume compat linux ligar    # como root</code></pre>
 
 <h2>Programas do Mac</h2>
-<p>Ainda não existe um jeito de rodar programas do Mac no FreeBSD. O LumeBSD começou a estudar o caminho (adaptar o Darling, um projeto que faz isso no Linux), mas é um trabalho longo.</p>
+<p>Os programas do Mac ainda não rodam no LumeBSD, mas o caminho começou. Desde a 1.5, o LumeBSD carrega programas do macOS e traduz as chamadas que eles fazem ao sistema: por enquanto, só os programas mais simples, que não usam as bibliotecas da Apple. Para ver um rodando:</p>
+<pre><code>lume compat mac testar</code></pre>
+<p>Os programas de verdade (Pages, Spotify, Photoshop) usam centenas de bibliotecas do macOS; trazê-las é o próximo passo, com o projeto Darling, e leva tempo.</p>
 <p>Enquanto isso, dois cliques num arquivo <code>.dmg</code> mostram o que fazer: o LumeBSD lê o nome do programa e procura nos <span class="menu">Programas do LumeBSD</span>. Muitos programas do Mac têm uma versão para Windows (que abre com o Wine), para Linux ou para a web; e para os da Apple há substitutos:</p>
 <table>
 <tr><th>No Mac</th><th>No LumeBSD</th></tr>

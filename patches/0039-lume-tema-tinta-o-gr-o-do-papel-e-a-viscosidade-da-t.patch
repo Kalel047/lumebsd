@@ -1,0 +1,116 @@
+From 7addb37c6420343025502bc50d2a0ab3ca4703c6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 10:50:06 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20tema=20tinta:=20o=20gr=C3=A3o=20do=20pap?=
+ =?UTF-8?q?el=20e=20a=20viscosidade=20da=20tinta?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+lume tema tinta grao 0-100 e lume tema tinta viscosidade MS; o tema
+Papel liga os dois (40 e 35 ms). A Ajuda e o manual explicam.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.bin/lume/lume.1                      |  7 +++++++
+ usr.sbin/lume-configurar/ajuda/tela.html |  6 ++++++
+ usr.sbin/lume-configurar/lume-tema.sh    | 17 ++++++++++++++---
+ usr.sbin/lume-configurar/tema/kwinrc     |  2 ++
+ 4 files changed, 29 insertions(+), 3 deletions(-)
+
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index 28eb93476..82c81538b 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -89,6 +89,13 @@ ou muda a intensidade
+ do filtro e-ink, um efeito do KWin que desenha as janelas em papel e
+ tinta; fotos, vídeos, editores de imagem e janelas em tela cheia ficam com
+ as cores.
++.Cm tinta grao
++.Ar 0-100
++muda as fibras do papel;
++.Cm tinta viscosidade
++.Ar ms
++o tempo que a tinta leva para assentar quando a tela muda (0 desliga; só
++com placa de vídeo).
+ Atalhos: Ctrl+Meta+T liga e desliga, Ctrl+Meta+Y só na janela ativa.
+ .Cm animacao
+ escolhe como as janelas abrem e fecham:
+diff --git a/usr.sbin/lume-configurar/ajuda/tela.html b/usr.sbin/lume-configurar/ajuda/tela.html
+index 049b3d5ae..975371c9e 100644
+--- a/usr.sbin/lume-configurar/ajuda/tela.html
++++ b/usr.sbin/lume-configurar/ajuda/tela.html
+@@ -18,6 +18,10 @@
+ <p>O LumeBSD desenha as janelas em tons de papel e tinta, como uma tela de e-ink. Numa tela comum (LCD), conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol: os reflexos aparecem menos sobre um fundo claro, e não é preciso aumentar o brilho (o que também poupa a bateria e a vista).</p>
+ <p>O filtro não muda a tela em si: um reflexo continua sendo um reflexo. O que muda é o contraste do que está por baixo dele.</p>
+ 
++<h2>Papel de verdade</h2>
++<p>O papel tem fibras: o tom varia um pouco de um ponto a outro, e as bordas das letras seguem as fibras, como tinta em papel. As fibras ficam paradas na tela (não andam com a janela), como num leitor de e-ink.</p>
++<p>Quando a tela muda, a tinta <b>assenta</b>: o conteúdo novo aparece sobre o anterior em uma fração de segundo, sem o piscar preto e branco de uma tela de e-ink de verdade. Fotos, vídeos e janelas em tela cheia mudam na hora. Isso precisa de placa de vídeo; sem ela, o KDE desliga.</p>
++
+ <h2>Fotos e vídeos ficam com cor</h2>
+ <p>O filtro sai sozinho das janelas onde a cor importa:</p>
+ <ul>
+@@ -34,6 +38,8 @@
+ <tr><td>ligar ou desligar o filtro na tela inteira</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd></td></tr>
+ <tr><td>tirar ou pôr o filtro só na janela ativa</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>Y</kbd></td></tr>
+ <tr><td>deixar o filtro mais leve</td><td><code>lume tema tinta 60</code> (de 0 a 100)</td></tr>
++<tr><td>mais ou menos fibras de papel</td><td><code>lume tema tinta grao 20</code> (de 0 a 100; o padrão é 40)</td></tr>
++<tr><td>a tinta assentar mais rápido ou mais devagar</td><td><code>lume tema tinta viscosidade 20</code> (em milissegundos; 0 desliga, o padrão é 35)</td></tr>
+ <tr><td>desligar de vez</td><td><code>lume tema tinta desliga</code> (e <code>liga</code> para voltar)</td></tr>
+ </table>
+ <p>A tecla <kbd>Meta</kbd> é a tecla com o logotipo do Windows, na maioria dos teclados. Tudo isso vale só para você, sem senha. O filtro também aparece em <span class="menu">Configurações do Sistema › Efeitos da área de trabalho</span>, como <b>E-ink do LumeBSD</b>.</p>
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index c0f9a2521..a8fb9dd8a 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -14,10 +14,12 @@
+ #                       chama isto, e o lume_saude também, depois de uma
+ #                       atualização), os efeitos do KWin do LumeBSD e os
+ #                       atalhos de teclado do KWin (o kglobalacceld no D-Bus)
+-#   lume tema tinta [liga | desliga | NÚMERO]
++#   lume tema tinta [liga | desliga | NÚMERO | grao N | viscosidade MS]
+ #                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
+ #                       papel e tinta; fotos, vídeos e tela cheia ficam com
+-#                       cor. NÚMERO é a intensidade, de 0 a 100
++#                       cor. NÚMERO é a intensidade, de 0 a 100; grao, as
++#                       fibras do papel (0 a 100); viscosidade, quanto a tinta
++#                       demora para assentar (ms; 0 desliga)
+ #   lume tema animacao [refresh | esmaecer | nenhuma]
+ #                       como as janelas abrem e fecham
+ #
+@@ -303,10 +305,19 @@ tinta()
+ 		else
+ 			echo "  filtro e-ink: desligado   (lume tema tinta liga)"
+ 		fi
++		echo "  papel: grão $(kwin_ler --group Effect-lume_tinta --key Grao --default 40), viscosidade da tinta $(kwin_ler --group Effect-lume_tinta --key Viscosidade --default 35) ms"
+ 		echo "  Atalhos: Ctrl+Meta+T liga e desliga; Ctrl+Meta+Y só na janela ativa." ;;
+ 	liga|ligar|on)	kwin_config --group Plugins --key lume_tintaEnabled true ;;
+ 	desliga|desligar|off)	kwin_config --group Plugins --key lume_tintaEnabled false ;;
+-	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100]" >&2; exit 2 ;;
++	grao|grão)
++		case "${2:-}" in ""|*[!0-9]*) echo "uso: lume tema tinta grao 0-100" >&2; exit 2 ;; esac
++		[ "$2" -le 100 ] || { echo "lume tema: grão de 0 a 100" >&2; exit 2; }
++		kwin_config --group Effect-lume_tinta --key Grao "$2" ;;
++	viscosidade)
++		case "${2:-}" in ""|*[!0-9]*) echo "uso: lume tema tinta viscosidade MS (0 desliga)" >&2; exit 2 ;; esac
++		[ "$2" -le 500 ] || { echo "lume tema: viscosidade de 0 a 500 ms" >&2; exit 2; }
++		kwin_config --group Effect-lume_tinta --key Viscosidade "$2" ;;
++	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100 | grao 0-100 | viscosidade MS]" >&2; exit 2 ;;
+ 	*)	[ "$1" -le 100 ] || { echo "lume tema: intensidade de 0 a 100" >&2; exit 2; }
+ 		kwin_config --group Effect-lume_tinta --key Intensidade "$1"
+ 		kwin_config --group Plugins --key lume_tintaEnabled true ;;
+diff --git a/usr.sbin/lume-configurar/tema/kwinrc b/usr.sbin/lume-configurar/tema/kwinrc
+index f64311a67..2dee49d11 100644
+--- a/usr.sbin/lume-configurar/tema/kwinrc
++++ b/usr.sbin/lume-configurar/tema/kwinrc
+@@ -23,6 +23,8 @@ kwin4_effect_scaleEnabled=false
+ 
+ [Effect-lume_tinta]
+ Intensidade=100
++Grao=40
++Viscosidade=35
+ 
+ [org.kde.kdecoration2]
+ library=org.kde.breeze

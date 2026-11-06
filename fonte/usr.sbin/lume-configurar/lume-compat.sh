@@ -14,7 +14,10 @@
 #   Linux:   a camada Linux do FreeBSD (linux64.ko e as montagens de
 #            /compat/linux) roda programas feitos para Linux, como o Chrome
 #            e o Discord; os pacotes linux-* dependem dela.
-#   Mac:     nada roda programas do Mac no FreeBSD ainda (docs/MACOS.md).
+#   Mac:     o lume-macho (experimental) roda executáveis do macOS que falam
+#            direto com o kernel; os que usam as bibliotecas do macOS (quase
+#            todos) ainda não (docs/MACOS.md). Um .dmg mostra o que usar no
+#            lugar.
 #            Dois cliques num .dmg explicam e abrem a loja procurando o
 #            programa: muitos têm versão para Windows ou Linux, ou um
 #            substituto no catálogo.
@@ -89,7 +92,7 @@ estado() {
 	else
 		echo "  · Linux: desligada (lume compat linux ligar)"
 	fi
-	echo "  · Mac: ainda não (dois cliques num .dmg mostram o que usar no lugar)"
+	echo "  · Mac: experimental (lume compat mac testar); dois cliques num .dmg mostram o que usar no lugar"
 	echo
 	echo "  Apps da web (Office 365, Teams, Overleaf...): lume loja lista web"
 	echo
@@ -258,6 +261,26 @@ abrir_mac() {
 	echo "  O que usar no lugar: lume loja procurar \"$n\"   (e lume ajuda mac)"
 }
 
+# Executável do macOS (Mach-O de 64 bits, ou universal): os 4 primeiros
+# bytes. O universal começa como um .class do Java (cafebabe); no Mac, o
+# número seguinte é o de arquiteturas (poucas); no Java, a versão (45+).
+eh_macho() {
+	m=$(od -An -tx1 -N8 "$1" 2>/dev/null | tr -d ' \n')
+	case "$m" in
+	cffaedfe*)	return 0 ;;
+	cafebabe000000[01]?)	return 0 ;;
+	esac
+	return 1
+}
+
+abrir_macho() {
+	f=$1
+	if [ $grafico = s ] && command -v konsole >/dev/null 2>&1; then
+		exec konsole --hold -e /usr/libexec/lume-macho "$f"
+	fi
+	exec /usr/libexec/lume-macho "$f"
+}
+
 abrir() {
 	f=$1
 	[ -e "$f" ] || erro "arquivo não encontrado: $f"
@@ -272,6 +295,9 @@ abrir() {
 			aviso "Pacote do FreeBSD" "<b>${f##*/}</b> é um pacote do FreeBSD. Para instalar: <b>pkg add ${f##*/}</b>, como root."
 		fi ;;
 	*)	[ -f "$f" ] || erro "arquivo não encontrado: $f"
+		if eh_macho "$f"; then
+			abrir_macho "$f"
+		fi
 		abrir_windows "$f" ;;
 	esac
 }
@@ -282,7 +308,17 @@ linux)		shift; linux "$@" ;;
 windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe abrem o programa."
 		else echo "  Para programas do Windows: lume loja instalar windows"; fi ;;
 windows32)	wine32 && ok "A parte de 32 bits do Wine está pronta para $(id -un)." ;;
-mac)		shift; [ -n "${1:-}" ] && abrir_mac "$1" || estado ;;
+mac)		shift
+		case "${1:-}" in
+		testar)	echo "  Um programa do macOS (Mach-O) pelo lume-macho:"
+			/usr/libexec/lume-macho /usr/share/lume/mac/ola-mac ;;
+		"")	estado ;;
+		*)	if [ -f "$1" ] && eh_macho "$1"; then
+				/usr/libexec/lume-macho "$@"
+			else
+				abrir_mac "$1"
+			fi ;;
+		esac ;;
 abrir)		shift; abrir "$1" ;;
 *)	echo "uso: lume compat [estado | linux [ligar | desligar] | windows | windows32 | abrir ARQUIVO]" >&2
 	exit 1 ;;
