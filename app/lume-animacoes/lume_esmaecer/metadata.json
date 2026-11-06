@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "LumeBSD"
+            }
+        ],
+        "Category": "Window Open/Close Animation",
+        "Description": "Windows fade in and out in shades of gray, quickly",
+        "Description[pt_BR]": "As janelas aparecem e somem esmaecendo em tons de cinza, rápido",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-fade",
+        "Id": "lume_esmaecer",
+        "License": "GPL",
+        "Name": "Gray fade (LumeBSD)",
+        "Name[pt_BR]": "Esmaecer do LumeBSD"
+    },
+    "X-KDE-Ordering": 60,
+    "X-KWin-Exclusive-Category": "toplevel-open-close-animation",
+    "X-Plasma-API": "javascript"
+}

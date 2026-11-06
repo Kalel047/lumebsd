@@ -20,7 +20,7 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
 # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
 # programas do Windows com dois cliques (lume compat).
 LOJADIR=	${SHAREDIR}/lume/loja
-LOJA=		loja/catalogo loja/lume-windows.desktop
+LOJA=		loja/catalogo loja/lume-windows.desktop loja/lume-mac.desktop
 ATALHOSDIR=	${SHAREDIR}/lume/loja/atalhos
 ATALHOS=	loja/atalhos/jupyterlab.desktop
 
@@ -28,7 +28,8 @@ ATALHOS=	loja/atalhos/jupyterlab.desktop
 AJUDADIR=	${SHAREDIR}/lume/ajuda
 AJUDA=		ajuda/index.html ajuda/programas.html ajuda/trocando.html \
 		ajuda/compatibilidade.html ajuda/internet.html \
-		ajuda/atualizacoes.html ajuda/problemas.html ajuda/estilo.css \
+		ajuda/atualizacoes.html ajuda/problemas.html ajuda/tela.html \
+		ajuda/estilo.css \
 		ajuda/lume-ajuda.desktop
 
 # Máquina do tempo: o cron confere a cada 15 minutos (lume tempo).

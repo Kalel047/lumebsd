@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Mac program
+Name[pt_BR]=Programa do Mac
+Name[pt]=Programa do Mac
+Comment=Shows what to use instead on LumeBSD
+Comment[pt_BR]=Mostra o que usar no lugar, no LumeBSD
+Exec=/usr/sbin/lume-compat abrir %f
+Icon=application-x-apple-diskimage
+NoDisplay=true
+Terminal=false
+MimeType=application/x-apple-diskimage;

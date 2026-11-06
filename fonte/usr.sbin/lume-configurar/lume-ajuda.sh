@@ -12,11 +12,12 @@ case "${1:-}" in
 "")				t=index ;;
 programas|loja|kit|kits)	t=programas ;;
 trocando|equivalentes|matlab|excel|office)	t=trocando ;;
-windows|exe|wine|linux|compat|compatibilidade|web)	t=compatibilidade ;;
-wifi|internet|rede|som|video|vídeo|tela|impressora)	t=internet ;;
+tinta|eink|e-ink|tela|animacao|animação)	t=tela ;;
+windows|exe|wine|linux|mac|macos|dmg|compat|compatibilidade|web)	t=compatibilidade ;;
+wifi|internet|rede|som|video|vídeo|impressora)	t=internet ;;
 atualizar|atualizacoes|atualizações|tempo|backup)	t=atualizacoes ;;
 problemas|erro|socorro)		t=problemas ;;
-*)	echo "uso: lume ajuda [programas | trocando | windows | wifi | atualizar | problemas]" >&2
+*)	echo "uso: lume ajuda [programas | trocando | windows | mac | tinta | wifi | atualizar | problemas]" >&2
 	exit 1 ;;
 esac
 f=$D/$t.html

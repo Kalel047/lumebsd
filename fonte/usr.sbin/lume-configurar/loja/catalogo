@@ -35,14 +35,14 @@
 @kit sociais|Sociais aplicadas|Estatística e econometria com R (RKWard, com menus), Python para dados, gerenciador de referências (ABNT) e Power BI na web. Para Economia, Administração, Contabilidade, Direito e afins. Inclui o Uso geral.|geral
 
 # --- Escritório ----------------------------------------------------------
-libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
+libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office, Pages, Numbers, Keynote, iWork|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
 fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|-
-xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
-thunderbird|escritorio|Thunderbird|thunderbird||Outlook|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
+xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote, Notas do iPad|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
+thunderbird|escritorio|Thunderbird|thunderbird||Outlook, Mail do Mac, Apple Mail|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
 calligra|escritorio|Calligra|calligra||Microsoft Office|Outra suíte de escritório, do KDE: textos, planilhas e apresentações.|calligrawords|
 projectlibre|escritorio|ProjectLibre|projectlibre||Microsoft Project|Cronogramas e gráficos de Gantt para projetos.|projectlibre|
 freeplane|escritorio|Freeplane|freeplane||XMind, MindManager|Mapas mentais para estudar e organizar ideias.|freeplane|
-kontact|escritorio|Kontact|kontact korganizer||Outlook|E-mail, agenda e tarefas integrados ao KDE.|kontact|
+kontact|escritorio|Kontact|kontact korganizer||Outlook, Calendário do Mac, Lembretes|E-mail, agenda e tarefas integrados ao KDE.|kontact|
 pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|-
 
 # --- Ciência e matemática ------------------------------------------------
@@ -51,7 +51,7 @@ python-ciencia|ciencia|Python científico|python312 py312-numpy py312-scipy py31
 wxmaxima|ciencia|wxMaxima|wxmaxima|exatas|Mathematica, Maple|Álgebra simbólica: derivadas, integrais, limites, equações e séries, com resposta exata.|wxmaxima|
 geogebra|ciencia|GeoGebra|geogebra|exatas|GeoGebra|Geometria, gráficos de funções e cálculo de forma visual.|geogebra|
 labplot|ciencia|LabPlot|labplot|exatas|Origin, SigmaPlot|Gráficos científicos e ajuste de curvas a partir de planilhas e arquivos de dados.|labplot|
-qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
+qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica, Calculadora do Mac, Soulver|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
 kmplot|ciencia|KmPlot|kmplot kalgebra||Calculadora gráfica|Gráficos de funções em 2D e 3D, rápidos e simples.|kmplot|
 gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|-
 kalzium|ciencia|Kalzium e Avogadro|kalzium avogadro2||ChemDraw|Tabela periódica completa e editor de moléculas em 3D.|kalzium|
@@ -85,11 +85,11 @@ latex|escrita|LaTeX completo|texlive-full texstudio||MiKTeX, TeXworks|Todo o TeX
 lyx|escrita|LyX|lyx||Word com LaTeX|Escreve em LaTeX vendo o documento quase como fica (precisa do LaTeX completo).|lyx|
 ghostwriter|escrita|Ghostwriter|ghostwriter||Typora, iA Writer|Editor de Markdown sem distrações.|ghostwriter|
 joplin|escrita|Joplin|joplin-desktop||Evernote, OneNote, Notion|Anotações e listas, com sincronização na nuvem.|joplin|
-anki|escrita|Anki|anki||Quizlet|Cartões de memória com repetição espaçada para estudar.|anki|
+anki|escrita|Anki|anki||Quizlet, Flashcards Hero|Cartões de memória com repetição espaçada para estudar.|anki|
 calibre|escrita|Calibre|calibre||Kindle|Organiza e converte livros digitais.|calibre|
 
 # --- Programação ---------------------------------------------------------
-vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
+vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code, Xcode, BBEdit|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
 python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|-
 c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|-
 codeblocks|programacao|Code::Blocks|codeblocks||Dev-C++|IDE simples para C e C++, comum nas disciplinas de introdução.|codeblocks|
@@ -108,8 +108,8 @@ teams|web|Microsoft Teams|web:https://teams.microsoft.com/|geral|Teams|Aulas, re
 outlook|web|Outlook|web:https://outlook.office.com/mail/||Outlook|O e-mail da Microsoft (e o institucional).|internet-mail|
 googledrive|web|Google Drive|web:https://drive.google.com/|geral|Google Docs, Planilhas, Apresentações|Os arquivos e documentos do Google.|folder-cloud|
 whatsapp|web|WhatsApp|web:https://web.whatsapp.com/|geral|WhatsApp|O WhatsApp no computador, pelo celular.|dialog-messages|
-meet|web|Google Meet|web:https://meet.google.com/||Meet|Videochamadas do Google.|camera-web|
-zoom|web|Zoom|web:https://app.zoom.us/wc/home||Zoom|Reuniões do Zoom pelo navegador.|camera-web|
+meet|web|Google Meet|web:https://meet.google.com/||Meet, FaceTime|Videochamadas do Google.|camera-web|
+zoom|web|Zoom|web:https://app.zoom.us/wc/home||Zoom, FaceTime|Reuniões do Zoom pelo navegador.|camera-web|
 classroom|web|Google Sala de Aula|web:https://classroom.google.com/||Classroom|Turmas, tarefas e notas do Google Classroom.|applications-education|
 overleaf|web|Overleaf|web:https://www.overleaf.com/project|exatas|LaTeX, TeXstudio|LaTeX no navegador, com os modelos de TCC e artigos, em grupo e sem instalar nada.|text-x-tex|
 desmos|web|Desmos|web:https://www.desmos.com/calculator|exatas|Calculadora gráfica|Calculadora gráfica rápida e bonita.|accessories-calculator|
@@ -130,21 +130,21 @@ krdc|internet|Área de trabalho remota|krdc freerdp||Conexão de Área de Trabal
 kdeconnect|internet|KDE Connect|kdeconnect-kde||Phone Link|Liga o celular ao computador: arquivos, notificações e área de transferência.|kdeconnect|
 
 # --- Gráficos e design ---------------------------------------------------
-gimp|graficos|GIMP|gimp||Photoshop|Edição e retoque de fotos.|gimp|
-krita|graficos|Krita|krita||Photoshop, Procreate|Pintura e desenho digital.|krita|
-inkscape|graficos|Inkscape|inkscape||Illustrator, CorelDRAW|Desenho vetorial: logos, cartazes e diagramas.|inkscape|
-scribus|graficos|Scribus|scribus||InDesign|Diagramação de revistas, folhetos e livros.|scribus|
+gimp|graficos|GIMP|gimp||Photoshop, Pixelmator, Preview|Edição e retoque de fotos.|gimp|
+krita|graficos|Krita|krita||Photoshop, Procreate, Pixelmator, Affinity Photo|Pintura e desenho digital.|krita|
+inkscape|graficos|Inkscape|inkscape||Illustrator, CorelDRAW, Affinity Designer, Sketch|Desenho vetorial: logos, cartazes e diagramas.|inkscape|
+scribus|graficos|Scribus|scribus||InDesign, Affinity Publisher, Pages|Diagramação de revistas, folhetos e livros.|scribus|
 drawio|graficos|draw.io|drawio||Visio, Lucidchart|Fluxogramas, diagramas UML e organogramas.|drawio|
 dia|graficos|Dia|dia||Visio|Diagramas simples, leve.|dia|
 kolourpaint|graficos|KolourPaint|kolourpaint||Paint|Desenho simples, como o Paint.|kolourpaint|
 
 # --- Música e vídeo ------------------------------------------------------
 vlc|multimidia|VLC|vlc|geral|Windows Media Player|Toca qualquer vídeo ou música.|vlc|
-kdenlive|multimidia|Kdenlive|kdenlive||Premiere, Vegas, CapCut|Edição de vídeo.|kdenlive|
-shotcut|multimidia|Shotcut|shotcut||Premiere|Edição de vídeo, mais simples.|shotcut|
+kdenlive|multimidia|Kdenlive|kdenlive||Premiere, Vegas, CapCut, iMovie, Final Cut Pro|Edição de vídeo.|kdenlive|
+shotcut|multimidia|Shotcut|shotcut||Premiere, iMovie|Edição de vídeo, mais simples.|shotcut|
 obs|multimidia|OBS Studio|obs-studio||OBS|Gravar a tela e fazer transmissões ao vivo.|com.obsproject.Studio|
 audacity|multimidia|Audacity|audacity||Audition|Gravar e editar áudio.|audacity|
-elisa|multimidia|Elisa|elisa||Groove, iTunes|Tocador de músicas.|elisa|
+elisa|multimidia|Elisa|elisa||Groove, iTunes, Música do Mac, iTunes|Tocador de músicas.|elisa|
 
 # --- Educação ------------------------------------------------------------
 kig|educacao|Kig|kig||Cabri|Geometria interativa.|kig|
@@ -154,13 +154,21 @@ minuet|educacao|Minuet|minuet||Teoria musical|Treino de ouvido e teoria musical.
 kturtle|educacao|KTurtle|kturtle||Logo|Primeiros passos em programação, com a tartaruga.|kturtle|
 
 # --- Finanças ------------------------------------------------------------
-kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken|Controle das contas e do orçamento pessoal.|kmymoney|
+kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken, Moneywise|Controle das contas e do orçamento pessoal.|kmymoney|
 gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas, pessoal ou de pequena empresa.|gnucash|
 
 # --- Sistema e compatibilidade -------------------------------------------
 windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe de 64 bits do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
 linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|-
 virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
-filelight|sistema|Filelight|filelight||WinDirStat|Mostra o que está ocupando o disco.|filelight|
-keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass|Cofre de senhas.|keepassxc|
+filelight|sistema|Filelight|filelight||WinDirStat, DaisyDisk|Mostra o que está ocupando o disco.|filelight|
+keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass, Keychain, Chaves do Mac|Cofre de senhas.|keepassxc|
 skanlite|sistema|Scanner|skanlite||Digitalizador do Windows|Digitalizar documentos e fotos.|skanlite|
+
+# --- Também para quem vem do Mac ---------------------------------------
+okular|escritorio|Okular|okular||Preview, Pré-Visualização do Mac, Adobe Reader|Lê e anota PDFs, imagens e livros digitais (já vem com o LumeBSD).|okular|
+digikam|graficos|digiKam|digikam||Fotos do Mac, Lightroom, Google Fotos|Organiza a biblioteca de fotos, com álbuns, rostos, datas e edição básica.|digikam|
+darktable|graficos|darktable|darktable||Lightroom, Capture One|Revelação de fotos RAW, para quem fotografa.|darktable|
+ardour|multimidia|Ardour|ardour||Logic Pro, Pro Tools, GarageBand, FL Studio|Gravação e mixagem de áudio com várias faixas.|ardour|
+musescore|multimidia|MuseScore|musescore||Sibelius, Finale|Partituras: escrever, ouvir e imprimir.|mscore|
+kdevelop|programacao|KDevelop|kdevelop||Xcode, CLion|IDE completa para C, C++ e Python.|kdevelop|

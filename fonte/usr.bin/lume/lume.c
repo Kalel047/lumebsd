@@ -35,7 +35,7 @@
 #include <unistd.h>
 
 #define	LUME_NAME	"LumeBSD"
-#define	LUME_VERSION	"1.3"
+#define	LUME_VERSION	"1.4"
 #define	LUME_CODENAME	"Farol"
 #define	LUME_MARCA	"/var/db/lume/configurado"
 #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
@@ -69,6 +69,11 @@ static const char *tips[] = {
 	"Um kit por área: lume loja kit exatas (ou sociais, ou geral).",
 	"Dois cliques num .exe abrem o programa do Windows com o Wine.",
 	"lume ajuda abre o guia do sistema em português.",
+	"Ctrl+Meta+T liga e desliga o filtro e-ink; Ctrl+Meta+Y só na janela ativa.",
+	"Fotos e vídeos ficam com cor: o filtro e-ink sai sozinho dessas janelas.",
+	"lume tema animacao esmaecer troca o refresh de e-ink por um esmaecer suave.",
+	"Programas do Windows de 32 bits também abrem: o LumeBSD baixa o que falta na primeira vez.",
+	"Um .dmg do Mac? Dois cliques mostram o que usar no lugar.",
 	"Apagou sem querer? lume tempo recuperar ARQUIVO traz de volta.",
 	"jail(8) isola serviços inteiros com custo quase zero.",
 	"service -e lista todos os serviços habilitados no boot.",
@@ -392,7 +397,8 @@ usage(void)
 	fprintf(stderr,
 	    "uso: lume [farol | dica | versao]\n"
 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
-	    "     lume tema [papel | padrao]\n"
+	    "     lume tema [papel | padrao | tinta [liga | desliga | 0-100] |\n"
+	    "                animacao [refresh | esmaecer | nenhuma]]\n"
 	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
 	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"

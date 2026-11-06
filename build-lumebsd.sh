@@ -1,5 +1,5 @@
 #!/bin/sh
-# Constrói o pendrive do LumeBSD 1.3 "Farol" (ao vivo + instalador) a partir
+# Constrói o pendrive do LumeBSD 1.4 "Farol" (ao vivo + instalador) a partir
 # do código-fonte do FreeBSD 15.1.
 # Roda em Linux (cross-build com LLVM) ou FreeBSD. Uso: sh build-lumebsd.sh
 #
@@ -13,7 +13,7 @@ SRC=$TOP/src
 OBJ=$TOP/obj
 STAGE=$TOP/stage
 PACOTES=$TOP/pacotes
-IMG=$TOP/LumeBSD-1.3-Farol-pendrive.img
+IMG=$TOP/LumeBSD-1.4-Farol-pendrive.img
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
 VERSAO=$(cat "$TOP/VERSAO")
 ATUALIZACAO=$TOP/atualizacao
@@ -64,10 +64,14 @@ python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
     'gpu-firmware-intel-kmod-*' wifi-firmware-iwlwifi-kmod \
     cpu-microcode-intel
 
-# 4b. O app Atualizações do LumeBSD (Qt 6, compilado contra o qt6-base do
-#     FreeBSD; o Qt em si vem com o desktop, não no pendrive)
-python3 "$TOP/ferramentas/pacotes.py" --sem-dependencias "$TOP/qt" qt6-base
+# 4b. Os apps (Atualizações e Programas do LumeBSD, Qt 6) e os efeitos do
+#     KWin (o filtro e-ink e as animações), compilados contra os pacotes do
+#     FreeBSD; o Qt e o KWin em si vêm com o desktop, não no pendrive
+python3 "$TOP/ferramentas/pacotes.py" --sem-dependencias "$TOP/qt" qt6-base \
+    kf6-kcoreaddons kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 \
+    libepoxy libxcb xorgproto libdrm wayland libxkbcommon libglvnd
 python3 "$TOP/ferramentas/montar-app.py" "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]*.pkg | head -1)"
+python3 "$TOP/ferramentas/montar-efeitos.py" "$STAGE" "$TOP/qt"
 
 # 5. Imagem do pendrive (UEFI e BIOS)
 python3 "$TOP/ferramentas/montar-pendrive.py" "$STAGE" "$PACOTES" \

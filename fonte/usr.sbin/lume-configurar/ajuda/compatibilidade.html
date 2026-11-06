@@ -26,9 +26,11 @@
 <li>O programa abre. Instaladores criam atalhos no menu, como no Windows.</li>
 </ol>
 <p>Os programas ficam numa “unidade C:” só sua, na pasta <code>.wine</code> da sua pasta pessoal.</p>
-<p class="nota"><b>Só programas de 64 bits.</b> O FreeBSD 15 não traz mais a parte de 32 bits que o Wine usa para os programas antigos de 32 bits. Se o LumeBSD avisar que um .exe é de 32 bits, procure a versão de 64 bits no site do programa: a maioria dos programas atuais oferece as duas.</p>
+<h3>Programas de 32 bits</h3>
+<p>Muitos instaladores e programas mais antigos são de 32 bits. Na primeira vez que você abre um, o LumeBSD oferece baixar a parte de 32 bits do Wine: cerca de 480 MB, que ocupam uns 2,6 GB na sua pasta pessoal (cada usuário baixa a sua). Não pede senha. Depois, os programas de 32 bits abrem com dois cliques, como os de 64.</p>
+<p>O FreeBSD 15 não publica mais pacotes de 32 bits, então essa parte vem dos pacotes do FreeBSD 14, que funcionam no 15. Quando o Wine do sistema é atualizado, o LumeBSD atualiza a parte de 32 bits junto, na próxima vez que você abrir um programa.</p>
 <h3>O que costuma funcionar</h3>
-<p>Programas de escritório e utilitários mais simples e softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício), na versão de 64 bits.</p>
+<p>Programas de escritório e utilitários mais simples, programas antigos, muitos jogos antigos e softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício).</p>
 <h3>O que costuma não funcionar</h3>
 <p>Programas com proteção anticópia ou antitrapaça, drivers de equipamentos (placas de aquisição, gravadores de microcontrolador do fabricante), e programas grandes que dependem de partes profundas do Windows, como as versões recentes do MATLAB, do SolidWorks, do AutoCAD e do pacote Adobe. Para esses, veja os caminhos 3 e 4.</p>
 <p>Quer saber antes de tentar? O site <a href="https://appdb.winehq.org/">appdb.winehq.org</a> mostra a experiência de outras pessoas com cada programa.</p>
@@ -37,6 +39,22 @@
 <p>O FreeBSD tem uma camada que roda programas feitos para Linux. O LumeBSD a liga sozinho quando você instala, pelo app, um programa que precisa dela (o Google Chrome e o Discord, por exemplo). Em <span class="menu">Sistema e compatibilidade</span>, <b>Programas do Linux</b> instala a base para quem quer rodar outros.</p>
 <pre><code>lume compat                # o que está ligado
 lume compat linux ligar    # como root</code></pre>
+
+<h2>Programas do Mac</h2>
+<p>Ainda não existe um jeito de rodar programas do Mac no FreeBSD. O LumeBSD começou a estudar o caminho (adaptar o Darling, um projeto que faz isso no Linux), mas é um trabalho longo.</p>
+<p>Enquanto isso, dois cliques num arquivo <code>.dmg</code> mostram o que fazer: o LumeBSD lê o nome do programa e procura nos <span class="menu">Programas do LumeBSD</span>. Muitos programas do Mac têm uma versão para Windows (que abre com o Wine), para Linux ou para a web; e para os da Apple há substitutos:</p>
+<table>
+<tr><th>No Mac</th><th>No LumeBSD</th></tr>
+<tr><td>Pages, Numbers, Keynote</td><td>LibreOffice (abre os arquivos do Office; para os do iWork, exporte do iCloud em formato do Office)</td></tr>
+<tr><td>Pré-Visualização</td><td>Okular (já vem)</td></tr>
+<tr><td>Fotos</td><td>digiKam</td></tr>
+<tr><td>iMovie, Final Cut Pro</td><td>Kdenlive, Shotcut</td></tr>
+<tr><td>GarageBand, Logic Pro</td><td>Ardour</td></tr>
+<tr><td>Mail, Calendário</td><td>Thunderbird, Kontact</td></tr>
+<tr><td>Safari</td><td>Firefox (já vem)</td></tr>
+<tr><td>Xcode</td><td>VS Code, KDevelop</td></tr>
+<tr><td>FaceTime</td><td>Meet ou Zoom, na web</td></tr>
+</table>
 
 <h2>4. Uma máquina virtual</h2>
 <p>Para o programa que não roda de outro jeito, instale o <b>VirtualBox</b> (em <span class="menu">Sistema e compatibilidade</span>) e rode um Windows inteiro numa janela. Precisa de uma licença do Windows, de 8 GB de memória ou mais no computador e de uns 60 GB livres no disco. Muitas faculdades também oferecem laboratórios virtuais ou licenças acessadas pela web; vale perguntar.</p>

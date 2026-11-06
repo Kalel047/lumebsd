@@ -1,0 +1,22 @@
+{
+    "KPackageStructure": "KWin/Effect",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "LumeBSD"
+            }
+        ],
+        "Category": "Window Open/Close Animation",
+        "Description": "Windows appear and disappear like on an e-ink screen: a quick dark flash, then the content",
+        "Description[pt_BR]": "As janelas aparecem e somem como numa tela de e-ink: um piscar escuro rápido e depois o conteúdo",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-fade",
+        "Id": "lume_refresh",
+        "License": "GPL",
+        "Name": "E-ink refresh (LumeBSD)",
+        "Name[pt_BR]": "Refresh de e-ink do LumeBSD"
+    },
+    "X-KDE-Ordering": 60,
+    "X-KWin-Exclusive-Category": "toplevel-open-close-animation",
+    "X-Plasma-API": "javascript"
+}

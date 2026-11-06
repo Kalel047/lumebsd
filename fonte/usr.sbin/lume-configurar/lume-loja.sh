@@ -314,7 +314,12 @@ procurar() {
 	[ $# -gt 0 ] || erro "uso: lume loja procurar TEXTO"
 	carregar_instalados
 	achou=n
-	for id in $(itens | grep -i -- "$*" | cut -d'|' -f1); do
+	# Todas as palavras, em qualquer ordem ("microsoft excel").
+	achados=$(itens)
+	for w in "$@"; do
+		achados=$(echo "$achados" | grep -i -- "$w")
+	done
+	for id in $(echo "$achados" | grep . | cut -d'|' -f1); do
 		achou=s
 		marca=" "
 		instalado "$id" && marca="✓"

@@ -42,6 +42,7 @@ eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
 | `usr.sbin/forja/` | a forja (sh), `forja.conf` e `forja(8)` |
 | `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), pacotes da base nova (`lume_pacotes`), vigia |
 | `app/lume-atualizacoes/`, `app/lume-programas/` (fora da árvore do FreeBSD) | os apps Atualizações e Programas do LumeBSD (Qt 6), os ícones, os atalhos e as políticas do polkit |
+| `app/lume-tinta/`, `app/lume-animacoes/` | os efeitos do KWin: o filtro e-ink (C++) e as animações de abrir e fechar (JavaScript); `ferramentas/montar-efeitos.py` os compila e empacota |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
 | `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=1.1`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
@@ -408,6 +409,87 @@ Páginas HTML em `/usr/share/lume/ajuda`, com o visual do tema Papel (e modo
 escuro), abertas no navegador pelo `lume-ajuda` (com atalhos: `lume ajuda
 windows`, `lume ajuda wifi`...). O CI confere os links entre elas.
 
+## A tela de papel (efeitos do KWin)
+
+O LumeBSD desenha as janelas em tons de papel e tinta. A ideia vem dos
+leitores de e-ink e de um *shader* de leitura que circula no r/unixporn:
+numa tela LCD, conteúdo claro e sem cores fortes se lê melhor sob luz forte,
+porque o reflexo some contra o fundo claro, sem precisar aumentar o brilho.
+
+**`lume_tinta`** (`app/lume-tinta/tinta.cpp`) é um efeito do KWin em C++, um
+`OffscreenEffect` como o "Inverter" do próprio KWin: cada janela é
+desenhada numa textura e passa por um *fragment shader* que tira a
+luminância (Rec. 709, na escala de gama 2.2 que a gestão de cor do KWin
+entrega), aplica uma curva de contraste (pretos de tinta, brancos de papel)
+e mistura entre a cor da tinta (`#1c1b19`) e a do papel (`#f0ece2`), na
+intensidade escolhida.
+
+- **Exceções**: janelas cuja classe contém o nome de um visualizador de
+  fotos, player de vídeo, editor de imagem ou vídeo, ou jogo (`gwenview`,
+  `vlc`, `mpv`, `gimp`, `krita`, `kdenlive`, `steam`...), e qualquer janela
+  em **tela cheia** (o sinal `windowFullScreenChanged` tira e devolve), não
+  passam pelo filtro. Mais classes em `kwinrc`, `[Effect-lume_tinta]
+  Excecoes=`.
+- **Atalhos** (KGlobalAccel): Ctrl+Meta+T inverte o filtro na tela;
+  Ctrl+Meta+Y, só na janela ativa.
+- **Sem moc**: a classe do efeito e a fábrica não declaram sinais nem slots
+  (as conexões são lambdas). Os metadados do plugin, que o
+  `Q_PLUGIN_METADATA` geraria, saem do `montar-efeitos.py`: o
+  `metadata.json` convertido em CBOR no formato do moc do Qt 6 (mapa com
+  IID, nome da classe e metadados), exportado com `QT_MOC_EXPORT_PLUGIN_V2`.
+  Assim o efeito compila com o clang de fora do FreeBSD, como os apps.
+- **Duas versões**: contra o KWin do X11 (`kwin-x11`, a sessão padrão) e o
+  do Wayland. O KWin só carrega um plugin da mesma versão (está no IID);
+  o `lume tema integrar` instala o plugin em
+  `/usr/local/lib/qt6/plugins/kwin*/effects/plugins` só se a versão do
+  pacote `plasma6-kwin*` bate com a que o build usou.
+
+**`lume_refresh`** e **`lume_esmaecer`** (`app/lume-animacoes/`) são efeitos
+em JavaScript, da categoria exclusiva `toplevel-open-close-animation`. O
+refresh anima o brilho de 0 a 1 com curva exponencial (a janela fica
+escura, na cor da tinta pelo filtro, e o conteúdo surge no fim, como a
+troca de página de um e-ink); o esmaecer anima opacidade e saturação. Nada
+desliza nem cresce.
+
+O tema Papel liga o compositor OpenGL no `kwinrc` do sistema, que antes
+ficava desligado; `lume tema tinta` e `lume tema animacao` mudam o
+`kwinrc` do usuário e pedem `reconfigure` ao KWin.
+
+## A loja por dentro (aparência)
+
+O app Programas do LumeBSD usa o estilo Fusion do Qt, uma paleta de papel e
+tinta e uma folha de estilo própria: serifa (IBM Plex Serif) nos títulos,
+mono (IBM Plex Mono) no índice e nos rótulos, fios de 1 px no lugar de
+sombras, botões retos de tinta cheia (a ação principal) ou contorno. Os
+ícones são convertidos para tons de cinza. Assim a loja tem a mesma cara
+com qualquer tema do KDE.
+
+## Windows de 32 bits
+
+O FreeBSD 15 não publica mais pacotes i386. O Wine do FreeBSD roda
+programas de 32 bits com uma cópia i386 do Wine na pasta do usuário
+(`~/.i386-wine-pkg`), instalada pelo `pkg32.sh` do próprio pacote, sobre as
+bibliotecas de 32 bits do sistema base. Por isso:
+
+- o build deixou de ter `WITHOUT_LIB32` (o sistema tem `/usr/lib32`);
+- `lume-compat` lê o cabeçalho PE do `.exe`; um de 32 bits, sem a parte de
+  32 bits, pergunta e roda `pkg32.sh --old install -r FreeBSD-ports wine
+  mesa-dri` como o usuário (pacotes do FreeBSD 14, que rodam no 15), com
+  uma barra do kdialog; depois abre pelo script `wine` do pacote, que junta
+  o Wine de 32 e o de 64 bits. Quando o Wine do sistema muda de versão, o
+  `pkg32.sh --old upgrade` acompanha;
+- os de 64 bits continuam pelo `wine64.bin` com `WINELOADER` (os scripts
+  `wine` e `wine64` exigem a parte de 32 bits).
+
+## Programas do Mac
+
+Não há como rodar programas do Mac no FreeBSD hoje. O
+`loja/lume-mac.desktop` é o app padrão de `.dmg`: `lume-compat abrir` tira
+o nome do programa do arquivo (sem versão, arquitetura e "installer"),
+explica e abre `lume-programas --procurar NOME`. O catálogo tem os
+programas da Apple no campo "parecido com". O estudo de portar o Darling
+está em [MACOS.md](MACOS.md).
+
 ## Identidade e compatibilidade
 
 `uname -s` diz `LumeBSD` e `uname -r` diz `1.1-FAROL`. O ABI dos binários
@@ -456,7 +538,8 @@ processo por conexão (como o `inetd`). Manuais: `vigia(8)`, `vigia.conf(5)`.
 
 `lume tema papel` grava padrões do sistema em `/usr/local/etc/xdg` (vale
 para quem não mexeu nas próprias configurações): esquema de cores,
-fontes IBM Plex, animações em zero, composição desligada, Look-and-Feel
+fontes IBM Plex, animações do KDE em zero, o compositor OpenGL com o filtro
+e-ink e o refresh de e-ink ligados (veja "A tela de papel"), Look-and-Feel
 `org.lumebsd.papel`, tela de login e de bloqueio, perfil do Konsole e GTK.
 Os ícones `lume-papel` são gerados na hora a partir do Breeze, trocando
 cada cor dos SVG pela sua luminância. `lume tema padrao` desfaz tudo.

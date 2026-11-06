@@ -1,16 +1,28 @@
-# KWin no tema Papel: sem animações, sem sombras, sem transparência.
-# Sem compositor no X11 a tela só muda quando precisa, como num e-ink,
-# e o desktop fica leve mesmo sem aceleração de vídeo.
+# KWin no tema Papel: o filtro e-ink e as animações do LumeBSD, sem sombras,
+# sem transparência e sem as animações de deslizar e crescer.
+#
+# O filtro (lume_tinta) precisa do compositor (OpenGL). Ele desenha cada
+# janela em papel e tinta, menos fotos, vídeos e tela cheia; numa tela LCD,
+# isso se lê melhor sob luz forte sem aumentar o brilho.
 [Compositing]
-Enabled=false
+Enabled=true
+Backend=OpenGL
 
 [Plugins]
+lume_tintaEnabled=true
+lume_refreshEnabled=true
+lume_esmaecerEnabled=false
 blurEnabled=false
 contrastEnabled=false
 slidingpopupsEnabled=false
 translucencyEnabled=false
+fadeEnabled=false
+scaleEnabled=false
 kwin4_effect_fadeEnabled=false
 kwin4_effect_scaleEnabled=false
+
+[Effect-lume_tinta]
+Intensidade=100
 
 [org.kde.kdecoration2]
 library=org.kde.breeze

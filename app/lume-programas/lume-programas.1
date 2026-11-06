@@ -9,7 +9,7 @@
 .Nd Programas do LumeBSD, a loja de programas por área
 .Sh SYNOPSIS
 .Nm
-.Op Fl -instalar Ar programa
+.Op Fl -instalar Ar programa | Fl -procurar Ar texto
 .Sh DESCRIPTION
 .Nm
 é o app gráfico de programas do LumeBSD, no menu do KDE em
@@ -47,6 +47,12 @@ O
 .Nm lume compat
 usa isto para instalar o Wine quando alguém abre um programa do Windows
 pela primeira vez.
+.It Fl -procurar Ar texto
+Abre já procurando
+.Ar texto .
+O
+.Nm lume compat
+usa isto para um programa do Mac: o substituto dele.
 .El
 .Sh FILES
 .Bl -tag -width indent
