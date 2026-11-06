@@ -36,6 +36,7 @@
 #include <QSet>
 #include <QVector3D>
 
+#include <cstring>
 #include <memory>
 
 namespace KWin
@@ -292,6 +293,17 @@ public:
     Effect *createEffect() const override
     {
         return new Tinta();
+    }
+    // O KPluginFactory é uma "interface" do Qt (Q_DECLARE_INTERFACE): o
+    // qobject_cast pergunta ao objeto, pelo nome, se ele é um
+    // "org.kde.KPluginFactory". O moc escreveria esta resposta (o
+    // Q_INTERFACES das fábricas do KWin); sem o moc, ela fica aqui.
+    void *qt_metacast(const char *nome) override
+    {
+        if (nome && std::strcmp(nome, KPluginFactory_iid) == 0) {
+            return static_cast<KPluginFactory *>(this);
+        }
+        return EffectPluginFactory::qt_metacast(nome);
     }
 };
 

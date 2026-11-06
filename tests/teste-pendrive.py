@@ -26,6 +26,8 @@ uso: python3 tests/teste-pendrive.py FASE LOG
              nova, um .exe de 32 bits (instala o Wine e a parte de 32 bits
              do espelho em REPO32) e um .dmg do Mac (a loja procurando o
              substituto)
+  sessao     entra na sessão gráfica e roda, como root, os comandos de
+             $AJUSTES (um por linha; para diagnóstico)
   ajustar    entra como root no instalado e roda os comandos de $AJUSTES
 
 Variáveis: LUME_IMG (a imagem), LUME_TESTE_DIR (onde ficam disco NVMe,
@@ -47,7 +49,7 @@ import time
 
 TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR = os.environ.get("LUME_TESTE_DIR", os.path.join(TOPO, "teste-pendrive"))
-PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.4-Farol-pendrive.img"))
+PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.2-Farol-pendrive.img"))
 OVMF_CODE = os.environ.get("OVMF_CODE", "/usr/share/OVMF/OVMF_CODE_4M.fd")
 OVMF_VARS = os.environ.get("OVMF_VARS", "/usr/share/OVMF/OVMF_VARS_4M.fd")
 NVME = f"{DIR}/nvme.img"
@@ -651,6 +653,29 @@ elif fase == "exe":
     enviar("shutdown -p now")
     esperar("Uptime", 300)
 
+elif fase == "sessao":
+    senha_do_disco("login: ")
+    P = "root@thinkpad:~ # "
+    enviar("root")
+    esperar("Password:")
+    enviar("farol123")
+    esperar(P, 60)
+    # ANTES: comandos antes do login gráfico (variáveis da sessão, logs).
+    for c in os.environ.get("ANTES", "").splitlines():
+        if c.strip():
+            comando(c, P, 300)
+    time.sleep(30)
+    for tecla in "lume2026":
+        monitor(f"sendkey {tecla}")
+    monitor("sendkey ret")
+    time.sleep(220)
+    for c in os.environ.get("AJUSTES", "").splitlines():
+        if c.strip():
+            comando(c, P, int(os.environ.get("AJUSTES_TEMPO", "600")))
+    foto("sessao")
+    enviar("shutdown -p now")
+    esperar("Uptime", 300)
+
 elif fase == "eink":
     REPO32 = os.environ.get("REPO32", "http://10.0.2.2:8001")
     senha_do_disco("login: ")
@@ -729,14 +754,19 @@ elif fase == "eink":
     time.sleep(40)
     foto("eink-6-exe-wine")
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
-    time.sleep(60)
-    janela("Programas do LumeBSD", "xdotool key Return")
-    time.sleep(25)
+    # A loja calcula o tamanho (o rquery demora) e só então pergunta.
+    comando(X + "'i=0; until xdotool search --onlyvisible --name \"^Instalar$\" >/dev/null; do "
+            "i=$((i+1)); [ $i -gt 120 ] && break; sleep 5; done; "
+            "xdotool search --onlyvisible --name \"^Instalar$\" windowactivate --sync key Return && echo confirmou'", P, 700)
+    comando(X + "'i=0; until xdotool search --onlyvisible --name Autentica >/dev/null; do "
+            "i=$((i+1)); [ $i -gt 60 ] && break; sleep 2; done; true'", P, 200)
     comando(X + "'xdotool search --onlyvisible --name Autentica >/dev/null && "
             "{ xdotool type --delay 120 lume2026; xdotool key Return; }; true'", P)
     comando("i=0; until pkg info -e wine; do i=$((i+1)); [ $i -gt 480 ] && break; sleep 5; done; "
             "pkg info -e wine && echo wine-ok", P, 2600)
-    time.sleep(40)
+    comando(X + "'i=0; until xdotool search --onlyvisible --name \"Programa do Windows\" >/dev/null; do "
+            "i=$((i+1)); [ $i -gt 60 ] && break; sleep 3; done; true'", P, 300)
+    time.sleep(5)
     foto("eink-7-exe-32bits-pergunta")
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
     time.sleep(30)

@@ -9,7 +9,6 @@
         "Description": "Draws windows in paper and ink tones, like an e-ink screen; photos, videos and full-screen windows keep their colors",
         "Description[pt_BR]": "Desenha as janelas em tons de papel e tinta, como uma tela de e-ink; fotos, vídeos e janelas em tela cheia ficam com as cores",
         "EnabledByDefault": true,
-        "Id": "lume_tinta",
         "License": "GPL",
         "Name": "E-ink (LumeBSD)",
         "Name[pt_BR]": "E-ink do LumeBSD"
