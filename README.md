@@ -439,7 +439,7 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0025                 lume tempo, a máquina do tempo (1.1.2)
   0026..0027           lume atualizar pela base FreeBSD, lume_pacotes; 1.2
   0028..0030           lume loja, lume compat, lume ajuda; 1.3
-  0031..0033           a tela de papel, Windows 32 bits, Mac, atalhos
+  0031..0034           a tela de papel, Windows 32 bits, Mac, atalhos
                        do KWin; 1.4
 app/                   os apps Atualizações e Programas do LumeBSD (Qt 6) e os
                        efeitos do KWin (o filtro e-ink e as animações),

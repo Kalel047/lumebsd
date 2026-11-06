@@ -1,0 +1,35 @@
+From c598a6c7845ccce78d42548f8e56fa13d973f82b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 08:27:44 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20compat:=20os=2032=20bits=20precisam=20ta?=
+ =?UTF-8?q?mb=C3=A9m=20do=20carregador?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Sem o /libexec/ld-elf32.so.1, todo programa de 32 bits para na hora e
+o Wine de 32 bits sai sem mensagem. O lume compat agora confere o
+carregador junto das bibliotecas e, se faltar, explica em vez de
+baixar a parte de 32 bits do Wine à toa.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/lume-compat.sh | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-compat.sh b/usr.sbin/lume-configurar/lume-compat.sh
+index b159824c9..95b0c22d4 100644
+--- a/usr.sbin/lume-configurar/lume-compat.sh
++++ b/usr.sbin/lume-configurar/lume-compat.sh
+@@ -38,7 +38,9 @@ PKG32=/usr/local/share/wine/pkg32.sh
+ 
+ tem_wine()   { [ -x /usr/local/bin/wine64.bin ]; }
+ tem_wine32() { [ -x "$WINE32/usr/local/bin/wine" ]; }
+-tem_lib32()  { [ -f /usr/lib32/libc.so.7 ]; }
++# As bibliotecas de 32 bits e o carregador delas (sem ele, todo programa de
++# 32 bits para na hora, sem mensagem).
++tem_lib32()  { [ -f /usr/lib32/libc.so.7 ] && [ -x /libexec/ld-elf32.so.1 ]; }
+ 
+ # 64 ou 32: o tipo de máquina no cabeçalho PE de um .exe ("?" se não for).
+ pe_bits()

@@ -38,7 +38,9 @@ PKG32=/usr/local/share/wine/pkg32.sh
 
 tem_wine()   { [ -x /usr/local/bin/wine64.bin ]; }
 tem_wine32() { [ -x "$WINE32/usr/local/bin/wine" ]; }
-tem_lib32()  { [ -f /usr/lib32/libc.so.7 ]; }
+# As bibliotecas de 32 bits e o carregador delas (sem ele, todo programa de
+# 32 bits para na hora, sem mensagem).
+tem_lib32()  { [ -f /usr/lib32/libc.so.7 ] && [ -x /libexec/ld-elf32.so.1 ]; }
 
 # 64 ou 32: o tipo de máquina no cabeçalho PE de um .exe ("?" se não for).
 pe_bits()
