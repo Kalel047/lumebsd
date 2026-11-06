@@ -15,7 +15,8 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
 		tema/metadata.json tema/defaults tema/layout.js \
 		tema/sddm.conf tema/sddm-breeze.conf.user tema/fontes.conf \
 		tema/gtk-settings.ini tema/papel.png tema/papel-noite.png \
-		tema/navegador.svg tema/lume-tempo.desktop
+		tema/navegador.svg tema/lume-tempo.desktop \
+		tema/org.kde.kglobalaccel.service
 
 # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
 # programas do Windows com dois cliques (lume compat).

@@ -331,8 +331,9 @@ elif fase == "desktop":
     esperar(P, 60)
     comando("pgrep -lf 'Xorg|plasmashell|kwin' | cut -c1-80", P)
     # Abre programas na sessão do fabiano (mesmo DISPLAY, Xauthority e D-Bus).
-    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     comando(sessao + "setxkbmap -query", P)
     comando(sessao + "su -m fabiano -c 'env HOME=/home/fabiano daemon -f konsole -e sh -c \"lume; lume farol; exec sh\"'", P)
     time.sleep(90)
@@ -418,8 +419,9 @@ elif fase == "tempo":
     for c in passos:
         comando(c, P, 300)
     # A janela "Versões anteriores", na sessão do fabiano.
-    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     comando("ls -l /usr/local/share/kio/servicemenus/", P)
     comando(sessao + "su -m fabiano -c 'env HOME=/home/fabiano daemon -f dolphin /home/fabiano/Documentos'", P)
     time.sleep(60)
@@ -468,8 +470,9 @@ elif fase == "app":
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     X = sessao + "su -m fabiano -c "
     comando("pgrep -lf lume-atualizacoes; ls /usr/local/share/applications/lume-atualizacoes.desktop /usr/local/share/polkit-1/actions/org.lumebsd.atualizar.policy", P)
     comando(X + "'env HOME=/home/fabiano daemon -f lume-atualizacoes'", P)
@@ -526,8 +529,9 @@ elif fase == "loja":
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     # PREPARO: comandos antes do teste (um por linha), como trocar um script.
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
@@ -539,7 +543,9 @@ elif fase == "loja":
               "pkg info -e libreoffice pt_BR-libreoffice webfonts vlc xournalpp && echo kit-geral-ok",
               "grep -i ms-dos /usr/local/etc/xdg/mimeapps.list",
               "lume compat", "lume loja info qalculate",
-              "ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg info -e xdotool && echo xdotool-ok"]:
+              "ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg info -e xdotool && echo xdotool-ok",
+              # A VM lenta repete as teclas do xdotool ("keynoooote").
+              X + "'xset r off; xset q | grep -i repeat'"]:
         comando(c, P, 600)
 
     def janela(cmd):
@@ -630,8 +636,9 @@ elif fase == "exe":
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
             comando(c, P, 300)
-    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     X = sessao + "su -m fabiano -c "
     H = "env HOME=/home/fabiano "
     comando(f"mkdir -p /home/fabiano/Downloads; for e in calculadora calculadora32; do fetch -q -o /home/fabiano/Downloads/$e.exe {REPO}/teste/$e.exe; done; "
@@ -670,7 +677,9 @@ elif fase == "sessao":
     monitor("sendkey ret")
     time.sleep(220)
     for c in os.environ.get("AJUSTES", "").splitlines():
-        if c.strip():
+        if c.startswith("FOTO "):
+            foto(c[5:].strip())
+        elif c.strip():
             comando(c, P, int(os.environ.get("AJUSTES_TEMPO", "600")))
     foto("sessao")
     enviar("shutdown -p now")
@@ -694,8 +703,9 @@ elif fase == "eink":
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
             comando(c, P, 300)
-    sessao = ("pid=$(pgrep -n -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     X = sessao + "su -m fabiano -c "
     H = "env HOME=/home/fabiano "
     Q = "qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects"
@@ -705,7 +715,9 @@ elif fase == "eink":
               X + "'qdbus6 org.kde.KWin /KWin org.kde.KWin.supportInformation | grep -i -E \"compositing|OpenGL renderer|lume\" | head -12'",
               X + f"'{H}lume tema tinta; {H}lume tema animacao'",
               "lume compat",
-              "ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg info -e xdotool && echo xdotool-ok"]:
+              "ASSUME_ALWAYS_YES=yes pkg install -q xdotool >/dev/null; pkg info -e xdotool && echo xdotool-ok",
+              # A VM lenta repete as teclas do xdotool ("keynoooote").
+              X + "'xset r off; xset q | grep -i repeat'"]:
         comando(c, P, 600)
 
     def janela(nome, cmd):
@@ -754,10 +766,11 @@ elif fase == "eink":
     time.sleep(40)
     foto("eink-6-exe-wine")
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
+    comando(X + "'sleep 30; xdotool search --onlyvisible --name . | while read w; do xdotool getwindowname $w; done | sort -u'", P)
     # A loja calcula o tamanho (o rquery demora) e só então pergunta.
-    comando(X + "'i=0; until xdotool search --onlyvisible --name \"^Instalar$\" >/dev/null; do "
+    comando(X + "'i=0; until xdotool search --onlyvisible --name \"^Instalar\" >/dev/null; do "
             "i=$((i+1)); [ $i -gt 120 ] && break; sleep 5; done; "
-            "xdotool search --onlyvisible --name \"^Instalar$\" windowactivate --sync key Return && echo confirmou'", P, 700)
+            "xdotool search --onlyvisible --name \"^Instalar\" windowactivate --sync key Return && echo confirmou'", P, 700)
     comando(X + "'i=0; until xdotool search --onlyvisible --name Autentica >/dev/null; do "
             "i=$((i+1)); [ $i -gt 60 ] && break; sleep 2; done; true'", P, 200)
     comando(X + "'xdotool search --onlyvisible --name Autentica >/dev/null && "
@@ -812,8 +825,9 @@ elif fase in ("app-falhou", "app-voltar"):
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    sessao = ("pid=$(pgrep -u fabiano plasmashell); "
-              "eval $(procstat -e $pid | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); ")
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+              "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
+              "eval $(echo \"$E\" | sed 's/^/export /'); ")
     X = sessao + "su -m fabiano -c "
 
     def clicar(dx, dy):

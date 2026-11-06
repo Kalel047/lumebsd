@@ -12,7 +12,8 @@
 #                       polkit), a Ajuda, os dois cliques num .exe (lume
 #                       compat) e o "Versões anteriores" do Dolphin (o tema
 #                       chama isto, e o lume_saude também, depois de uma
-#                       atualização), e os efeitos do KWin do LumeBSD
+#                       atualização), os efeitos do KWin do LumeBSD e os
+#                       atalhos de teclado do KWin (o kglobalacceld no D-Bus)
 #   lume tema tinta [liga | desliga | NÚMERO]
 #                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
 #                       papel e tinta; fotos, vídeos e tela cheia ficam com
@@ -195,6 +196,7 @@ integrar()
 	    $P/share/applications/lume-mac.desktop 0644
 	padrao_mime "application/x-apple-diskimage" lume-mac.desktop
 	efeitos
+	atalhos
 	# Impressoras: o CUPS vem com o desktop; quem atualizou de antes da 1.3
 	# não o tinha ligado (vale a partir do próximo boot).
 	if [ -x $P/sbin/cupsd ] && [ -z "$(sysrc -qn cupsd_enable 2>/dev/null)" ]; then
@@ -205,6 +207,31 @@ integrar()
 	command -v update-desktop-database >/dev/null 2>&1 &&
 	    update-desktop-database -q $P/share/applications 2>/dev/null
 	return 0
+}
+
+# Os atalhos de teclado do KDE (Alt+Tab, Alt+F4, Ctrl+Meta+T...). O KWin
+# registra os dele assim que a sessão começa, antes de o kglobalacceld subir
+# pelo autostart; sem o arquivo do D-Bus que o chama na hora (o pacote do
+# FreeBSD não traz), o registro falhava e todos os atalhos do KWin ficavam
+# sem tecla.
+atalhos()
+{
+	[ -x $P/lib/libexec/kglobalacceld ] || return 0
+	s=$P/share/dbus-1/services/org.kde.kglobalaccel.service
+	if [ ! -f $s ] || grep -q LumeBSD $s; then
+		instalar $T/org.kde.kglobalaccel.service $s 0644
+	fi
+	# Quem já entrou numa sessão ficou com os atalhos do KWin gravados sem
+	# tecla ("none,none"): sai a linha, e na próxima sessão o padrão volta.
+	# Uma linha "none,none" de verdade (ação sem atalho padrão) o KDE
+	# escreve de novo igual.
+	for k in /home/*/.config/kglobalshortcutsrc; do
+		[ -f "$k" ] || continue
+		grep -q '=none,none,' "$k" || continue
+		awk '/^\[/ { g = $0 } !(g == "[kwin]" && /=none,none,/)' "$k" \
+		    > "$k.lume" && cat "$k.lume" > "$k"
+		rm -f "$k.lume"
+	done
 }
 
 # Os efeitos do KWin do LumeBSD (/usr/share/lume/kwin): o filtro e-ink

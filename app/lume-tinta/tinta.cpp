@@ -146,7 +146,8 @@ Tinta::Tinta()
     tudo->setAutoRepeat(false);
     tudo->setObjectName(QStringLiteral("LumeTinta"));
     tudo->setText(QStringLiteral("Filtro e-ink: ligar ou desligar"));
-    KGlobalAccel::self()->setGlobalShortcut(tudo, QKeySequence(Qt::CTRL | Qt::META | Qt::Key_T));
+    KGlobalAccel::self()->setDefaultShortcut(tudo, QList<QKeySequence>() << (Qt::CTRL | Qt::META | Qt::Key_T));
+    KGlobalAccel::self()->setShortcut(tudo, QList<QKeySequence>() << (Qt::CTRL | Qt::META | Qt::Key_T));
     connect(tudo, &QAction::triggered, this, [this] {
         m_ligado = !m_ligado;
         atualizarTodas();
@@ -156,7 +157,8 @@ Tinta::Tinta()
     janela->setAutoRepeat(false);
     janela->setObjectName(QStringLiteral("LumeTintaJanela"));
     janela->setText(QStringLiteral("Filtro e-ink: só nesta janela"));
-    KGlobalAccel::self()->setGlobalShortcut(janela, QKeySequence(Qt::CTRL | Qt::META | Qt::Key_Y));
+    KGlobalAccel::self()->setDefaultShortcut(janela, QList<QKeySequence>() << (Qt::CTRL | Qt::META | Qt::Key_Y));
+    KGlobalAccel::self()->setShortcut(janela, QList<QKeySequence>() << (Qt::CTRL | Qt::META | Qt::Key_Y));
     connect(janela, &QAction::triggered, this, [this] {
         EffectWindow *w = effects->activeWindow();
         if (!w) {

@@ -7,6 +7,7 @@ Sobre o FreeBSD 15.1. A tela de papel, a loja nova e mais programas de outros si
 - **Filtro e-ink**: todas as janelas em tons de papel e tinta. Numa tela comum, conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol, sem aumentar o brilho.
 - **Fotos e vídeos ficam com cor**: o filtro sai sozinho de visualizadores de fotos, players de vídeo, editores de imagem e de qualquer janela em tela cheia.
 - **Ctrl+Meta+T** liga e desliga o filtro; **Ctrl+Meta+Y** tira ou põe só na janela ativa; `lume tema tinta 60` deixa mais leve.
+- **Atalhos de teclado do KDE funcionando**: Alt+Tab, Alt+F4, Meta+W (visão geral) e os outros atalhos das janelas ficavam sem tecla, porque o KWin começava antes do serviço de atalhos. Agora o serviço sobe quando o KWin pede.
 - **Animações das janelas** sem movimento, como no papel: o **refresh de e-ink** (a janela aparece escura por um instante e o conteúdo surge de uma vez) ou o **esmaecer** em tons de cinza (`lume tema animacao esmaecer`).
 
 ## Programas do LumeBSD, de cara nova
