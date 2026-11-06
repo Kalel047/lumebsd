@@ -26,6 +26,54 @@ FreeBSD. Estudo feito em novembro de 2026, sobre o Darling no commit
   Logic, Fotos, Pré-Visualização, Xcode...) e mostra o substituto. A Ajuda
   explica isso (`lume ajuda mac`).
 
+## Na 1.5: o lume-macho
+
+O primeiro pedaço de código, feito no LumeBSD (não um port do Darling):
+`mac/lume-macho/lume-macho.c`, instalado em `/usr/libexec/lume-macho`.
+
+- **Carregador de Mach-O**: lê o executável (também o universal, de onde
+  pega a parte Intel), põe cada segmento no endereço do programa com
+  `mmap(MAP_FIXED | MAP_EXCL)` (o equivalente do `MAP_FIXED_NOREPLACE` do
+  Linux), deixa o `__PAGEZERO` como o FreeBSD já deixa (o endereço zero
+  vazio) e chama o ponto de entrada: `LC_MAIN` como função
+  (`main(argc, argv, envp, apple)`) ou `LC_UNIXTHREAD` com a pilha que o
+  kernel do macOS monta.
+- **Chamadas de sistema**: o programa fala com o XNU por `syscall` com o
+  número da classe BSD (`0x2000000 + n`). O XNU e o FreeBSD vêm do 4.4BSD:
+  os argumentos vão nos mesmos registradores, o erro volta no carry, e boa
+  parte dos números, flags e códigos de erro é igual. O `lume-macho`
+  acompanha o programa pelo `ptrace(PT_SYSCALL)` e, na entrada de cada
+  chamada, troca o número do XNU pelo do FreeBSD (e as flags que mudam, como
+  `O_CLOEXEC` e `O_DIRECTORY` no `open`); o kernel do FreeBSD relê os
+  registradores (`TDB_USERWR`, em `sys/kern/subr_syscall.c`) e executa a
+  chamada nativa. Traduz hoje umas 30 chamadas (as de arquivo, memória,
+  processo e tempo).
+- **Programa de teste**: `mac/teste/ola-mac.c`, compilado aqui mesmo para o
+  macOS (clang `--target=x86_64-apple-macos11` e `ld64.lld`). Fala direto
+  com o kernel e roda no LumeBSD: `lume compat mac testar`.
+
+### Por que não o SIGSYS
+
+O caminho mais rápido seria pegar a chamada inválida pelo sinal SIGSYS, sem
+`ptrace`. Mas o FreeBSD manda o SIGSYS (em `kern_nosys`) sem o número da
+chamada, e quando o sinal chega o registrador já tem o erro. O `ptrace` é
+lento (duas trocas de contexto por chamada), mas serve para a prova.
+
+### O caminho certo: uma ABI no kernel
+
+O FreeBSD já roda programas do Linux sem emulador, pelo **Linuxulator**: um
+módulo do kernel com um "ativador de imagem" (reconhece o formato do
+executável) e uma tabela de chamadas própria (`sysentvec`). O mesmo serve
+para o Mach-O: um módulo `macho.ko` com o ativador para o Mach-O e a tabela
+do XNU apontando para as funções do FreeBSD (a maioria direto; algumas com
+a tradução das estruturas, como o `stat`). Sem `ptrace`, sem custo: as
+chamadas BSD do macOS viram chamadas nativas. É o próximo passo do
+`lume-macho`, e é melhor do que o Darling faz no Linux (lá, a tradução é na
+`libsystem_kernel`, em espaço de usuário).
+
+As chamadas Mach (mensagens, portas) não têm equivalente no FreeBSD: essas
+continuam com o `darlingserver`, como no Darling.
+
 ## O que o LumeBSD já faz
 
 | Situação | O que acontece |
@@ -86,9 +134,12 @@ o mesmo estágio experimental.
 
 1. **Feito (1.4)**: o atalho para `.dmg` e `.pkg`, o catálogo com os
    programas da Apple e a Ajuda.
-2. **Prova de conceito**: compilar o `darlingserver` e o `mldr` no FreeBSD,
-   com as trocas da tabela, e carregar um binário Mach-O mínimo (um
-   "olá, mundo" de linha de comando) até o `dyld`.
+2. **Feito (1.5)**: o `lume-macho`, carregador próprio de Mach-O com as
+   chamadas BSD do XNU traduzidas para o FreeBSD; um programa do macOS de
+   verdade roda (sem as bibliotecas da Apple).
+   **Próximo**: o módulo `macho.ko` (a ABI no kernel, como o Linuxulator) no
+   lugar do `ptrace`, e o `dyld` do Darling carregado pelo `lume-macho`, até
+   um "olá, mundo" com a libSystem.
 3. **Camada de emulação**: escrever `emulation/freebsd` área por área,
    começando pelas que um programa de linha de comando usa (`unistd`,
    `stat`, `fcntl`, `mman`, `signal`, `bsdthread`, `psynch`), com os testes do

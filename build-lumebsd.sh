@@ -77,6 +77,8 @@ python3 "$TOP/ferramentas/montar-app.py" "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]
 python3 "$TOP/ferramentas/montar-efeitos.py" "$STAGE" "$TOP/qt"
 # O lume-motor (app/lume-motor): o motor de renderização vetorial
 python3 "$TOP/ferramentas/montar-motor.py" "$STAGE" "$TOP/qt"
+# O lume-macho (mac/): programas do macOS, experimental
+python3 "$TOP/ferramentas/montar-mac.py" "$STAGE"
 
 # 5. Imagem do pendrive (UEFI e BIOS) e a .iso (DVD, máquina virtual ou
 #    pendrive; UEFI e BIOS)

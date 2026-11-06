@@ -1,0 +1,41 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 6, 2026
+.Dt LUME-MACHO 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-macho
+.Nd roda programas do macOS (Mach-O, x86-64) no LumeBSD (experimental)
+.Sh SYNOPSIS
+.Nm /usr/libexec/lume-macho
+.Op Fl v
+.Ar programa
+.Op Ar argumentos ...
+.Sh DESCRIPTION
+O primeiro passo da compatibilidade com o Mac.
+.Nm
+lê um executável do macOS (Mach-O de 64 bits, também o universal, de onde
+pega a parte Intel), põe os segmentos na memória e o executa.
+As chamadas de sistema do kernel do macOS (XNU) são traduzidas para as do
+FreeBSD: os dois vêm do 4.4BSD, com os mesmos registradores, o erro no carry
+e muitos números iguais.
+.Nm
+acompanha o programa pelo
+.Xr ptrace 2
+e troca o número de cada chamada na entrada.
+.Pp
+Ainda não roda programas que usam as bibliotecas do macOS (quase todos: a
+libSystem, o Foundation, o AppKit), que precisam do dyld e das bibliotecas
+do projeto Darling; nem as chamadas Mach.
+Esses programas param com uma mensagem que diz o que falta.
+O programa de teste
+.Pa /usr/share/lume/mac/ola-mac
+fala direto com o kernel e roda:
+.Dl lume compat mac testar
+.Pp
+.Fl v
+mostra os segmentos carregados; duas vezes, cada chamada traduzida.
+.Sh SEE ALSO
+.Xr lume-compat 8 ,
+.Xr ptrace 2
+.Pp
+O estudo e o caminho: docs/MACOS.md no repositório do LumeBSD.

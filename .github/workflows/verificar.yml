@@ -101,6 +101,9 @@ jobs:
           python3 ferramentas/pacotes.py --sem-dependencias qt mesa-libs freetype2 png
           python3 ferramentas/montar-motor.py --so-compilar freebsd qt lume-motor
           file lume-motor
+          # O lume-macho e o programa de teste do macOS (Mach-O)
+          python3 ferramentas/montar-mac.py --so-compilar freebsd mac-bin
+          file mac-bin/*
           for j in app/lume-animacoes/*/contents/code/main.js; do node --check "$j"; done
           for m in app/lume-tinta/metadata.json app/lume-animacoes/*/metadata.json; do
             python3 -m json.tool "$m" >/dev/null
