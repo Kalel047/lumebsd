@@ -14,7 +14,7 @@ rc=1
 root@thinkpad:~ # LUME_ATUALIZAR_URL=http://10.0.2.2:8000/atualizacao/atualizaca o.txt sh /tmp/lume-atualizar --maquina verificar
 @atual versao=1.1.2 base=15.1
 @nova versao=1.2.0 base=15.1 tipo=versao troca=nenhuma tamanho=321287108 notas=http://10.0.2.2:8000/atualizacao/LumeBSD-1.2.0-notas.md
-root@thinkpad:~ # LUME_ATUALIZAR_URL=http://10.0.2.2:8000/atualizacao/atualizaca o.txt su fabiano -c 'sh /tmp/lume-atualizar verificar'
+root@thinkpad:~ # LUME_ATUALIZAR_URL=http://10.0.2.2:8000/atualizacao/atualizaca o.txt su kalel -c 'sh /tmp/lume-atualizar verificar'
   ✓ versão nova: 1.2.0 (você tem a 1.1.2)
   novidades: http://10.0.2.2:8000/atualizacao/LumeBSD-1.2.0-notas.md
 root@thinkpad:~ # sh /tmp/lume-atualizar --maquina aplicar http://10.0.2.2:8000/ atualizacao/atualizacao.txt | grep -v '^@progresso' ; echo rc=$?
@@ -118,7 +118,7 @@ lume-1.2.1          NR     /          7.72G 2026-11-04 14:36
 lume-1.2.2          T      -          462M  2026-11-04 15:26
 teste               -      -          552K  2026-11-04 01:51
 volta-20261104-0737 -      -          460K  2026-11-04 07:39
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'w=$(xd otool search --onlyvisible --classname lume-atualizacoes | tail -1); xdotool win dowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); xdotool mou semove --window $w $((WIDTH - 71)) $((HEIGHT - 36)) click 1'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'w=$(xd otool search --onlyvisible --classname lume-atualizacoes | tail -1); xdotool win dowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); xdotool mou semove --window $w $((WIDTH - 71)) $((HEIGHT - 36)) click 1'
 
 # 4) 1.2.2 -> 1.3.0 com a base FreeBSD 15.1 -> 15.2 (simulada): drivers baixados antes
 [16/16] Fetching gpu-firmware-intel-kmod-skylake-20260519.1501000: .......... done
@@ -187,9 +187,9 @@ root@thinkpad:~ # shutdown -p now
 root@thinkpad:~ # lume atualizar --maquina estado
 @estado versao=1.3.0 base=15.1 ambiente=lume-1.3.0 padrao=lume-1.3.0 pendente=- anterior=lume-1.2.2 ao_vivo=nao
 @falhou ambiente=lume-1.3.1 motivo=o vigia não está respondendo
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'env HO ME=/home/fabiano daemon -f lume-atualizacoes'
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'w=$(xd otool search --onlyvisible --classname lume-atualizacoes | tail -1); xdotool win dowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); xdotool mou semove --window $w $((WIDTH - 225)) $((HEIGHT - 36)) click 1'
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'xdotoo l search --onlyvisible --name Autentica >/dev/null && { xdotool type --delay 120  lume2026; xdotool key Return; }; true'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'env HO ME=/home/kalel daemon -f lume-atualizacoes'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'w=$(xd otool search --onlyvisible --classname lume-atualizacoes | tail -1); xdotool win dowactivate --sync $w; eval $(xdotool getwindowgeometry --shell $w); xdotool mou semove --window $w $((WIDTH - 225)) $((HEIGHT - 36)) click 1'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'xdotoo l search --onlyvisible --name Autentica >/dev/null && { xdotool type --delay 120  lume2026; xdotool key Return; }; true'
 root@thinkpad:~ # bectl list; tail -3 /var/log/lume-atualizar.log
 BE                  Active Mountpoint Space Created
 default             -      -          488K  2026-11-04 01:44
@@ -213,10 +213,10 @@ lume-1.2.0          -      -          708K  2026-11-04 14:18
 lume-1.2.1          -      -          652K  2026-11-04 14:36
 lume-1.2.2          NR     /          8.18G 2026-11-04 15:26
 lume-1.3.0          -      -          639M  2026-11-04 15:59
-root@thinkpad:~ # su fabiano -c "env LUME_ATUALIZAR_URL=http://10.0.2.2:8000/tmi n/atualizacao.txt lume atualizar --maquina verificar"
+root@thinkpad:~ # su kalel -c "env LUME_ATUALIZAR_URL=http://10.0.2.2:8000/tmi n/atualizacao.txt lume atualizar --maquina verificar"
 @atual versao=1.2.2 base=15.1
 @nova versao=1.3.0 base=15.2 tipo=versao troca=drivers tamanho=321298106 notas=http://10.0.2.2:8000/t130/LumeBSD-1.3.0-notas.md
-root@thinkpad:~ # su fabiano -c "env LUME_ATUALIZAR_URL=http://10.0.2.2:8000/tmi n/direto.txt lume atualizar verificar"
+root@thinkpad:~ # su kalel -c "env LUME_ATUALIZAR_URL=http://10.0.2.2:8000/tmi n/direto.txt lume atualizar verificar"
   ✓ versão principal: 2.0.0 (você tem a 1.2.2)
   ! Troca a base para o FreeBSD 16.0: todos os programas são baixados de novo para ela (pode levar um bom tempo e alguns GB).
   novidades: http://10.0.2.2:8000/tmin/LumeBSD-1.3.0-notas.md

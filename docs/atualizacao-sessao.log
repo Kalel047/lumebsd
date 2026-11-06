@@ -59,8 +59,8 @@ root@thinkpad:~ # lume atualizar estado
     2026-11-04 00:15:20 pronto: lume-1.1.1 ativado para o próximo boot
     2026-11-04 00:47:47 aplicar 1.1.0 -> 1.1.1 em lume-1.1.1 (a partir de default)
     2026-11-04 00:54:51 pronto: lume-1.1.1 ativado para o próximo boot
-root@thinkpad:~ # id fabiano
-uid=1001(fabiano) gid=1001(fabiano) groups=1001(fabiano),0(wheel),5(operator),44(video),145(webcamd)
+root@thinkpad:~ # id kalel
+uid=1001(kalel) gid=1001(kalel) groups=1001(kalel),0(wheel),5(operator),44(video),145(webcamd)
 root@thinkpad:~ # shutdown -p now
 
 ### 3. Boot seguinte: checagem passou, 1.1.1 confirmada

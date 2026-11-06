@@ -99,9 +99,9 @@ root@lumebox:~ # vigia parar relogio
 root@lumebox:~ # vigia desativar web
   web: ● desativado
   web não sobe mais no boot.
-root@lumebox:~ # su -m fabiano -c 'vigia parar ntpd'
+root@lumebox:~ # su -m kalel -c 'vigia parar ntpd'
 vigia: permissão negada (use su - ou peça ao administrador)
-root@lumebox:~ # su -m fabiano -c 'vigia log ntpd -n 2'
+root@lumebox:~ # su -m kalel -c 'vigia log ntpd -n 2'
  2 Nov 15:15:25 ntpd[1116]: Soliciting pool server 64.6.144.6
  2 Nov 15:15:26 ntpd[1116]: Soliciting pool server 108.161.151.187
 root@lumebox:~ # echo 'comando = x' > /etc/vigia/servicos/Quebrado.conf; printf  'reiniciar = talvez\n' > /etc/vigia/servicos/quebrado.conf; vigia recarregar

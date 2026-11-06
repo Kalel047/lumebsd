@@ -58,60 +58,60 @@ NAME                                            VALUE
 zroot/ROOT                                      on
 zroot/home                                      on
 ls: /usr/local/share/kio/servicemenus/: No such file or directory
-root@thinkpad:~ # su fabiano -c 'mkdir -p ~/Documentos && echo "versão 1: rascun ho" > ~/Documentos/contrato.txt'
+root@thinkpad:~ # su kalel -c 'mkdir -p ~/Documentos && echo "versão 1: rascun ho" > ~/Documentos/contrato.txt'
 root@thinkpad:~ # lume tempo foto "teste 1"
   ✓ foto lume-2026-11-04_07.37.45 tirada; fica até você apagar (lume tempo apagar 1)
-root@thinkpad:~ # su fabiano -c 'echo "versão 2: revisado" > ~/Documentos/contra to.txt; echo foto > ~/Documentos/foto.jpg'
+root@thinkpad:~ # su kalel -c 'echo "versão 2: revisado" > ~/Documentos/contra to.txt; echo foto > ~/Documentos/foto.jpg'
 root@thinkpad:~ # lume tempo antes "teste 2"
   foto de antes: lume-2026-11-04_07.37.50 (lume tempo)
-root@thinkpad:~ # su fabiano -c 'echo "versão 3: final" > ~/Documentos/contrato. txt; rm ~/Documentos/foto.jpg'
-root@thinkpad:~ # su - fabiano -c 'lume tempo versoes Documentos/contrato.txt'
+root@thinkpad:~ # su kalel -c 'echo "versão 3: final" > ~/Documentos/contrato. txt; rm ~/Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'lume tempo versoes Documentos/contrato.txt'
 
 
-  /home/fabiano/Documentos/contrato.txt
+  /home/kalel/Documentos/contrato.txt
   hoje 07:37                     20 B   lume-2026-11-04_07.37.50
   hoje 07:37                     20 B   lume-2026-11-04_07.37.45
 
   lume tempo recuperar "Documentos/contrato.txt" [QUANDO]   (ou abra direto: /home/.zfs/snapshot/FOTO/)
 
-root@thinkpad:~ # su - fabiano -c 'lume tempo versoes Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'lume tempo versoes Documentos/foto.jpg'
 
 
-  /home/fabiano/Documentos/foto.jpg (apagado; dá para recuperar)
+  /home/kalel/Documentos/foto.jpg (apagado; dá para recuperar)
   hoje 07:37                      5 B   lume-2026-11-04_07.37.50
 
   lume tempo recuperar "Documentos/foto.jpg" [QUANDO]   (ou abra direto: /home/.zfs/snapshot/FOTO/)
 
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/foto.jpg'
 
 /usr/sbin/lume-tempo: cannot create /var/log/lume-tempo.log: Permission denied
   ✓ versão de hoje 07:37 recuperada em:
-    /home/fabiano/Documentos/foto.jpg
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/contrato.txt  3'
+    /home/kalel/Documentos/foto.jpg
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/contrato.txt  3'
 
-  ✗ /home/fabiano/Documentos/contrato.txt não existia em hoje 07:37
-root@thinkpad:~ # su - fabiano -c 'ls -l Documentos; head Documentos/*'
+  ✗ /home/kalel/Documentos/contrato.txt não existia em hoje 07:37
+root@thinkpad:~ # su - kalel -c 'ls -l Documentos; head Documentos/*'
 
 total 1
--rw-r--r--  1 fabiano fabiano 17  4 nov 07:37 contrato.txt
--rw-r--r--  1 fabiano fabiano  5  4 nov 07:37 foto.jpg
+-rw-r--r--  1 kalel kalel 17  4 nov 07:37 contrato.txt
+-rw-r--r--  1 kalel kalel  5  4 nov 07:37 foto.jpg
 ==> Documentos/contrato.txt <==
 versão 3: final
 
 ==> Documentos/foto.jpg <==
 foto
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/contrato.txt  --substituir'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/contrato.txt  --substituir'
 
 /usr/sbin/lume-tempo: cannot create /var/log/lume-tempo.log: Permission denied
   ✓ versão de hoje 07:37 recuperada em:
-    /home/fabiano/Documentos/contrato.txt
-  a versão de agora ficou em: /home/fabiano/Documentos/contrato (atual, 04-11 07.38).txt
-root@thinkpad:~ # su - fabiano -c 'ls Documentos; cat Documentos/contrato.txt'
+    /home/kalel/Documentos/contrato.txt
+  a versão de agora ficou em: /home/kalel/Documentos/contrato (atual, 04-11 07.38).txt
+root@thinkpad:~ # su - kalel -c 'ls Documentos; cat Documentos/contrato.txt'
 
 contrato (atual, 04-11 07.38).txt       foto.jpg
 contrato.txt
 versão 2: revisado
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/contrato.txt  ontem'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/contrato.txt  ontem'
 
   ✗ não há foto até ontem
 root@thinkpad:~ # lume tempo linha
@@ -129,10 +129,10 @@ root@thinkpad:~ # lume tempo mudou 2
     mudou      /var/db/lume/
 
   /home
-    mudou      /home/fabiano/Documentos/
-    novo       /home/fabiano/Documentos/foto.jpg
-    novo       /home/fabiano/Documentos/contrato.txt
-    renomeado  /home/fabiano/Documentos/contrato.txt -> /home/fabiano/Documentos/contrato\0040(atual,\004004-11\004007.38).txt
+    mudou      /home/kalel/Documentos/
+    novo       /home/kalel/Documentos/foto.jpg
+    novo       /home/kalel/Documentos/contrato.txt
+    renomeado  /home/kalel/Documentos/contrato.txt -> /home/kalel/Documentos/contrato\0040(atual,\004004-11\004007.38).txt
 
 root@thinkpad:~ # cat /usr/local/etc/pkg/repos/*.conf 2>/dev/null | head; pkg in fo -e kdialog; echo kdialog=$?
 kdialog=1
@@ -212,7 +212,7 @@ teste               -      -          552K  2026-11-04 01:51
 volta-20261104-0737 NR     /          1.19G 2026-11-04 07:39
 kdialog=1
 root@thinkpad:~ # fetch -qo /usr/sbin/lume-tempo http://10.0.2.2:8000/ajuste/lum e-tempo && chmod 555 /usr/sbin/lume-tempo
-root@thinkpad:~ # su - fabiano -c 'ls Documentos; cat Documentos/contrato.txt'
+root@thinkpad:~ # su - kalel -c 'ls Documentos; cat Documentos/contrato.txt'
 
 contrato (atual, 04-11 07.38).txt       foto.jpg
 contrato.txt
@@ -230,7 +230,7 @@ root@thinkpad:~ # lume tempo
   lume tempo versoes ARQUIVO   lume tempo recuperar ARQUIVO [QUANDO]
   No Dolphin: botão direito > Versões anteriores. Mais: man lume-tempo
 
-root@thinkpad:~ # su fabiano -c 'echo "nota de reunião" > "/home/fabiano/Documen tos/reunião de hoje.txt"'
+root@thinkpad:~ # su kalel -c 'echo "nota de reunião" > "/home/kalel/Documen tos/reunião de hoje.txt"'
 root@thinkpad:~ # lume tempo mudou 1
 
   O que mudou desde hoje 07:39 (lume-2026-11-04_07.39.05)
@@ -279,12 +279,12 @@ root@thinkpad:~ # lume tempo mudou 1
     ... e mais 25 mudanças
 
   /home
-    mudou      /home/fabiano/Documentos/
-    novo       /home/fabiano/Documentos/reunião de hoje.txt
+    mudou      /home/kalel/Documentos/
+    novo       /home/kalel/Documentos/reunião de hoje.txt
 
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/contrato.txt  3; ls Documentos'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/contrato.txt  3; ls Documentos'
 
-  ✗ /home/fabiano/Documentos/contrato.txt não existia em hoje 07:37
+  ✗ /home/kalel/Documentos/contrato.txt não existia em hoje 07:37
 contrato (atual, 04-11 07.38).txt       foto.jpg
 contrato.txt                            reunião de hoje.txt
 root@thinkpad:~ # sleep 600; grep lume-tempo /var/log/cron | tail -3; tail -3 /v ar/log/lume-tempo.log
@@ -338,20 +338,20 @@ root@thinkpad:~ # lume-tempo automatico; zfs get -r -s local -o name,value lume:
 NAME                                              VALUE
 zroot/ROOT                                        on
 zroot/home                                        on
-root@thinkpad:~ # su - fabiano -c 'mkdir -p Documentos; echo "versão 1: rascunho " > Documentos/contrato.txt'
+root@thinkpad:~ # su - kalel -c 'mkdir -p Documentos; echo "versão 1: rascunho " > Documentos/contrato.txt'
 
 root@thinkpad:~ # lume tempo foto 'teste: versão 1'
   ✓ foto lume-2026-11-04_08.58.59 tirada; fica até você apagar (lume tempo apagar 1)
-root@thinkpad:~ # su - fabiano -c 'echo "versão 2: revisado" > Documentos/contra to.txt; echo foto > Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'echo "versão 2: revisado" > Documentos/contra to.txt; echo foto > Documentos/foto.jpg'
 
 root@thinkpad:~ # lume tempo antes 'teste: versão 2'
   foto de antes: lume-2026-11-04_08.59.07 (lume tempo)
-root@thinkpad:~ # su - fabiano -c 'echo "versão 3: final" > Documentos/contrato. txt; rm Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'echo "versão 3: final" > Documentos/contrato. txt; rm Documentos/foto.jpg'
 
-root@thinkpad:~ # su - fabiano -c 'lume tempo versoes Documentos/contrato.txt; l ume tempo versoes Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'lume tempo versoes Documentos/contrato.txt; l ume tempo versoes Documentos/foto.jpg'
 
 
-  /home/fabiano/Documentos/contrato.txt
+  /home/kalel/Documentos/contrato.txt
   hoje 08:59                     20 B   lume-2026-11-04_08.59.07
   hoje 08:58                     20 B   lume-2026-11-04_08.58.59
   hoje 08:42                     20 B   lume-2026-11-04_08.42.08
@@ -362,29 +362,29 @@ root@thinkpad:~ # su - fabiano -c 'lume tempo versoes Documentos/contrato.txt; l
   lume tempo recuperar "Documentos/contrato.txt" [QUANDO]   (ou abra direto: /home/.zfs/snapshot/FOTO/)
 
 
-  /home/fabiano/Documentos/foto.jpg (apagado; dá para recuperar)
+  /home/kalel/Documentos/foto.jpg (apagado; dá para recuperar)
   hoje 08:59                      5 B   lume-2026-11-04_08.59.07
 
   lume tempo recuperar "Documentos/foto.jpg" [QUANDO]   (ou abra direto: /home/.zfs/snapshot/FOTO/)
 
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/foto.jpg; cat  Documentos/foto.jpg'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/foto.jpg; cat  Documentos/foto.jpg'
 
   ✓ versão de hoje 08:59 recuperada em:
-    /home/fabiano/Documentos/foto.jpg
+    /home/kalel/Documentos/foto.jpg
 foto
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/contrato.txt  2; ls Documentos'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/contrato.txt  2; ls Documentos'
 
   ✓ versão de hoje 08:58 recuperada em:
-    /home/fabiano/Documentos/contrato (de 04-11 08.58).txt
+    /home/kalel/Documentos/contrato (de 04-11 08.58).txt
 contrato (atual, 04-11 07.38).txt       contrato (de 04-11 08.58).txt
 contrato (atual, 04-11 08.33).txt       contrato.txt
 contrato (de 04-11 07.39).txt           foto.jpg
 contrato (de 04-11 08.32).txt           reunião de hoje.txt
-root@thinkpad:~ # su - fabiano -c 'lume tempo recuperar Documentos/contrato.txt  --substituir; cat Documentos/contrato.txt; ls Documentos'
+root@thinkpad:~ # su - kalel -c 'lume tempo recuperar Documentos/contrato.txt  --substituir; cat Documentos/contrato.txt; ls Documentos'
 
   ✓ versão de hoje 08:59 recuperada em:
-    /home/fabiano/Documentos/contrato.txt
-  a versão de agora ficou em: /home/fabiano/Documentos/contrato (atual, 04-11 08.59).txt
+    /home/kalel/Documentos/contrato.txt
+  a versão de agora ficou em: /home/kalel/Documentos/contrato (atual, 04-11 08.59).txt
 versão 2: revisado
 contrato (atual, 04-11 07.38).txt       contrato (de 04-11 08.58).txt
 contrato (atual, 04-11 08.33).txt       contrato.txt
@@ -411,10 +411,10 @@ root@thinkpad:~ # lume tempo mudou 2
     mudou      /var/lib/PackageKit/transactions.db
 
   /home
-    novo       /home/fabiano/Documentos/contrato.txt
-    renomeado  /home/fabiano/Documentos/contrato.txt -> /home/fabiano/Documentos/contrato (atual, 04-11 08.59).txt
-    novo       /home/fabiano/Documentos/contrato (de 04-11 08.58).txt
-    mudou      /home/fabiano/Documentos/foto.jpg
+    novo       /home/kalel/Documentos/contrato.txt
+    renomeado  /home/kalel/Documentos/contrato.txt -> /home/kalel/Documentos/contrato (atual, 04-11 08.59).txt
+    novo       /home/kalel/Documentos/contrato (de 04-11 08.58).txt
+    mudou      /home/kalel/Documentos/foto.jpg
 
 root@thinkpad:~ # lume | tail -4
   serviços   1 de 1 ativos (vigia)
@@ -426,21 +426,21 @@ total 18
 -rw-r--r--  1 root wheel 1817  8 set 07:57 installfont.desktop
 -rwxr-xr-x  1 root wheel 4376  6 out 01:07 konsolerun.desktop
 -rwxr-xr-x  1 root wheel  319  4 nov 08:18 lume-tempo.desktop
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'env HO ME=/home/fabiano daemon -f dolphin /home/fabiano/Documentos'
-root@thinkpad:~ # pid=$(pgrep -u fabiano plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m fabiano -c 'env HO ME=/home/fabiano daemon -f lume-tempo gui /home/fabiano/Documentos/contrato.txt' 
-root@thinkpad:~ # su - fabiano -c 'ls -l Documentos; head Documentos/*'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'env HO ME=/home/kalel daemon -f dolphin /home/kalel/Documentos'
+root@thinkpad:~ # pid=$(pgrep -u kalel plasmashell); eval $(procstat -e $pid |  tr ' ' '\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_] *|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)=' | sed 's/^/export /'); su -m kalel -c 'env HO ME=/home/kalel daemon -f lume-tempo gui /home/kalel/Documentos/contrato.txt' 
+root@thinkpad:~ # su - kalel -c 'ls -l Documentos; head Documentos/*'
 
 total 5
--rw-r--r--  1 fabiano fabiano 17  4 nov 07:37 contrato (atual, 04-11 07.38).txt
--rw-r--r--  1 fabiano fabiano 17  4 nov 08:32 contrato (atual, 04-11 08.33).txt
--rw-r--r--  1 fabiano fabiano 17  4 nov 08:59 contrato (atual, 04-11 08.59).txt
--rw-r--r--  1 fabiano fabiano 20  4 nov 07:37 contrato (de 04-11 07.39).txt
--rw-r--r--  1 fabiano fabiano 20  4 nov 08:32 contrato (de 04-11 08.32).txt
--rw-r--r--  1 fabiano fabiano 20  4 nov 08:32 contrato (de 04-11 08.42).txt
--rw-r--r--  1 fabiano fabiano 20  4 nov 08:58 contrato (de 04-11 08.58).txt
--rw-r--r--  1 fabiano fabiano 20  4 nov 08:59 contrato.txt
--rw-r--r--  1 fabiano fabiano  5  4 nov 08:59 foto.jpg
--rw-r--r--  1 fabiano fabiano 17  4 nov 07:42 reunião de hoje.txt
+-rw-r--r--  1 kalel kalel 17  4 nov 07:37 contrato (atual, 04-11 07.38).txt
+-rw-r--r--  1 kalel kalel 17  4 nov 08:32 contrato (atual, 04-11 08.33).txt
+-rw-r--r--  1 kalel kalel 17  4 nov 08:59 contrato (atual, 04-11 08.59).txt
+-rw-r--r--  1 kalel kalel 20  4 nov 07:37 contrato (de 04-11 07.39).txt
+-rw-r--r--  1 kalel kalel 20  4 nov 08:32 contrato (de 04-11 08.32).txt
+-rw-r--r--  1 kalel kalel 20  4 nov 08:32 contrato (de 04-11 08.42).txt
+-rw-r--r--  1 kalel kalel 20  4 nov 08:58 contrato (de 04-11 08.58).txt
+-rw-r--r--  1 kalel kalel 20  4 nov 08:59 contrato.txt
+-rw-r--r--  1 kalel kalel  5  4 nov 08:59 foto.jpg
+-rw-r--r--  1 kalel kalel 17  4 nov 07:42 reunião de hoje.txt
 ==> Documentos/contrato (atual, 04-11 07.38).txt <==
 versão 3: final
 

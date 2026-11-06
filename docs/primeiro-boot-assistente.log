@@ -205,12 +205,12 @@ Mounting late filesystems:.
       Repita a senha: 
 
   [2/6] Seu usuário
-      Login em minúsculas (ex.: fabiano). Deixe vazio para pular.
-      Login: Fabiano
+      Login em minúsculas (ex.: kalel). Deixe vazio para pular.
+      Login: Kalel
       Use até 16 letras minúsculas, números, - ou _.
-      Login: fabiano
-      Nome completo [fabiano]: Fabiano Silva
-      Senha de fabiano: 
+      Login: kalel
+      Nome completo [kalel]: Kalel Silva
+      Senha de kalel: 
       Repita a senha: 
 
   [3/6] Nome desta máquina
@@ -232,7 +232,7 @@ Mounting late filesystems:.
   Resumo
   ------------------------------------------------------------
       root           senha definida
-      usuário        fabiano (Fabiano Silva), administrador (wheel)
+      usuário        kalel (Kalel Silva), administrador (wheel)
       máquina        lumebox
       fuso           America/Sao_Paulo
       teclado        ABNT2 (Brasil)
@@ -241,14 +241,14 @@ Mounting late filesystems:.
       Aplicar estas configurações? (s/n) [s]: 
 
       senha do root ......... ok
-      usuário fabiano ......... ok
+      usuário kalel ......... ok
       nome da máquina ....... ok
       fuso horário .......... ok
       teclado ............... ok
       idioma ................ ok
 Nov  2 14:33:38 farol syslogd: exiting on signal 15
 
-  Pronto! Entre como 'fabiano' e use 'su -' para administrar.
+  Pronto! Entre como 'kalel' e use 'su -' para administrar.
   Para refazer depois: lume configurar
 
 
@@ -283,7 +283,7 @@ Mon Nov  2 11:33:45 -03 2026
 
 LumeBSD/amd64 (lumebox) (ttyu0)
 
-login: fabiano
+login: kalel
 Password:
 LumeBSD 1.0-FAROL (LUME) lumebsd-403d4045b631
 
@@ -304,16 +304,16 @@ LumeBSD 1.0-FAROL (LUME) lumebsd-403d4045b631
    Para alterar esta mensagem, veja motd(5).
 
 78resizewin: timeout reading from terminal
-fabiano@lumebox:~ $ id
-uid=1001(fabiano) gid=1001(fabiano) groups=0(wheel),1001(fabiano)
-fabiano@lumebox:~ $ hostname
+kalel@lumebox:~ $ id
+uid=1001(kalel) gid=1001(kalel) groups=0(wheel),1001(kalel)
+kalel@lumebox:~ $ hostname
 lumebox
-fabiano@lumebox:~ $ locale | head -2
+kalel@lumebox:~ $ locale | head -2
 LANG=pt_BR.UTF-8
 LC_CTYPE="pt_BR.UTF-8"
-fabiano@lumebox:~ $ date
+kalel@lumebox:~ $ date
 seg  2 nov 2026 11:33:49 -03
-fabiano@lumebox:~ $ lume
+kalel@lumebox:~ $ lume
 
   LumeBSD 1.0 "Farol"  @ lumebox
   ----------------------------------------------
@@ -324,9 +324,9 @@ fabiano@lumebox:~ $ lume
   carga      0.84  0.27  0.10
   ligado há  0 h 1 min 18 s
 
-fabiano@lumebox:~ $ su -
+kalel@lumebox:~ $ su -
 Password:
-Nov  2 11:33:51 lumebox su[1535]: fabiano to root on /dev/ttyu0
+Nov  2 11:33:51 lumebox su[1535]: kalel to root on /dev/ttyu0
 78resizewin: timeout reading from terminal
 root@lumebox:~ # id -un
 root
@@ -348,14 +348,14 @@ root@lumebox:~ # shutdown -p now
 Shutdown NOW!
 shutdown: [pid 1576]
 root@lumebox:~ #                                                                                
-*** FINAL System shutdown message from fabiano@lumebox ***                   
+*** FINAL System shutdown message from kalel@lumebox ***                   
 
 System going down IMMEDIATELY                                                  
 
                                                                                
 
 System shutdown time has arrived
-Nov  2 11:33:57 lumebox shutdown[1576]: power-down by fabiano: 
+Nov  2 11:33:57 lumebox shutdown[1576]: power-down by kalel: 
 Stopping cron.
 Waiting for PIDS: 1464.
 Stopping devd.

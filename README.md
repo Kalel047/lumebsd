@@ -259,16 +259,16 @@ O FreeBSD tem ZFS e snapshots, mas nada que os tire sozinho nem um jeito
 simples de voltar no tempo. O LumeBSD vem com isso ligado:
 
 ```
-fabiano@farol:~ $ lume tempo versoes Documentos/contrato.odt
+kalel@farol:~ $ lume tempo versoes Documentos/contrato.odt
 
-  /home/fabiano/Documentos/contrato.odt
+  /home/kalel/Documentos/contrato.odt
   hoje 14:00                  48 KB   lume-2026-11-04_14.00.02
   hoje 10:00                  41 KB   lume-2026-11-04_10.00.01
   ontem 18:00                 37 KB   lume-2026-11-03_18.00.03
 
-fabiano@farol:~ $ lume tempo recuperar Documentos/contrato.odt ontem
+kalel@farol:~ $ lume tempo recuperar Documentos/contrato.odt ontem
   ✓ versão de ontem 18:00 recuperada em:
-    /home/fabiano/Documentos/contrato (de 03-11 18.00).odt
+    /home/kalel/Documentos/contrato (de 03-11 18.00).odt
 ```
 
 - **Uma foto por hora**, só quando algo mudou, das pastas pessoais e do

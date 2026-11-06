@@ -262,8 +262,8 @@ elif fase == "instalado":
     marca("sistema bootou; assistente apareceu")
     enviar("")
     for pat, resp in [("Nova senha do root: ", "farol123"), ("Repita a senha: ", "farol123"),
-                      ("Login: ", "fabiano"), ("Nome completo [fabiano]: ", "Fabiano"),
-                      ("Senha de fabiano: ", "lume2026"), ("Repita a senha: ", "lume2026"),
+                      ("Login: ", "kalel"), ("Nome completo [kalel]: ", "Kalel"),
+                      ("Senha de kalel: ", "lume2026"), ("Repita a senha: ", "lume2026"),
                       ("Nome [farol]: ", "thinkpad"), ("Fuso [America/Sao_Paulo]: ", ""),
                       ("Opção [1]: ", ""), ("Opção [1]: ", ""),
                       ("Aplicar estas configurações? (s/n) [s]: ", "")]:
@@ -283,7 +283,7 @@ elif fase == "instalado":
               "uname -a", "zpool status zroot | head -12", "zfs list -o name,used,mountpoint",
               "bectl list", "geli status", "swapinfo -h", "lume", "vigia",
               "lume video", "pkg info | wc -l", "pkg info drm-612-kmod plasma6-plasma-workspace | grep -E 'Name|Version'",
-              "service sddm status; pgrep -lf Xorg", "id fabiano", "lume hardware"]:
+              "service sddm status; pgrep -lf Xorg", "id kalel", "lume hardware"]:
         comando(c, P, 180)
     foto("instalado-sddm")
     enviar("shutdown -p now")
@@ -330,15 +330,15 @@ elif fase == "desktop":
     enviar("farol123")
     esperar(P, 60)
     comando("pgrep -lf 'Xorg|plasmashell|kwin' | cut -c1-80", P)
-    # Abre programas na sessão do fabiano (mesmo DISPLAY, Xauthority e D-Bus).
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    # Abre programas na sessão do kalel (mesmo DISPLAY, Xauthority e D-Bus).
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
     comando(sessao + "setxkbmap -query", P)
-    comando(sessao + "su -m fabiano -c 'env HOME=/home/fabiano daemon -f konsole -e sh -c \"lume; lume farol; exec sh\"'", P)
+    comando(sessao + "su -m kalel -c 'env HOME=/home/kalel daemon -f konsole -e sh -c \"lume; lume farol; exec sh\"'", P)
     time.sleep(90)
     foto("3-konsole")
-    comando(sessao + "su -m fabiano -c 'env HOME=/home/fabiano daemon -f dolphin /home/fabiano'", P)
+    comando(sessao + "su -m kalel -c 'env HOME=/home/kalel daemon -f dolphin /home/kalel'", P)
     time.sleep(90)
     foto("4-dolphin")
     enviar("shutdown -p now")
@@ -397,7 +397,7 @@ elif fase == "tempo":
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
             comando(c, P, 300)
-    F = "su - fabiano -c"
+    F = "su - kalel -c"
     D = "Documentos/contrato.txt"
     passos = [
         "grep lume-tempo /var/log/cron | tail -4",
@@ -418,23 +418,23 @@ elif fase == "tempo":
     ]
     for c in passos:
         comando(c, P, 300)
-    # A janela "Versões anteriores", na sessão do fabiano.
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    # A janela "Versões anteriores", na sessão do kalel.
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
     comando("ls -l /usr/local/share/kio/servicemenus/", P)
-    comando(sessao + "su -m fabiano -c 'env HOME=/home/fabiano daemon -f dolphin /home/fabiano/Documentos'", P)
+    comando(sessao + "su -m kalel -c 'env HOME=/home/kalel daemon -f dolphin /home/kalel/Documentos'", P)
     time.sleep(60)
     # O botão direito no primeiro arquivo (contrato.txt), com o xdotool se
     # houver (PREPARO pode instalar); senão, a tecla Menu.
     clique = ("w=$(xdotool search --onlyvisible --class dolphin | tail -1); "
               "xdotool windowactivate --sync $w mousemove --window $w 228 104 click 3")
-    comando(sessao + f"if command -v xdotool >/dev/null; then su -m fabiano -c '{clique}'; "
+    comando(sessao + f"if command -v xdotool >/dev/null; then su -m kalel -c '{clique}'; "
             "else echo sem-xdotool; fi", P)
     time.sleep(10)
     foto("5-dolphin-menu")
     monitor("sendkey esc")
-    comando(sessao + f"su -m fabiano -c 'env HOME=/home/fabiano daemon -f lume-tempo gui /home/fabiano/{D}'", P)
+    comando(sessao + f"su -m kalel -c 'env HOME=/home/kalel daemon -f lume-tempo gui /home/kalel/{D}'", P)
     time.sleep(40)
     foto("6-versoes-anteriores")
     monitor("sendkey down")  # a versão mais velha
@@ -470,12 +470,12 @@ elif fase == "app":
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
-    X = sessao + "su -m fabiano -c "
+    X = sessao + "su -m kalel -c "
     comando("pgrep -lf lume-atualizacoes; ls /usr/local/share/applications/lume-atualizacoes.desktop /usr/local/share/polkit-1/actions/org.lumebsd.atualizar.policy", P)
-    comando(X + "'env HOME=/home/fabiano daemon -f lume-atualizacoes'", P)
+    comando(X + "'env HOME=/home/kalel daemon -f lume-atualizacoes'", P)
     time.sleep(60)
     foto("app-2-nova")
     comando("ANTES=$(grep -c 'pronto: .* ativado' /var/log/lume-atualizar.log); echo $ANTES", P)
@@ -529,15 +529,15 @@ elif fase == "loja":
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
     # PREPARO: comandos antes do teste (um por linha), como trocar um script.
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
             comando(c, P, 300)
-    X = sessao + "su -m fabiano -c "
-    H = "env HOME=/home/fabiano "
+    X = sessao + "su -m kalel -c "
+    H = "env HOME=/home/kalel "
     for c in ["lume loja", "lume loja procurar matlab", "lume loja procurar excel",
               "cat /var/db/lume/kits; ls /usr/local/share/applications | grep lume",
               "pkg info -e libreoffice pt_BR-libreoffice webfonts vlc xournalpp && echo kit-geral-ok",
@@ -589,9 +589,9 @@ elif fase == "loja":
 
     # Um programa do Windows com dois cliques: o atalho do sistema oferece o
     # Wine, a loja instala (com a senha) e o programa abre.
-    comando(f"mkdir -p /home/fabiano/Downloads && fetch -q -o /home/fabiano/Downloads/calculadora.exe {REPO}/teste/calculadora.exe && "
-            "chown -R fabiano /home/fabiano/Downloads && ls -l /home/fabiano/Downloads", P)
-    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora.exe'", P)
+    comando(f"mkdir -p /home/kalel/Downloads && fetch -q -o /home/kalel/Downloads/calculadora.exe {REPO}/teste/calculadora.exe && "
+            "chown -R kalel /home/kalel/Downloads && ls -l /home/kalel/Downloads", P)
+    comando(X + f"'{H}daemon -f kioclient exec /home/kalel/Downloads/calculadora.exe'", P)
     time.sleep(40)
     foto("loja-8-wine-pergunta")
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
@@ -636,25 +636,25 @@ elif fase == "exe":
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
             comando(c, P, 300)
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
-    X = sessao + "su -m fabiano -c "
-    H = "env HOME=/home/fabiano "
-    comando(f"mkdir -p /home/fabiano/Downloads; for e in calculadora calculadora32; do fetch -q -o /home/fabiano/Downloads/$e.exe {REPO}/teste/$e.exe; done; "
-            "chown fabiano /home/fabiano/Downloads/*; lume compat", P)
+    X = sessao + "su -m kalel -c "
+    H = "env HOME=/home/kalel "
+    comando(f"mkdir -p /home/kalel/Downloads; for e in calculadora calculadora32; do fetch -q -o /home/kalel/Downloads/$e.exe {REPO}/teste/$e.exe; done; "
+            "chown kalel /home/kalel/Downloads/*; lume compat", P)
     # O caminho dos dois cliques (o mimeapps.list) já foi testado na fase
     # loja; aqui o lume-compat direto, com o registro do Wine.
     comando("grep -i ms-dos /usr/local/etc/xdg/mimeapps.list", P)
-    comando(X + f"'{H}WINEDEBUG=err+all daemon -o /tmp/compat.log /usr/sbin/lume-compat abrir /home/fabiano/Downloads/calculadora.exe'", P)
+    comando(X + f"'{H}WINEDEBUG=err+all daemon -o /tmp/compat.log /usr/sbin/lume-compat abrir /home/kalel/Downloads/calculadora.exe'", P)
     comando(X + "'i=0; until xdotool search --onlyvisible --name \"Calculadora de teste\" >/dev/null; do "
             "i=$((i+1)); [ $i -gt 72 ] && break; sleep 5; done; xdotool search --onlyvisible --name \"Calculadora de teste\" && echo EXE-ABRIU'", P, 1300)
     time.sleep(10)
     foto("exe-1-64bits")
-    comando("tail -40 /tmp/compat.log; ps -axo user,pid,etime,command | grep -i wine | grep -v grep | cut -c1-150; ls /home/fabiano/.wine", P)
+    comando("tail -40 /tmp/compat.log; ps -axo user,pid,etime,command | grep -i wine | grep -v grep | cut -c1-150; ls /home/kalel/.wine", P)
     comando(X + "'xdotool search --onlyvisible --name . | while read w; do xdotool getwindowname $w; done | sort -u | head -30'", P)
     comando(X + "'xdotool search --onlyvisible --name \"Calculadora de teste\" windowactivate --sync key Return; true'", P)
-    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/calculadora32.exe'", P)
+    comando(X + f"'{H}daemon -f kioclient exec /home/kalel/Downloads/calculadora32.exe'", P)
     time.sleep(40)
     foto("exe-2-32bits")
     enviar("shutdown -p now")
@@ -703,11 +703,11 @@ elif fase == "eink":
     for c in os.environ.get("PREPARO", "").splitlines():
         if c.strip():
             comando(c, P, 300)
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
-    X = sessao + "su -m fabiano -c "
-    H = "env HOME=/home/fabiano "
+    X = sessao + "su -m kalel -c "
+    H = "env HOME=/home/kalel "
     Q = "qdbus6 org.kde.KWin /Effects org.kde.kwin.Effects"
     for c in ["ls -l /usr/local/lib/qt6/plugins/kwin-x11/effects/plugins/lume_tinta.so /usr/local/share/kwin-x11/effects/",
               "grep -A3 Compositing /usr/local/etc/xdg/kwinrc; ls /usr/lib32/libc.so.7",
@@ -726,8 +726,8 @@ elif fase == "eink":
 
     # O filtro: a foto de cores no Firefox, em janela (papel e tinta) e em
     # tela cheia (cor de verdade).
-    comando(f"mkdir -p /home/fabiano/Imagens && fetch -q -o /home/fabiano/Imagens/cores.png {REPO}/teste/cores.png && chown -R fabiano /home/fabiano/Imagens", P)
-    comando(X + f"'{H}daemon -f firefox --new-window file:///home/fabiano/Imagens/cores.png'", P)
+    comando(f"mkdir -p /home/kalel/Imagens && fetch -q -o /home/kalel/Imagens/cores.png {REPO}/teste/cores.png && chown -R kalel /home/kalel/Imagens", P)
+    comando(X + f"'{H}daemon -f firefox --new-window file:///home/kalel/Imagens/cores.png'", P)
     time.sleep(150)
     foto("eink-1-filtro")
     janela("cores.png", "xdotool key F11")
@@ -754,15 +754,15 @@ elif fase == "eink":
 
     # Um .exe de 32 bits sem nada instalado: o Wine pela loja (senha), depois
     # a parte de 32 bits do espelho i386 (sem senha) e o programa.
-    comando("mkdir -p /tmp/pkg32-repos /home/fabiano/.i386-wine-pkg/tmp/pkg32-repos && "
+    comando("mkdir -p /tmp/pkg32-repos /home/kalel/.i386-wine-pkg/tmp/pkg32-repos && "
             f"printf 'espelho32: {{ url: \"{REPO32}\", signature_type: \"fingerprints\", "
             "fingerprints: \"/usr/share/keys/pkg\", enabled: yes }}\\n' > /tmp/pkg32-repos/espelho32.conf && "
-            "cp /tmp/pkg32-repos/espelho32.conf /home/fabiano/.i386-wine-pkg/tmp/pkg32-repos/ && "
-            "chown -R fabiano /home/fabiano/.i386-wine-pkg && cat /tmp/pkg32-repos/espelho32.conf", P)
-    comando(f"mkdir -p /home/fabiano/Downloads && fetch -q -o /home/fabiano/Downloads/calculadora32.exe {REPO}/teste/calculadora32.exe && "
-            "chown -R fabiano /home/fabiano/Downloads", P)
+            "cp /tmp/pkg32-repos/espelho32.conf /home/kalel/.i386-wine-pkg/tmp/pkg32-repos/ && "
+            "chown -R kalel /home/kalel/.i386-wine-pkg && cat /tmp/pkg32-repos/espelho32.conf", P)
+    comando(f"mkdir -p /home/kalel/Downloads && fetch -q -o /home/kalel/Downloads/calculadora32.exe {REPO}/teste/calculadora32.exe && "
+            "chown -R kalel /home/kalel/Downloads", P)
     comando(X + f"'{H}LUME_PKG32_REPOS=/tmp/pkg32-repos LUME_PKG32_REPO=espelho32 "
-            "daemon -o /tmp/compat32.log /usr/sbin/lume-compat abrir /home/fabiano/Downloads/calculadora32.exe'", P)
+            "daemon -o /tmp/compat32.log /usr/sbin/lume-compat abrir /home/kalel/Downloads/calculadora32.exe'", P)
     time.sleep(40)
     foto("eink-6-exe-wine")
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
@@ -784,9 +784,9 @@ elif fase == "eink":
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Windows\" windowactivate --sync key Return'", P)
     time.sleep(30)
     foto("eink-8-exe-32bits-baixando")
-    comando("i=0; until [ -x /home/fabiano/.i386-wine-pkg/usr/local/bin/wine ]; do i=$((i+1)); "
-            "[ $i -gt 480 ] && break; sleep 5; done; ls -l /home/fabiano/.i386-wine-pkg/usr/local/bin/wine; "
-            "tail -5 /home/fabiano/.cache/lume-wine32.log", P, 2600)
+    comando("i=0; until [ -x /home/kalel/.i386-wine-pkg/usr/local/bin/wine ]; do i=$((i+1)); "
+            "[ $i -gt 480 ] && break; sleep 5; done; ls -l /home/kalel/.i386-wine-pkg/usr/local/bin/wine; "
+            "tail -5 /home/kalel/.cache/lume-wine32.log", P, 2600)
     comando(X + "'i=0; until xdotool search --onlyvisible --name \"Calculadora de teste\" >/dev/null; do "
             "i=$((i+1)); [ $i -gt 180 ] && break; sleep 5; done; "
             "xdotool search --onlyvisible --name \"Calculadora de teste\" && echo EXE32-ABRIU'", P, 1000)
@@ -796,8 +796,8 @@ elif fase == "eink":
     comando(X + "'xdotool search --onlyvisible --name \"Calculadora de teste\" windowactivate --sync key Return; true'", P)
 
     # Um .dmg do Mac: a explicação e a loja procurando o substituto.
-    comando("printf 'koly' > /home/fabiano/Downloads/Keynote-14.2.dmg && chown fabiano /home/fabiano/Downloads/Keynote-14.2.dmg", P)
-    comando(X + f"'{H}daemon -f kioclient exec /home/fabiano/Downloads/Keynote-14.2.dmg'", P)
+    comando("printf 'koly' > /home/kalel/Downloads/Keynote-14.2.dmg && chown kalel /home/kalel/Downloads/Keynote-14.2.dmg", P)
+    comando(X + f"'{H}daemon -f kioclient exec /home/kalel/Downloads/Keynote-14.2.dmg'", P)
     time.sleep(40)
     foto("eink-10-dmg")
     comando(X + "'xdotool search --onlyvisible --name \"Programa do Mac\" windowactivate --sync key Return'", P)
@@ -825,10 +825,10 @@ elif fase in ("app-falhou", "app-voltar"):
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u fabiano $n); "
+    sessao = ("for n in plasmashell kwin_x11 ksmserver kded6; do pid=$(pgrep -n -u kalel $n); "
               "E=$(procstat -e $pid 2>/dev/null | tr ' ' '\\n' | grep -E '^(DISPLAY|XAUTHORITY|DBUS_SESSION_BUS_ADDRESS|XDG_[A-Z_]*|KDE_[A-Z_]*|QT_[A-Z_]*|LANG)='); [ -n \"$E\" ] && break; done; "
               "eval $(echo \"$E\" | sed 's/^/export /'); ")
-    X = sessao + "su -m fabiano -c "
+    X = sessao + "su -m kalel -c "
 
     def clicar(dx, dy):
         """Clica num ponto contado do canto de baixo à direita (dx > 0) ou
@@ -843,7 +843,7 @@ elif fase in ("app-falhou", "app-voltar"):
                 "{ xdotool type --delay 120 lume2026; xdotool key Return; }; true'", P)
 
     comando("lume atualizar --maquina estado", P)
-    comando(X + "'env HOME=/home/fabiano daemon -f lume-atualizacoes'", P)
+    comando(X + "'env HOME=/home/kalel daemon -f lume-atualizacoes'", P)
     time.sleep(60)
     if fase == "app-falhou":
         foto("app-7-falhou")

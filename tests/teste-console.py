@@ -61,18 +61,18 @@ if roteiro == "primeiro":
         ("pelo menos 6 caracteres", None),
         ("Nova senha do root: ", "farol123"),
         ("Repita a senha: ", "farol123"),
-        ("Login: ", "Fabiano"),                      # rejeitado: maiúscula
+        ("Login: ", "Kalel"),                      # rejeitado: maiúscula
         ("minúsculas", None),
-        ("Login: ", "fabiano"),
-        ("Nome completo [fabiano]: ", "Fabiano Silva"),
-        ("Senha de fabiano: ", "lume2026"),
+        ("Login: ", "kalel"),
+        ("Nome completo [kalel]: ", "Kalel Silva"),
+        ("Senha de kalel: ", "lume2026"),
         ("Repita a senha: ", "lume2026"),
         ("Nome [farol]: ", "lumebox"),
         ("Fuso [America/Sao_Paulo]: ", ""),
         ("Opção [1]: ", ""),                          # teclado ABNT2
         ("Opção [1]: ", ""),                          # português
         ("Aplicar estas configurações? (s/n) [s]: ", ""),
-        ("Pronto! Entre como 'fabiano'", None),
+        ("Pronto! Entre como 'kalel'", None),
     ]
     for pat, resp in respostas:
         esperar(pat)
@@ -81,7 +81,7 @@ if roteiro == "primeiro":
     print("assistente concluído")
     esperar("login: ", 600)
     print(f"login em {round(time.time() - t0)} s")
-    enviar("fabiano")
+    enviar("kalel")
     esperar("Password:")
     enviar("lume2026")
     esperar("$ ", 60)
@@ -219,8 +219,8 @@ elif roteiro in ("servicos", "persistencia"):
             ("vigia log instavel -n 8", 0),
             ("vigia parar relogio", 0),
             ("vigia desativar web", 0),
-            ("su -m fabiano -c 'vigia parar ntpd'", 0),
-            ("su -m fabiano -c 'vigia log ntpd -n 2'", 0),
+            ("su -m kalel -c 'vigia parar ntpd'", 0),
+            ("su -m kalel -c 'vigia log ntpd -n 2'", 0),
             ("echo 'comando = x' > /etc/vigia/servicos/Quebrado.conf; printf 'reiniciar = talvez\\n' > /etc/vigia/servicos/quebrado.conf; vigia recarregar", 0),
             ("vigia", 0),
             ("rm /etc/vigia/servicos/quebrado.conf /etc/vigia/servicos/Quebrado.conf; vigia recarregar", 0),
