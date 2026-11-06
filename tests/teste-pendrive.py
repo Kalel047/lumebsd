@@ -263,6 +263,7 @@ elif fase in ("iso", "isousb"):
         marca("instalando no NVMe a partir do DVD")
         enviar(f"env LUME_DISCO=nda0 LUME_CONFIRMA=APAGAR LUME_SENHA_DISCO={SENHA_DISCO}"
                f" LUME_DESKTOP={os.environ.get('LUME_TESTE_DESKTOP', 'n')} LUME_CONSOLE_SERIAL=1 LUME_REPO_URL={REPO}"
+               f" LUME_KIT={os.environ.get('LUME_TESTE_KIT', '')}"
                " lume instalar")
         esperar("LumeBSD instalado em", 7200)
         marca("instalação concluída")

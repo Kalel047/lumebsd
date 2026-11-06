@@ -2,7 +2,7 @@
 # Diagnóstico e testes da sessão gráfica no QEMU (fase "sessao" do
 # teste-pendrive.py): roda no LumeBSD como root, baixado do espelho.
 # Uso: sh sessao-diagnostico.sh atalho|exe|senha|loja|kdialog|cores|tecla|dbus|
-#      teclas|cadeia1..cadeia4|w32|dmg|dmg2
+#      teclas|cadeia1..cadeia4|w32|dmg|dmg2|mac|motor
 # Diagnóstico da sessão gráfica: atalho do filtro e o fluxo do .exe.
 for n in plasmashell kwin_x11 ksmserver kded6; do
 	pid=$(pgrep -n -u kalel $n)
@@ -119,5 +119,18 @@ dmg)
 dmg2)
 	tecla "Programa do Mac" Return
 	espera "Programas do LumeBSD" 180
+	;;
+esac
+case "$1" in
+mac)
+	fetch -qo /tmp/lume-macho http://10.0.2.2:8000/teste/lume-macho && chmod +x /tmp/lume-macho
+	fetch -qo /tmp/ola-mac http://10.0.2.2:8000/teste/ola-mac
+	file /tmp/ola-mac
+	su -m kalel -c '/tmp/lume-macho -v /tmp/ola-mac'; echo "saida=$?"
+	;;
+motor)
+	ls -l /usr/bin/lume-motor
+	su -m kalel -c 'cd /tmp && env HOME=/home/kalel lume-motor --png /tmp/motor --tamanho 640x360 --segundos 6.2' 2>&1 | tail -6
+	ls /tmp/motor | head
 	;;
 esac
