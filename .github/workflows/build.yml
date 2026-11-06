@@ -67,7 +67,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Teste de fumaça (boota o pendrive no QEMU)
-        run: LUME_KVM=1 python3 -u tests/teste-pendrive.py fumaca fumaca.log
+        run: LUME_KVM=1 LUME_IMG="$IMG" python3 -u tests/teste-pendrive.py fumaca fumaca.log
 
       - name: Compactar e calcular os SHA256
         run: |

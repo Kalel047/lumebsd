@@ -49,7 +49,9 @@ import time
 
 TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR = os.environ.get("LUME_TESTE_DIR", os.path.join(TOPO, "teste-pendrive"))
-PEN = os.environ.get("LUME_IMG", os.path.join(TOPO, "LumeBSD-1.2-Farol-pendrive.img"))
+# Sem LUME_IMG, a imagem da versão atual (a que o build-lumebsd.sh acaba de gerar).
+_VERSAO = ".".join(open(os.path.join(TOPO, "VERSAO")).read().split(".")[:2])
+PEN = os.environ.get("LUME_IMG") or os.path.join(TOPO, f"LumeBSD-{_VERSAO}-Farol-pendrive.img")
 OVMF_CODE = os.environ.get("OVMF_CODE", "/usr/share/OVMF/OVMF_CODE_4M.fd")
 OVMF_VARS = os.environ.get("OVMF_VARS", "/usr/share/OVMF/OVMF_VARS_4M.fd")
 NVME = f"{DIR}/nvme.img"
