@@ -16,6 +16,7 @@
 .Nm
 .Fl -png Ar pasta
 .Op Fl -tamanho Ar LxA
+.Op Fl -hz Ar N
 .Op opções
 .Sh DESCRIPTION
 O protótipo do motor de renderização do LumeBSD: desenha direto na placa de
@@ -39,6 +40,10 @@ e sem o X naquele terminal; Enter sai.
 a placa de vídeo (padrão /dev/dri/card0).
 .It Fl -png Ar pasta
 sem tela: grava alguns quadros em PNG, como num painel de 180 Hz.
+.It Fl -hz Ar n
+sem tela: o tempo entre os quadros, como num painel de
+.Ar n
+Hz (padrão 180).
 .It Fl -viscosidade Ar ms
 a constante de tempo da tinta (padrão 35; 0 desliga).
 .It Fl -grao Ar n

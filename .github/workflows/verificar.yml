@@ -126,7 +126,7 @@ jobs:
               $(pkg-config --cflags freetype2 libdrm) -o lume-motor \
               demo.c motor.c cena.c saida.c \
               $(pkg-config --libs freetype2) -lEGL -lGLESv2 -lgbm -ldrm -lpng -lm
-          LIBGL_ALWAYS_SOFTWARE=1 ./lume-motor --png quadros --tamanho 960x540 --segundos 6.2
+          LIBGL_ALWAYS_SOFTWARE=1 timeout 600 ./lume-motor --png quadros --tamanho 640x360 --hz 30 --segundos 6.2
           ls quadros/*.png
 
       - uses: actions/upload-artifact@v4

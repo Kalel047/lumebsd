@@ -11,7 +11,8 @@
  *                                   o X; Enter sai)
  *   lume-motor --png PASTA          sem tela: grava quadros em PNG
  *
- * Opções: --drm /dev/dri/cardN, --tamanho LxA (só PNG), --segundos N,
+ * Opções: --drm /dev/dri/cardN, --tamanho LxA e --hz N (só PNG; o padrão é
+ * 180), --segundos N,
  * --viscosidade MS (0 desliga), --grao 0-100, --colorido, --fonte ARQUIVO.
  */
 #include <fcntl.h>
@@ -186,7 +187,7 @@ static int
 uso(void)
 {
 	fprintf(stderr, "uso: lume-motor [--png PASTA] [--drm /dev/dri/cardN] "
-	    "[--tamanho LxA] [--segundos N] [--viscosidade MS] [--grao 0-100] "
+	    "[--tamanho LxA] [--hz N] [--segundos N] [--viscosidade MS] [--grao 0-100] "
 	    "[--colorido] [--fonte ARQUIVO]\n");
 	return 2;
 }
@@ -196,7 +197,7 @@ main(int argc, char **argv)
 {
 	const char *png = NULL, *drm = "/dev/dri/card0", *arq_fonte = NULL;
 	int w = 1920, h = 1080;
-	double segundos = 8.0;
+	double segundos = 8.0, hz = 180.0;
 	motor_opcoes o = { { 240 / 255.0f, 236 / 255.0f, 226 / 255.0f }, 0.4f, 35.0f, false };
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i], *v = i + 1 < argc ? argv[i + 1] : NULL;
@@ -204,6 +205,7 @@ main(int argc, char **argv)
 		else if (!strcmp(a, "--drm") && v) drm = argv[++i];
 		else if (!strcmp(a, "--tamanho") && v) { sscanf(v, "%dx%d", &w, &h); i++; }
 		else if (!strcmp(a, "--segundos") && v) segundos = atof(argv[++i]);
+		else if (!strcmp(a, "--hz") && v) hz = atof(argv[++i]);
 		else if (!strcmp(a, "--viscosidade") && v) o.viscosidade_ms = (float)atof(argv[++i]);
 		else if (!strcmp(a, "--grao") && v) o.grao = (float)atof(argv[++i]) / 100.0f;
 		else if (!strcmp(a, "--colorido")) o.colorido = true;
@@ -263,13 +265,16 @@ main(int argc, char **argv)
 	if (png)
 		mkdir(png, 0755);
 
-	/* Sem tela, o tempo é o de um painel de 180 Hz. */
-	const double passo_png = 1000.0 / 180.0;
+	/* Sem tela, o tempo é o de um painel de "hz" (180 Hz por padrão). */
+	const double passo_png = 1000.0 / (hz > 1.0 ? hz : 180.0);
 	double t0 = saida_agora_ms(), anterior = t0, soma_gpu = 0.0, max_gpu = 0.0;
 	double soma_intervalo = 0.0;
 	int quadros = 0;
-	bool trocou = false;
-	int salvos_depois = -1;
+	bool trocou = false, zoom_salvo = false;
+	double t_troca = -1.0;
+	/* Os quadros salvos depois da troca, em ms. */
+	const double marcas[] = { 0.0, 15.0, 40.0, 100.0, 300.0 };
+	int proxima_marca = 0;
 	for (;;) {
 		double agora = png ? t0 + quadros * passo_png : saida_agora_ms();
 		double t = (agora - t0) / 1000.0;
@@ -284,7 +289,7 @@ main(int argc, char **argv)
 			pagina(&c, serif, italico, mono, w, h, true, o.colorido);
 			motor_cena_enviar(m, &c);
 			trocou = true;
-			salvos_depois = 0;
+			t_troca = agora;
 		}
 		float e, dx, dy;
 		vista(t, w, h, &e, &dx, &dy);
@@ -306,17 +311,22 @@ main(int argc, char **argv)
 		if (png) {
 			char nome[600];
 			/* a página, o zoom no máximo e a tinta assentando */
-			bool salvar = quadros == 0 || quadros == (int)(3.5 * 180) ||
-			    (salvos_depois >= 0 && (salvos_depois == 0 || salvos_depois == 3 ||
-			    salvos_depois == 8 || salvos_depois == 20 || salvos_depois == 60));
+			bool salvar = quadros == 0;
+			if (!zoom_salvo && t >= 3.5) {
+				salvar = zoom_salvo = true;
+			}
+			if (t_troca >= 0.0 && proxima_marca < 5 &&
+			    agora - t_troca >= marcas[proxima_marca]) {
+				salvar = true;
+				while (proxima_marca < 5 && agora - t_troca >= marcas[proxima_marca])
+					proxima_marca++;
+			}
 			if (salvar) {
 				snprintf(nome, sizeof(nome), "%s/quadro-%04d.png", png, quadros);
 				saida_png(&s, nome);
 				printf("  %s (t = %.3f s)\n", nome, t);
 			}
 		}
-		if (salvos_depois >= 0)
-			salvos_depois++;
 		anterior = agora;
 		quadros++;
 	}
