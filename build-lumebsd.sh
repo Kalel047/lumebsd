@@ -71,9 +71,12 @@ python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
 #     FreeBSD; o Qt e o KWin em si vêm com o desktop, não no pendrive
 python3 "$TOP/ferramentas/pacotes.py" --sem-dependencias "$TOP/qt" qt6-base \
     kf6-kcoreaddons kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 \
-    libepoxy libxcb xorgproto libdrm wayland libxkbcommon libglvnd
+    libepoxy libxcb xorgproto libdrm wayland libxkbcommon libglvnd mesa-libs \
+    freetype2 png
 python3 "$TOP/ferramentas/montar-app.py" "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]*.pkg | head -1)"
 python3 "$TOP/ferramentas/montar-efeitos.py" "$STAGE" "$TOP/qt"
+# O lume-motor (app/lume-motor): o motor de renderização vetorial
+python3 "$TOP/ferramentas/montar-motor.py" "$STAGE" "$TOP/qt"
 
 # 5. Imagem do pendrive (UEFI e BIOS) e a .iso (DVD, máquina virtual ou
 #    pendrive; UEFI e BIOS)

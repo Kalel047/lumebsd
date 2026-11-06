@@ -75,23 +75,28 @@ done
 eval "$(/usr/sbin/lume-video detectar 2>/dev/null)"
 estado_video=$(cat /var/db/lume/video-estado 2>/dev/null)
 case "$estado_video" in
-nvidia|intel)
+nvidia|intel|amd)
 	item ok "vídeo" "acelerado com o driver $estado_video" ;;
 travou)	item falha "vídeo" "o driver ${escolha:-} travou o computador numa tentativa" \
 	    "o desktop usa o modo sem aceleração (scfb); veja: lume video" ;;
 falhou)	item falha "vídeo" "o driver ${escolha:-} não reconheceu a placa" \
 	    "o desktop usa o modo sem aceleração (scfb); veja: lume video" ;;
 *)	case "${escolha:-scfb}" in
-	nvidia|intel)
+	nvidia|intel|amd)
 		item atencao "vídeo" "driver $escolha ainda não testado" \
 		    "teste com: lume video testar" ;;
-	*)	item atencao "vídeo" "sem placa NVIDIA ou Intel: modo sem aceleração" ;;
+	*)	item atencao "vídeo" "sem placa NVIDIA, Intel ou AMD: modo sem aceleração" ;;
 	esac ;;
 esac
 [ -n "${nvidia:-}" ] && item ok "placa NVIDIA" "$nvidia" "driver: $nvidia_pacote"
 [ -n "${intel:-}" ] && item ok "placa Intel" "$intel"
+[ -n "${amd:-}" ] && item ok "placa AMD" "$amd" "driver: ${amd_driver:-amdgpu}"
 if [ -n "${nvidia:-}" ] && [ -n "${intel:-}" ] && [ "${bateria:-}" = sim ]; then
 	item atencao "híbrido" "notebook Intel + NVIDIA: a tela usa a Intel" \
+	    "o FreeBSD não alterna entre as placas em notebooks"
+fi
+if [ -n "${nvidia:-}" ] && [ -n "${amd:-}" ] && [ "${bateria:-}" = sim ]; then
+	item atencao "híbrido" "notebook Ryzen + NVIDIA: a tela usa o vídeo AMD" \
 	    "o FreeBSD não alterna entre as placas em notebooks"
 fi
 

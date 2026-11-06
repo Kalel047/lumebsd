@@ -18,6 +18,10 @@
 <p>O LumeBSD desenha as janelas em tons de papel e tinta, como uma tela de e-ink. Numa tela comum (LCD), conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol: os reflexos aparecem menos sobre um fundo claro, e não é preciso aumentar o brilho (o que também poupa a bateria e a vista).</p>
 <p>O filtro não muda a tela em si: um reflexo continua sendo um reflexo. O que muda é o contraste do que está por baixo dele.</p>
 
+<h2>Papel de verdade</h2>
+<p>O papel tem fibras: o tom varia um pouco de um ponto a outro, e as bordas das letras seguem as fibras, como tinta em papel. As fibras ficam paradas na tela (não andam com a janela), como num leitor de e-ink.</p>
+<p>Quando a tela muda, a tinta <b>assenta</b>: o conteúdo novo aparece sobre o anterior em uma fração de segundo, sem o piscar preto e branco de uma tela de e-ink de verdade. Fotos, vídeos e janelas em tela cheia mudam na hora. Isso precisa de placa de vídeo; sem ela, o KDE desliga.</p>
+
 <h2>Fotos e vídeos ficam com cor</h2>
 <p>O filtro sai sozinho das janelas onde a cor importa:</p>
 <ul>
@@ -34,6 +38,8 @@
 <tr><td>ligar ou desligar o filtro na tela inteira</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd></td></tr>
 <tr><td>tirar ou pôr o filtro só na janela ativa</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>Y</kbd></td></tr>
 <tr><td>deixar o filtro mais leve</td><td><code>lume tema tinta 60</code> (de 0 a 100)</td></tr>
+<tr><td>mais ou menos fibras de papel</td><td><code>lume tema tinta grao 20</code> (de 0 a 100; o padrão é 40)</td></tr>
+<tr><td>a tinta assentar mais rápido ou mais devagar</td><td><code>lume tema tinta viscosidade 20</code> (em milissegundos; 0 desliga, o padrão é 35)</td></tr>
 <tr><td>desligar de vez</td><td><code>lume tema tinta desliga</code> (e <code>liga</code> para voltar)</td></tr>
 </table>
 <p>A tecla <kbd>Meta</kbd> é a tecla com o logotipo do Windows, na maioria dos teclados. Tudo isso vale só para você, sem senha. O filtro também aparece em <span class="menu">Configurações do Sistema › Efeitos da área de trabalho</span>, como <b>E-ink do LumeBSD</b>.</p>

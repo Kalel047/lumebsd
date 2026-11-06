@@ -65,8 +65,10 @@ printf "\n  ${NEGRITO}LumeBSD 1.4 \"Farol\" - instalação${FIM}\n\n"
 
 # --- 1. escolher o disco ------------------------------------------------
 
-# O disco do próprio pendrive fica de fora.
-vivo=$(glabel status 2>/dev/null | awk '$1 == "gpt/lumeroot" {print $3}' |
+# O disco do próprio pendrive fica de fora (o do .img ou o da .iso gravada
+# num pendrive; um DVD já fica de fora por ser cd*).
+vivo=$(glabel status 2>/dev/null |
+    awk '$1 == "gpt/lumeroot" || $1 == "iso9660/LUMEBSD" {print $3; exit}' |
     sed -E 's/p[0-9]+$//')
 discos=
 for d in $(sysctl -n kern.disks); do
@@ -255,6 +257,11 @@ cat > "$ALVO/etc/fstab" <<EOF
 fdesc			/dev/fd	fdescfs	rw	0	0
 proc			/proc	procfs	rw	0	0
 EOF
+# A CPU: Intel ou AMD (o microcódigo e o sensor de temperatura certos).
+case "$(sysctl -n hw.model 2>/dev/null)" in
+*AMD*)	ucode=amd-ucode.bin; sensor=amdtemp ;;
+*)	ucode=intel-ucode.bin; sensor=coretemp ;;
+esac
 cat > "$ALVO/boot/loader.conf" <<EOF
 # LumeBSD 1.4 - notebook
 zfs_load="YES"
@@ -263,9 +270,9 @@ geom_eli_load="YES"
 kern.geom.label.disk_ident.enable="0"
 kern.geom.label.gptid.enable="0"
 autoboot_delay="3"
-# Microcódigo da CPU (pacote cpu-microcode-intel)
+# Microcódigo da CPU (pacote cpu-microcode-intel ou cpu-microcode-amd)
 cpu_microcode_load="YES"
-cpu_microcode_name="/boot/firmware/intel-ucode.bin"
+cpu_microcode_name="/boot/firmware/$ucode"
 # Wi-Fi Intel: liga 802.11n/ac e a economia de energia
 compat.linuxkpi.iwlwifi_11n_disable="0"
 compat.linuxkpi.iwlwifi_disable_11ac="0"
@@ -299,7 +306,7 @@ powerd_enable="YES"
 powerd_flags="-a hiadaptive -b adaptive"
 performance_cx_lowest="Cmax"
 economy_cx_lowest="Cmax"
-kld_list="acpi_ibm coretemp cpuctl"
+kld_list="acpi_ibm $sensor cpuctl"
 devmatch_blocklist="if_iwx if_iwm"
 microcode_update_enable="YES"
 lume_farol_enable="YES"
@@ -338,6 +345,11 @@ if [ -n "$pk" ]; then
 		case "$p" in */nvidia-kmod-[0-9]*)
 			[ "$escolha" = nvidia ] &&
 			    [ "${nvidia_pacote:-}" = nvidia-driver ] || continue ;;
+		esac
+		# Os firmwares de vídeo AMD (uns 120 MB instalados) só vão para
+		# computadores com AMD.
+		case "$p" in */gpu-firmware-amd-kmod-*|*/gpu-firmware-radeon-kmod-*)
+			[ -n "${amd:-}" ] || continue ;;
 		esac
 		roda chroot "$ALVO" env ASSUME_ALWAYS_YES=yes pkg add -M "${p#$ALVO}"
 	done

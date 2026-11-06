@@ -10,11 +10,14 @@
 #   lume video auto         escolhe sozinho a cada boot (padrão)
 #   lume video nvidia       sempre o driver NVIDIA
 #   lume video intel        sempre o driver Intel (i915, drm 6.12)
+#   lume video amd          sempre o driver AMD (amdgpu; radeonkms nas
+#                           placas antigas, até a geração Sea Islands)
 #   lume video scfb         sempre o modo sem aceleração (framebuffer UEFI)
 #
-# No modo auto: placa NVIDIA num desktop (ou sem vídeo Intel) usa o driver
-# NVIDIA; notebook híbrido Intel + NVIDIA usa a Intel, que é quem liga na
-# tela; só Intel usa a Intel; o resto usa o scfb.
+# No modo auto: placa NVIDIA num desktop (ou sem vídeo Intel ou AMD) usa o
+# driver NVIDIA; notebook híbrido Intel + NVIDIA ou Ryzen + NVIDIA usa o
+# vídeo integrado, que é quem liga na tela; só Intel usa a Intel; só AMD
+# (placa ou o vídeo do Ryzen) usa a AMD; o resto usa o scfb.
 #
 # Proteção contra travamento: antes de carregar o driver o boot grava
 # /var/db/lume/video-tentando. Se o computador travar, no boot seguinte o
@@ -26,7 +29,7 @@ XCONF=/usr/local/etc/X11/xorg.conf.d/10-lume-video.conf
 
 uso()
 {
-	echo "uso: lume video [testar | detectar | auto | nvidia | intel | scfb]" >&2
+	echo "uso: lume video [testar | detectar | auto | nvidia | intel | amd | scfb]" >&2
 	exit 2
 }
 
@@ -62,16 +65,37 @@ nvidia_pacote()
 	esac
 }
 
+# O driver AMD pelo nome do chip: as gerações até Sea Islands (GCN 1 e 2,
+# e as anteriores, TeraScale) usam o radeonkms; da Volcanic Islands (GCN 3:
+# Tonga, Fiji, Carrizo) em diante, o amdgpu (Polaris, Vega, Navi, os Ryzen).
+amd_driver()
+{
+	case "$1" in
+	*Tahiti*|*Pitcairn*|*"Cape Verde"*|*Verde*|*Oland*|*Hainan*|*Bonaire*|\
+	*Hawaii*|*Kaveri*|*Kabini*|*Mullins*|*Beema*|*Godavari*|*Spectre*|\
+	*Spooky*|*Kalindi*|*Cedar*|*Redwood*|*Juniper*|*Cypress*|*Hemlock*|\
+	*Caicos*|*Turks*|*Barts*|*Cayman*|*Antilles*|*Palm*|*Sumo*|*Wrestler*|\
+	*Aruba*|*Trinity*|*Richland*|*Devastator*|*Scrapper*|*RV[0-9]*|\
+	*RS[0-9]*|*R[1-7][0-9][0-9]*|*"Radeon HD [2-7]"*|*"Radeon R[579] 2"*|\
+	*"FirePro W[5-9]000"*)
+		echo radeonkms ;;
+	*)	echo amdgpu ;;
+	esac
+}
+
 detectar()
 {
 	nvidia=$(placas | awk -F'|' '$1 == "0x10de" {print $2; exit}')
 	intel=$(placas | awk -F'|' '$1 == "0x8086" {print $2; exit}')
+	amd=$(placas | awk -F'|' '$1 == "0x1002" {print $2; exit}')
 	bateria=nao
 	acpiconf -i 0 >/dev/null 2>&1 && bateria=sim
-	if [ -n "$nvidia" ] && { [ -z "$intel" ] || [ "$bateria" = nao ]; }; then
+	if [ -n "$nvidia" ] && { [ -z "$intel$amd" ] || [ "$bateria" = nao ]; }; then
 		escolha=nvidia
 	elif [ -n "$intel" ]; then
 		escolha=intel
+	elif [ -n "$amd" ]; then
+		escolha=amd
 	else
 		escolha=scfb
 	fi
@@ -79,6 +103,8 @@ detectar()
 	echo "nvidia=$nvidia"
 	[ -n "$nvidia" ] && echo "nvidia_pacote=$(nvidia_pacote "$nvidia")"
 	echo "intel=$intel"
+	echo "amd=$amd"
+	[ -n "$amd" ] && echo "amd_driver=$(amd_driver "$amd")"
 	echo "bateria=$bateria"
 }
 
@@ -86,13 +112,14 @@ detectar()
 
 xorg()
 {
-	# xorg intel|nvidia|scfb: o Intel usa o "modesetting" que o X acha sozinho
+	# xorg intel|amd|nvidia|scfb: Intel e AMD usam o "modesetting", que o X
+	# acha sozinho
 	mkdir -p "$(dirname "$XCONF")"
 	case "$1" in
-	intel)	rm -f "$XCONF"; return ;;
+	intel|amd)	rm -f "$XCONF"; return ;;
 	esac
 	cat > "$XCONF" <<-EOF
-	# Criado por lume video ($1). Para mudar: lume video auto|nvidia|intel|scfb
+	# Criado por lume video ($1). Para mudar: lume video auto|nvidia|intel|amd|scfb
 	Section "Device"
 	    Identifier "Tela"
 	    Driver "$1"
@@ -121,6 +148,14 @@ carregar_intel()
 	esperar_dispositivo /dev/dri/card0
 }
 
+carregar_amd()
+{
+	m=$(amd_driver "$(placas | awk -F'|' '$1 == "0x1002" {print $2; exit}')")
+	[ -f /boot/modules/$m.ko ] || return 2
+	kldstat -q -m $m || kldload $m 2>/dev/null || return 1
+	esperar_dispositivo /dev/dri/card0
+}
+
 carregar_nvidia()
 {
 	[ -f /boot/modules/nvidia-modeset.ko ] || return 2
@@ -144,8 +179,8 @@ alvo()
 	esac
 }
 
-# tentar intel|nvidia: carrega com a proteção contra travamento.
-# Grava o estado: intel, nvidia, falhou ou sem-driver.
+# tentar intel|amd|nvidia: carrega com a proteção contra travamento.
+# Grava o estado: intel, amd, nvidia, falhou ou sem-driver.
 tentar()
 {
 	mkdir -p "$DB"
@@ -179,7 +214,7 @@ boot()
 		return 0
 	fi
 	case "$quero" in
-	intel|nvidia)
+	intel|amd|nvidia)
 		tentar "$quero" ||
 		    echo "lume video: o driver $quero não subiu; usando scfb." ;;
 	*)	xorg scfb
@@ -193,11 +228,12 @@ mostrar()
 	estado=$(cat "$DB/video-estado" 2>/dev/null || echo "nunca testado")
 	[ -n "$nvidia" ] && echo "  NVIDIA: $nvidia (pacote $(nvidia_pacote "$nvidia"))"
 	[ -n "$intel" ] && echo "  Intel:  $intel"
-	[ -z "$nvidia$intel" ] && echo "  Nenhuma placa NVIDIA ou Intel; o desktop usa o scfb."
+	[ -n "$amd" ] && echo "  AMD:    $amd (driver $amd_driver)"
+	[ -z "$nvidia$intel$amd" ] && echo "  Nenhuma placa NVIDIA, Intel ou AMD; o desktop usa o scfb."
 	echo "  modo:   $(modo_atual) -> $(alvo)"
 	echo "  estado: $estado"
 	case "$estado" in
-	intel|nvidia) echo "  O driver $estado está ativo: vídeo acelerado." ;;
+	intel|amd|nvidia) echo "  O driver $estado está ativo: vídeo acelerado." ;;
 	travou)	echo "  Um driver travou o computador; o desktop usa scfb."
 		echo "  Para tentar de novo: lume video auto" ;;
 	falhou)	echo "  O driver não reconheceu a placa; o desktop usa scfb." ;;
@@ -209,7 +245,7 @@ testar()
 {
 	quero=$(alvo)
 	case "$quero" in
-	intel|nvidia) ;;
+	intel|amd|nvidia) ;;
 	*)	echo "  Nada para testar: este computador usa o modo scfb."
 		return 0 ;;
 	esac
@@ -227,7 +263,7 @@ testar()
 			    echo "    Esta placa precisa do $nvidia_pacote; lume desktop instala o certo."
 		fi ;;
 	esac
-	dmesg | grep -iE 'i915|drm|nvidia|nvrm' | tail -4 | sed 's/^/    /'
+	dmesg | grep -iE 'i915|amdgpu|radeon|drm|nvidia|nvrm' | tail -4 | sed 's/^/    /'
 }
 
 case "${1:-}" in
@@ -241,7 +277,7 @@ case "${1:-}" in
 detectar)	detectar ;;
 --boot)		boot ;;
 testar)		testar ;;
-auto|nvidia|intel|scfb)
+auto|nvidia|intel|amd|scfb)
 		sysrc -q lume_video="$1" >/dev/null
 		[ "$1" = auto ] && rm -f "$DB/video-estado"
 		[ "$1" = scfb ] && xorg scfb

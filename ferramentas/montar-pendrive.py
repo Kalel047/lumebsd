@@ -11,8 +11,8 @@ FERRAMENTAS  diretório com makefs, mkimg e kldxref do build
 IMAGEM       arquivo de saída
 --iso ISO    também gera a mesma coisa em .iso híbrida (DVD ou pendrive,
              UEFI ou BIOS): a raiz é o próprio cd9660, só de leitura, e
-             /etc, /var e /root vão para a memória no boot (o rc.initdiskless
-             do FreeBSD)
+             /etc, /var, /root, /mnt e /media vão para a memória no boot (o
+             rc.initdiskless do FreeBSD)
 
 O pendrive é um LumeBSD completo que dá boot sem tocar no disco do
 computador. Ele leva:
@@ -229,11 +229,13 @@ def gerar_iso(iso):
     # /conf/base/DIR: "remount" põe o DIR original (só de leitura) por baixo
     # do modelo; o rc.initdiskless cria um disco na memória do tamanho de
     # md_size (setores de 512 bytes) e copia tudo para ele.
-    for d, setores in (("etc", 131072), ("var", 1048576), ("root", 16384)):
+    # /mnt e /media: onde o instalador e o usuário montam discos.
+    for d, setores in (("etc", 131072), ("var", 1048576), ("root", 16384),
+                       ("mnt", 2048), ("media", 2048)):
         extras.append(escrever(f"conf/base/{d}/remount", f"mount_nullfs /{d}\n"))
         extras.append(escrever(f"conf/base/{d}/md_size", f"{setores}\n"))
     for d in ("conf", "conf/base", "conf/base/etc", "conf/base/var",
-              "conf/base/root"):
+              "conf/base/root", "conf/base/mnt", "conf/base/media"):
         extras.append(f"./{d} type=dir {RAIZ} mode=0755")
     trocados = {caminho(l) for l in extras}
     linhas_iso = [l for l in final if caminho(l) not in trocados] + extras
