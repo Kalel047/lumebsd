@@ -12,9 +12,18 @@
 #                       polkit), a Ajuda, os dois cliques num .exe (lume
 #                       compat) e o "Versões anteriores" do Dolphin (o tema
 #                       chama isto, e o lume_saude também, depois de uma
-#                       atualização)
+#                       atualização), os efeitos do KWin do LumeBSD e os
+#                       atalhos de teclado do KWin (o kglobalacceld no D-Bus)
+#   lume tema tinta [liga | desliga | NÚMERO]
+#                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
+#                       papel e tinta; fotos, vídeos e tela cheia ficam com
+#                       cor. NÚMERO é a intensidade, de 0 a 100
+#   lume tema animacao [refresh | esmaecer | nenhuma]
+#                       como as janelas abrem e fecham
 #
-# Papel, tinta e cinzas; sem animações, sombras nem transparência; fontes
+# Os dois últimos valem para o usuário que roda (sem root), na hora.
+#
+# Papel, tinta e cinzas; sem sombras nem transparência; fontes
 # IBM Plex; ícones Breeze convertidos para tons de cinza; papel de parede
 # com o farol em traço e, no login e no bloqueio, a versão "noite".
 #
@@ -149,6 +158,10 @@ integrar()
 	if [ -f "$MARCA" ]; then
 		papel_de_parede LumePapel "Papel (LumeBSD)" $T/papel.png
 		papel_de_parede LumePapelNoite "Papel noite (LumeBSD)" $T/papel-noite.png
+		# E o kwinrc do tema: o da 1.4 liga o compositor, o filtro e-ink e
+		# as animações (quem atualizou de antes tinha o compositor
+		# desligado). O que cada usuário mudou no próprio kwinrc vale mais.
+		instalar $T/kwinrc $XDG/kwinrc 0644
 	fi
 	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
 	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
@@ -178,6 +191,12 @@ integrar()
 	    $P/share/applications/lume-windows.desktop 0644
 	padrao_mime "application/x-ms-dos-executable application/x-msdownload application/vnd.microsoft.portable-executable application/x-msi application/x-ms-installer" \
 	    lume-windows.desktop
+	# Dois cliques num .dmg: o que usar no lugar do programa do Mac.
+	instalar /usr/share/lume/loja/lume-mac.desktop \
+	    $P/share/applications/lume-mac.desktop 0644
+	padrao_mime "application/x-apple-diskimage" lume-mac.desktop
+	efeitos
+	atalhos
 	# Impressoras: o CUPS vem com o desktop; quem atualizou de antes da 1.3
 	# não o tinha ligado (vale a partir do próximo boot).
 	if [ -x $P/sbin/cupsd ] && [ -z "$(sysrc -qn cupsd_enable 2>/dev/null)" ]; then
@@ -188,6 +207,132 @@ integrar()
 	command -v update-desktop-database >/dev/null 2>&1 &&
 	    update-desktop-database -q $P/share/applications 2>/dev/null
 	return 0
+}
+
+# Os atalhos de teclado do KDE (Alt+Tab, Alt+F4, Ctrl+Meta+T...). O KWin
+# registra os dele assim que a sessão começa, antes de o kglobalacceld subir
+# pelo autostart; sem o arquivo do D-Bus que o chama na hora (o pacote do
+# FreeBSD não traz), o registro falhava e todos os atalhos do KWin ficavam
+# sem tecla.
+atalhos()
+{
+	[ -x $P/lib/libexec/kglobalacceld ] || return 0
+	s=$P/share/dbus-1/services/org.kde.kglobalaccel.service
+	if [ ! -f $s ] || grep -q LumeBSD $s; then
+		instalar $T/org.kde.kglobalaccel.service $s 0644
+	fi
+	# Quem já entrou numa sessão ficou com os atalhos do KWin gravados sem
+	# tecla ("none,none"): sai a linha, e na próxima sessão o padrão volta.
+	# Uma linha "none,none" de verdade (ação sem atalho padrão) o KDE
+	# escreve de novo igual.
+	for k in /home/*/.config/kglobalshortcutsrc; do
+		[ -f "$k" ] || continue
+		grep -q '=none,none,' "$k" || continue
+		awk '/^\[/ { g = $0 } !(g == "[kwin]" && /=none,none,/)' "$k" \
+		    > "$k.lume" && cat "$k.lume" > "$k"
+		rm -f "$k.lume"
+	done
+}
+
+# Os efeitos do KWin do LumeBSD (/usr/share/lume/kwin): o filtro e-ink
+# (lume_tinta, um plugin em C++) e as animações (lume_refresh e
+# lume_esmaecer, em JavaScript), para o KWin do X11 e o do Wayland. O
+# plugin só vai se foi compilado para a versão do KWin instalada (o KWin
+# recusa outro); depois de uma atualização do KWin pelo pkg, fica de fora
+# até a próxima versão do LumeBSD.
+efeitos()
+{
+	K=/usr/share/lume/kwin
+	[ -d $K ] || return 0
+	for v in x11 wayland; do
+		case $v in
+		x11)	pkg=plasma6-kwin-x11; plug=$P/lib/qt6/plugins/kwin-x11/effects/plugins
+			share=$P/share/kwin-x11/effects ;;
+		*)	pkg=plasma6-kwin; plug=$P/lib/qt6/plugins/kwin/effects/plugins
+			share=$P/share/kwin/effects ;;
+		esac
+		tem=$(pkg query %v $pkg 2>/dev/null | sed 's/_[0-9]*$//; s/,[0-9]*$//')
+		[ -n "$tem" ] || continue
+		if [ -f $K/$v/lume_tinta.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
+			instalar $K/$v/lume_tinta.so $plug/lume_tinta.so 0555
+		else
+			rm -f $plug/lume_tinta.so
+		fi
+		for e in $K/efeitos/*/; do
+			[ -d "$e" ] || continue
+			n=$(basename "$e")
+			mkdir -p $share/$n/contents/code
+			instalar $e/metadata.json $share/$n/metadata.json 0644
+			instalar $e/contents/code/main.js $share/$n/contents/code/main.js 0644
+		done
+	done
+}
+
+# Para o usuário da sessão: o kwinrc dele e o KWin recarrega.
+kwin_recarregar()
+{
+	for q in qdbus6 qdbus; do
+		command -v $q >/dev/null 2>&1 &&
+		    { $q org.kde.KWin /KWin reconfigure >/dev/null 2>&1; return 0; }
+	done
+	dbus-send --session --type=method_call --dest=org.kde.KWin /KWin \
+	    org.kde.KWin.reconfigure >/dev/null 2>&1
+}
+
+kwin_config()
+{
+	for k in kwriteconfig6 kwriteconfig5; do
+		command -v $k >/dev/null 2>&1 && { $k --file kwinrc "$@"; return; }
+	done
+	echo "lume tema: kwriteconfig6 não encontrado (o desktop está instalado?)" >&2
+	exit 1
+}
+
+kwin_ler()
+{
+	for k in kreadconfig6 kreadconfig5; do
+		command -v $k >/dev/null 2>&1 && { $k --file kwinrc "$@"; return; }
+	done
+}
+
+tinta()
+{
+	case "${1:-}" in
+	"")	if [ "$(kwin_ler --group Plugins --key lume_tintaEnabled --default true)" = true ]; then
+			echo "  filtro e-ink: ligado, intensidade $(kwin_ler --group Effect-lume_tinta --key Intensidade --default 100)"
+		else
+			echo "  filtro e-ink: desligado   (lume tema tinta liga)"
+		fi
+		echo "  Atalhos: Ctrl+Meta+T liga e desliga; Ctrl+Meta+Y só na janela ativa." ;;
+	liga|ligar|on)	kwin_config --group Plugins --key lume_tintaEnabled true ;;
+	desliga|desligar|off)	kwin_config --group Plugins --key lume_tintaEnabled false ;;
+	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100]" >&2; exit 2 ;;
+	*)	[ "$1" -le 100 ] || { echo "lume tema: intensidade de 0 a 100" >&2; exit 2; }
+		kwin_config --group Effect-lume_tinta --key Intensidade "$1"
+		kwin_config --group Plugins --key lume_tintaEnabled true ;;
+	esac
+	[ -n "${1:-}" ] && kwin_recarregar
+	return 0
+}
+
+animacao()
+{
+	case "${1:-}" in
+	"")	a=nenhuma
+		[ "$(kwin_ler --group Plugins --key lume_esmaecerEnabled --default false)" = true ] && a=esmaecer
+		[ "$(kwin_ler --group Plugins --key lume_refreshEnabled --default true)" = true ] && a=refresh
+		echo "  animação das janelas: $a   (lume tema animacao refresh | esmaecer | nenhuma)"
+		return ;;
+	refresh|eink|e-ink)	r=true e=false ;;
+	esmaecer|fade)		r=false e=true ;;
+	nenhuma|nada|off)	r=false e=false ;;
+	*)	echo "uso: lume tema animacao [refresh | esmaecer | nenhuma]" >&2; exit 2 ;;
+	esac
+	kwin_config --group Plugins --key lume_refreshEnabled $r
+	kwin_config --group Plugins --key lume_esmaecerEnabled $e
+	kwin_config --group Plugins --key fadeEnabled false
+	kwin_config --group Plugins --key scaleEnabled false
+	kwin_recarregar
 }
 
 # padrao_mime "tipos" app.desktop: o app padrão desses tipos, para todos (o
@@ -228,5 +373,7 @@ padrao|padrão)
 integrar)
 	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root" >&2; exit 1; }
 	integrar ;;
-*)	echo "uso: lume tema [papel | padrao | integrar]" >&2; exit 2 ;;
+tinta)	shift; tinta "$@" ;;
+animacao|animação|animacoes|animações)	shift; animacao "$@" ;;
+*)	echo "uso: lume tema [papel | padrao | integrar | tinta | animacao]" >&2; exit 2 ;;
 esac

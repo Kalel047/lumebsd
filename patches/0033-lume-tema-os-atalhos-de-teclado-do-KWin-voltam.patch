@@ -1,0 +1,119 @@
+From fe59d03e74fb76d4c3dba7a1bebb910eb5066546 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 04:51:43 -0300
+Subject: [PATCH] lume tema: os atalhos de teclado do KWin voltam
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O KWin registra os atalhos dele no começo da sessão, antes de o
+kglobalacceld subir pelo autostart, e o pacote do FreeBSD não traz o
+arquivo do D-Bus que o chama na hora: o registro falhava e todos os
+atalhos do KWin (Alt+Tab, Alt+F4, Meta+W, o Ctrl+Meta+T do filtro
+e-ink) ficavam sem tecla. O lume tema integrar põe o arquivo e tira as
+linhas "none,none" que ficaram gravadas no [kwin] de cada usuário.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/Makefile             |  3 +-
+ usr.sbin/lume-configurar/ajuda/tela.html      |  2 +-
+ usr.sbin/lume-configurar/lume-tema.sh         | 29 ++++++++++++++++++-
+ .../tema/org.kde.kglobalaccel.service         |  7 +++++
+ 4 files changed, 38 insertions(+), 3 deletions(-)
+ create mode 100644 usr.sbin/lume-configurar/tema/org.kde.kglobalaccel.service
+
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index 4e73ed9c6..653f4337e 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -15,7 +15,8 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
+ 		tema/metadata.json tema/defaults tema/layout.js \
+ 		tema/sddm.conf tema/sddm-breeze.conf.user tema/fontes.conf \
+ 		tema/gtk-settings.ini tema/papel.png tema/papel-noite.png \
+-		tema/navegador.svg tema/lume-tempo.desktop
++		tema/navegador.svg tema/lume-tempo.desktop \
++		tema/org.kde.kglobalaccel.service
+ 
+ # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
+ # programas do Windows com dois cliques (lume compat).
+diff --git a/usr.sbin/lume-configurar/ajuda/tela.html b/usr.sbin/lume-configurar/ajuda/tela.html
+index 79da6148a..049b3d5ae 100644
+--- a/usr.sbin/lume-configurar/ajuda/tela.html
++++ b/usr.sbin/lume-configurar/ajuda/tela.html
+@@ -47,7 +47,7 @@
+ <pre><code>lume tema animacao esmaecer   # ou refresh, ou nenhuma</code></pre>
+ 
+ <h2>Se a tela ficar lenta</h2>
+-<p>O filtro e as animações usam a placa de vídeo. Num computador sem aceleração de vídeo (por exemplo, depois que o LumeBSD voltou ao modo seguro por causa de um driver), tudo é feito pelo processador e pode ficar lento: desligue o filtro com <kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd> e veja <a href="internet.html">a parte de tela e vídeo</a>.</p>
++<p>O filtro e as animações usam a placa de vídeo. Num computador sem aceleração de vídeo (por exemplo, depois que o LumeBSD voltou ao modo seguro por causa de um driver), tudo é feito pelo processador: o KDE desliga sozinho as animações das janelas, e o filtro pode ficar lento; desligue o filtro com <kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd> e veja <a href="internet.html">a parte de tela e vídeo</a>.</p>
+ 
+ <footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+ </main>
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 4bb11797b..c0f9a2521 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -12,7 +12,8 @@
+ #                       polkit), a Ajuda, os dois cliques num .exe (lume
+ #                       compat) e o "Versões anteriores" do Dolphin (o tema
+ #                       chama isto, e o lume_saude também, depois de uma
+-#                       atualização), e os efeitos do KWin do LumeBSD
++#                       atualização), os efeitos do KWin do LumeBSD e os
++#                       atalhos de teclado do KWin (o kglobalacceld no D-Bus)
+ #   lume tema tinta [liga | desliga | NÚMERO]
+ #                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
+ #                       papel e tinta; fotos, vídeos e tela cheia ficam com
+@@ -195,6 +196,7 @@ integrar()
+ 	    $P/share/applications/lume-mac.desktop 0644
+ 	padrao_mime "application/x-apple-diskimage" lume-mac.desktop
+ 	efeitos
++	atalhos
+ 	# Impressoras: o CUPS vem com o desktop; quem atualizou de antes da 1.3
+ 	# não o tinha ligado (vale a partir do próximo boot).
+ 	if [ -x $P/sbin/cupsd ] && [ -z "$(sysrc -qn cupsd_enable 2>/dev/null)" ]; then
+@@ -207,6 +209,31 @@ integrar()
+ 	return 0
+ }
+ 
++# Os atalhos de teclado do KDE (Alt+Tab, Alt+F4, Ctrl+Meta+T...). O KWin
++# registra os dele assim que a sessão começa, antes de o kglobalacceld subir
++# pelo autostart; sem o arquivo do D-Bus que o chama na hora (o pacote do
++# FreeBSD não traz), o registro falhava e todos os atalhos do KWin ficavam
++# sem tecla.
++atalhos()
++{
++	[ -x $P/lib/libexec/kglobalacceld ] || return 0
++	s=$P/share/dbus-1/services/org.kde.kglobalaccel.service
++	if [ ! -f $s ] || grep -q LumeBSD $s; then
++		instalar $T/org.kde.kglobalaccel.service $s 0644
++	fi
++	# Quem já entrou numa sessão ficou com os atalhos do KWin gravados sem
++	# tecla ("none,none"): sai a linha, e na próxima sessão o padrão volta.
++	# Uma linha "none,none" de verdade (ação sem atalho padrão) o KDE
++	# escreve de novo igual.
++	for k in /home/*/.config/kglobalshortcutsrc; do
++		[ -f "$k" ] || continue
++		grep -q '=none,none,' "$k" || continue
++		awk '/^\[/ { g = $0 } !(g == "[kwin]" && /=none,none,/)' "$k" \
++		    > "$k.lume" && cat "$k.lume" > "$k"
++		rm -f "$k.lume"
++	done
++}
++
+ # Os efeitos do KWin do LumeBSD (/usr/share/lume/kwin): o filtro e-ink
+ # (lume_tinta, um plugin em C++) e as animações (lume_refresh e
+ # lume_esmaecer, em JavaScript), para o KWin do X11 e o do Wayland. O
+diff --git a/usr.sbin/lume-configurar/tema/org.kde.kglobalaccel.service b/usr.sbin/lume-configurar/tema/org.kde.kglobalaccel.service
+new file mode 100644
+index 000000000..dc4e8124a
+--- /dev/null
++++ b/usr.sbin/lume-configurar/tema/org.kde.kglobalaccel.service
+@@ -0,0 +1,7 @@
++# LumeBSD: chama o kglobalacceld (os atalhos de teclado do KDE) quando o
++# KWin pede, no começo da sessão. O pacote do FreeBSD não traz este arquivo,
++# e sem ele os atalhos do KWin (Alt+Tab, Alt+F4, Ctrl+Meta+T...) ficavam
++# sem tecla. Vem do lume tema integrar.
++[D-BUS Service]
++Name=org.kde.kglobalaccel
++Exec=/usr/local/lib/libexec/kglobalacceld

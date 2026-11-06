@@ -1,0 +1,1029 @@
+From 583ef6a9fdeb21ce4bc285c33629332a55cf0a12 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 5 Nov 2026 23:05:04 -0300
+Subject: [PATCH] A tela de papel, Windows de 32 bits e programas do Mac
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- tema: o compositor ligado com o filtro e-ink (lume_tinta) e o refresh de
+  e-ink (lume_refresh); "lume tema integrar" instala os efeitos do KWin
+  que batem com a versão instalada; "lume tema tinta" e "lume tema
+  animacao" para o usuário
+- lume compat: .exe de 32 bits com a parte de 32 bits do Wine por usuário
+  (pkg32.sh --old); um .dmg ou .pkg do Mac explica e abre a loja
+  procurando o substituto
+- loja: busca por todas as palavras; programas da Apple no "parecido com";
+  Okular, digiKam, darktable, Ardour, MuseScore, KDevelop
+- Ajuda: a tela de papel, 32 bits e Mac
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.bin/lume/lume.1                           |  48 ++++-
+ usr.bin/lume/lume.c                           |  10 +-
+ usr.sbin/lume-configurar/Makefile             |   5 +-
+ .../ajuda/compatibilidade.html                |  22 +-
+ usr.sbin/lume-configurar/ajuda/index.html     |   3 +-
+ usr.sbin/lume-configurar/ajuda/tela.html      |  55 +++++
+ usr.sbin/lume-configurar/loja/catalogo        |  46 ++--
+ .../lume-configurar/loja/lume-mac.desktop     |  12 ++
+ usr.sbin/lume-configurar/lume-ajuda.sh        |   7 +-
+ usr.sbin/lume-configurar/lume-compat.8        |  44 ++++
+ usr.sbin/lume-configurar/lume-compat.sh       | 199 +++++++++++++++---
+ usr.sbin/lume-configurar/lume-instalar.sh     |   6 +-
+ usr.sbin/lume-configurar/lume-loja.sh         |   7 +-
+ usr.sbin/lume-configurar/lume-tema.sh         | 126 ++++++++++-
+ usr.sbin/lume-configurar/tema/kwinrc          |  20 +-
+ 15 files changed, 537 insertions(+), 73 deletions(-)
+ create mode 100644 usr.sbin/lume-configurar/ajuda/tela.html
+ create mode 100644 usr.sbin/lume-configurar/loja/lume-mac.desktop
+
+diff --git a/usr.bin/lume/lume.1 b/usr.bin/lume/lume.1
+index 5e4720667..7c3c179f8 100644
+--- a/usr.bin/lume/lume.1
++++ b/usr.bin/lume/lume.1
+@@ -72,10 +72,45 @@ Instala o KDE Plasma, o Firefox e os drivers (precisa de internet).
+ .It Cm tema
+ .Cm papel
+ aplica o visual padrão do LumeBSD no KDE, com estética e-ink: papel,
+-tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem animações,
+-sombras nem transparência, e o farol em traço como papel de parede.
++tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem sombras nem
++transparência, e o farol em traço como papel de parede.
+ .Cm padrao
+ volta ao visual original do KDE.
++.Cm tinta
++mostra, liga
++.Pq Cm liga ,
++desliga
++.Pq Cm desliga
++ou muda a intensidade
++.Pq de 0 a 100
++do filtro e-ink, um efeito do KWin que desenha as janelas em papel e
++tinta; fotos, vídeos, editores de imagem e janelas em tela cheia ficam com
++as cores.
++Atalhos: Ctrl+Meta+T liga e desliga, Ctrl+Meta+Y só na janela ativa.
++.Cm animacao
++escolhe como as janelas abrem e fecham:
++.Cm refresh
++.Pq como numa tela de e-ink, o padrão ,
++.Cm esmaecer
++ou
++.Cm nenhuma .
++Os dois valem para o usuário que roda, sem root.
++.It Cm loja
++Os programas do LumeBSD por área, em português: kits
++.Pq Cm geral , exatas , sociais ,
++categorias e uma busca pelo programa que a pessoa usava; veja
++.Xr lume-loja 8 .
++O app gráfico é o
++.Xr lume-programas 1 .
++.It Cm compat
++Programas do Windows
++.Pq o Wine, de 64 e de 32 bits ,
++a camada Linux e, para programas do Mac, o que usar no lugar; veja
++.Xr lume-compat 8 .
++.It Cm ajuda
++Abre a Ajuda do LumeBSD no navegador; com um assunto
++.Pq Cm programas , trocando , windows , mac , tinta , wifi , atualizar , problemas ,
++vai direto a ele.
+ .It Cm atualizar
+ Atualiza o sistema sem risco.
+ No desktop, o mesmo trabalho é feito pelo app
+@@ -162,13 +197,16 @@ resumo da máquina do tempo para a linha
+ .Dq tempo
+ .El
+ .Sh SEE ALSO
+-.Xr bectl 8 ,
+ .Xr freebsd-version 1 ,
+ .Xr lume-atualizacoes 1 ,
++.Xr lume-programas 1 ,
++.Xr rc.conf 5 ,
++.Xr bectl 8 ,
++.Xr lume-compat 8 ,
+ .Xr lume-configurar 8 ,
++.Xr lume-loja 8 ,
+ .Xr lume-tempo 8 ,
+-.Xr sysctl 8 ,
+-.Xr rc.conf 5
++.Xr sysctl 8
+ .Sh HISTORY
+ O utilitário
+ .Nm
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index f5f643e11..7ce1e3492 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -35,7 +35,7 @@
+ #include <unistd.h>
+ 
+ #define	LUME_NAME	"LumeBSD"
+-#define	LUME_VERSION	"1.3"
++#define	LUME_VERSION	"1.4"
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+@@ -69,6 +69,11 @@ static const char *tips[] = {
+ 	"Um kit por área: lume loja kit exatas (ou sociais, ou geral).",
+ 	"Dois cliques num .exe abrem o programa do Windows com o Wine.",
+ 	"lume ajuda abre o guia do sistema em português.",
++	"Ctrl+Meta+T liga e desliga o filtro e-ink; Ctrl+Meta+Y só na janela ativa.",
++	"Fotos e vídeos ficam com cor: o filtro e-ink sai sozinho dessas janelas.",
++	"lume tema animacao esmaecer troca o refresh de e-ink por um esmaecer suave.",
++	"Programas do Windows de 32 bits também abrem: o LumeBSD baixa o que falta na primeira vez.",
++	"Um .dmg do Mac? Dois cliques mostram o que usar no lugar.",
+ 	"Apagou sem querer? lume tempo recuperar ARQUIVO traz de volta.",
+ 	"jail(8) isola serviços inteiros com custo quase zero.",
+ 	"service -e lista todos os serviços habilitados no boot.",
+@@ -392,7 +397,8 @@ usage(void)
+ 	fprintf(stderr,
+ 	    "uso: lume [farol | dica | versao]\n"
+ 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
+-	    "     lume tema [papel | padrao]\n"
++	    "     lume tema [papel | padrao | tinta [liga | desliga | 0-100] |\n"
++	    "                animacao [refresh | esmaecer | nenhuma]]\n"
+ 	    "     lume video [testar | auto | nvidia | intel | scfb]\n"
+ 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"
+ 	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index 78f578650..4e73ed9c6 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -20,7 +20,7 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
+ # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
+ # programas do Windows com dois cliques (lume compat).
+ LOJADIR=	${SHAREDIR}/lume/loja
+-LOJA=		loja/catalogo loja/lume-windows.desktop
++LOJA=		loja/catalogo loja/lume-windows.desktop loja/lume-mac.desktop
+ ATALHOSDIR=	${SHAREDIR}/lume/loja/atalhos
+ ATALHOS=	loja/atalhos/jupyterlab.desktop
+ 
+@@ -28,7 +28,8 @@ ATALHOS=	loja/atalhos/jupyterlab.desktop
+ AJUDADIR=	${SHAREDIR}/lume/ajuda
+ AJUDA=		ajuda/index.html ajuda/programas.html ajuda/trocando.html \
+ 		ajuda/compatibilidade.html ajuda/internet.html \
+-		ajuda/atualizacoes.html ajuda/problemas.html ajuda/estilo.css \
++		ajuda/atualizacoes.html ajuda/problemas.html ajuda/tela.html \
++		ajuda/estilo.css \
+ 		ajuda/lume-ajuda.desktop
+ 
+ # Máquina do tempo: o cron confere a cada 15 minutos (lume tempo).
+diff --git a/usr.sbin/lume-configurar/ajuda/compatibilidade.html b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+index 9731ef8b0..9c853ceaf 100644
+--- a/usr.sbin/lume-configurar/ajuda/compatibilidade.html
++++ b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+@@ -26,9 +26,11 @@
+ <li>O programa abre. Instaladores criam atalhos no menu, como no Windows.</li>
+ </ol>
+ <p>Os programas ficam numa “unidade C:” só sua, na pasta <code>.wine</code> da sua pasta pessoal.</p>
+-<p class="nota"><b>Só programas de 64 bits.</b> O FreeBSD 15 não traz mais a parte de 32 bits que o Wine usa para os programas antigos de 32 bits. Se o LumeBSD avisar que um .exe é de 32 bits, procure a versão de 64 bits no site do programa: a maioria dos programas atuais oferece as duas.</p>
++<h3>Programas de 32 bits</h3>
++<p>Muitos instaladores e programas mais antigos são de 32 bits. Na primeira vez que você abre um, o LumeBSD oferece baixar a parte de 32 bits do Wine: cerca de 480 MB, que ocupam uns 2,6 GB na sua pasta pessoal (cada usuário baixa a sua). Não pede senha. Depois, os programas de 32 bits abrem com dois cliques, como os de 64.</p>
++<p>O FreeBSD 15 não publica mais pacotes de 32 bits, então essa parte vem dos pacotes do FreeBSD 14, que funcionam no 15. Quando o Wine do sistema é atualizado, o LumeBSD atualiza a parte de 32 bits junto, na próxima vez que você abrir um programa.</p>
+ <h3>O que costuma funcionar</h3>
+-<p>Programas de escritório e utilitários mais simples e softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício), na versão de 64 bits.</p>
++<p>Programas de escritório e utilitários mais simples, programas antigos, muitos jogos antigos e softwares pequenos de disciplina (simuladores, calculadoras, programas de exercício).</p>
+ <h3>O que costuma não funcionar</h3>
+ <p>Programas com proteção anticópia ou antitrapaça, drivers de equipamentos (placas de aquisição, gravadores de microcontrolador do fabricante), e programas grandes que dependem de partes profundas do Windows, como as versões recentes do MATLAB, do SolidWorks, do AutoCAD e do pacote Adobe. Para esses, veja os caminhos 3 e 4.</p>
+ <p>Quer saber antes de tentar? O site <a href="https://appdb.winehq.org/">appdb.winehq.org</a> mostra a experiência de outras pessoas com cada programa.</p>
+@@ -38,6 +40,22 @@
+ <pre><code>lume compat                # o que está ligado
+ lume compat linux ligar    # como root</code></pre>
+ 
++<h2>Programas do Mac</h2>
++<p>Ainda não existe um jeito de rodar programas do Mac no FreeBSD. O LumeBSD começou a estudar o caminho (adaptar o Darling, um projeto que faz isso no Linux), mas é um trabalho longo.</p>
++<p>Enquanto isso, dois cliques num arquivo <code>.dmg</code> mostram o que fazer: o LumeBSD lê o nome do programa e procura nos <span class="menu">Programas do LumeBSD</span>. Muitos programas do Mac têm uma versão para Windows (que abre com o Wine), para Linux ou para a web; e para os da Apple há substitutos:</p>
++<table>
++<tr><th>No Mac</th><th>No LumeBSD</th></tr>
++<tr><td>Pages, Numbers, Keynote</td><td>LibreOffice (abre os arquivos do Office; para os do iWork, exporte do iCloud em formato do Office)</td></tr>
++<tr><td>Pré-Visualização</td><td>Okular (já vem)</td></tr>
++<tr><td>Fotos</td><td>digiKam</td></tr>
++<tr><td>iMovie, Final Cut Pro</td><td>Kdenlive, Shotcut</td></tr>
++<tr><td>GarageBand, Logic Pro</td><td>Ardour</td></tr>
++<tr><td>Mail, Calendário</td><td>Thunderbird, Kontact</td></tr>
++<tr><td>Safari</td><td>Firefox (já vem)</td></tr>
++<tr><td>Xcode</td><td>VS Code, KDevelop</td></tr>
++<tr><td>FaceTime</td><td>Meet ou Zoom, na web</td></tr>
++</table>
++
+ <h2>4. Uma máquina virtual</h2>
+ <p>Para o programa que não roda de outro jeito, instale o <b>VirtualBox</b> (em <span class="menu">Sistema e compatibilidade</span>) e rode um Windows inteiro numa janela. Precisa de uma licença do Windows, de 8 GB de memória ou mais no computador e de uns 60 GB livres no disco. Muitas faculdades também oferecem laboratórios virtuais ou licenças acessadas pela web; vale perguntar.</p>
+ 
+diff --git a/usr.sbin/lume-configurar/ajuda/index.html b/usr.sbin/lume-configurar/ajuda/index.html
+index aa031bc82..df57ff981 100644
+--- a/usr.sbin/lume-configurar/ajuda/index.html
++++ b/usr.sbin/lume-configurar/ajuda/index.html
+@@ -16,7 +16,8 @@
+ <div class="grade">
+ <a class="cartao" href="programas.html"><b>Instalar programas</b><span>A loja, os kits por área (Exatas, Sociais aplicadas, Uso geral) e como achar o que você precisa.</span></a>
+ <a class="cartao" href="trocando.html"><b>Vindo do Windows ou do Mac</b><span>O que usar no lugar do MATLAB, do Excel, do AutoCAD, do SPSS e de outros.</span></a>
+-<a class="cartao" href="compatibilidade.html"><b>Programas do Windows e do Linux</b><span>Abrir um .exe, usar o Office e o Teams pela web, e quando vale uma máquina virtual.</span></a>
++<a class="cartao" href="compatibilidade.html"><b>Windows, Linux e Mac</b><span>Abrir um .exe (de 64 ou 32 bits), usar o Office e o Teams pela web, e o que fazer com um programa do Mac.</span></a>
++<a class="cartao" href="tela.html"><b>A tela de papel</b><span>O filtro e-ink, as fotos e vídeos com cor, e as animações das janelas.</span></a>
+ <a class="cartao" href="internet.html"><b>Wi-Fi, som, tela e impressora</b><span>Conectar, conferir o hardware e o que fazer quando algo não funciona.</span></a>
+ <a class="cartao" href="atualizacoes.html"><b>Atualizações e máquina do tempo</b><span>Manter o sistema em dia, recuperar um arquivo apagado e voltar no tempo.</span></a>
+ <a class="cartao" href="problemas.html"><b>Quando algo dá errado</b><span>Os passos, do mais simples ao mais forte, para consertar sem perder nada.</span></a>
+diff --git a/usr.sbin/lume-configurar/ajuda/tela.html b/usr.sbin/lume-configurar/ajuda/tela.html
+new file mode 100644
+index 000000000..79da6148a
+--- /dev/null
++++ b/usr.sbin/lume-configurar/ajuda/tela.html
+@@ -0,0 +1,55 @@
++<!doctype html>
++<html lang="pt-BR">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>A tela de papel</title>
++<link rel="stylesheet" href="estilo.css">
++</head>
++<body>
++<main>
++<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
++<header>
++<h1>A tela de papel</h1>
++<p>O filtro e-ink, as fotos com cor e as animações das janelas.</p>
++</header>
++
++<h2>Por que papel e tinta</h2>
++<p>O LumeBSD desenha as janelas em tons de papel e tinta, como uma tela de e-ink. Numa tela comum (LCD), conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol: os reflexos aparecem menos sobre um fundo claro, e não é preciso aumentar o brilho (o que também poupa a bateria e a vista).</p>
++<p>O filtro não muda a tela em si: um reflexo continua sendo um reflexo. O que muda é o contraste do que está por baixo dele.</p>
++
++<h2>Fotos e vídeos ficam com cor</h2>
++<p>O filtro sai sozinho das janelas onde a cor importa:</p>
++<ul>
++<li>visualizadores de fotos (Gwenview, digiKam, darktable…);</li>
++<li>players de vídeo (VLC, mpv, Haruna…);</li>
++<li>editores de imagem, vídeo e 3D (GIMP, Krita, Inkscape, Kdenlive, Blender…);</li>
++<li>qualquer janela em <b>tela cheia</b>: um vídeo no navegador, uma apresentação, um jogo.</li>
++</ul>
++<p>Quando a janela sai da tela cheia, volta ao papel.</p>
++
++<h2>Ligar, desligar e ajustar</h2>
++<table>
++<tr><th>Para</th><th>Faça</th></tr>
++<tr><td>ligar ou desligar o filtro na tela inteira</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd></td></tr>
++<tr><td>tirar ou pôr o filtro só na janela ativa</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>Y</kbd></td></tr>
++<tr><td>deixar o filtro mais leve</td><td><code>lume tema tinta 60</code> (de 0 a 100)</td></tr>
++<tr><td>desligar de vez</td><td><code>lume tema tinta desliga</code> (e <code>liga</code> para voltar)</td></tr>
++</table>
++<p>A tecla <kbd>Meta</kbd> é a tecla com o logotipo do Windows, na maioria dos teclados. Tudo isso vale só para você, sem senha. O filtro também aparece em <span class="menu">Configurações do Sistema › Efeitos da área de trabalho</span>, como <b>E-ink do LumeBSD</b>.</p>
++
++<h2>Animações das janelas</h2>
++<p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>
++<ul>
++<li><b>Refresh de e-ink</b> (o padrão): a janela aparece escura por um instante e o conteúdo surge de uma vez, como uma tela de e-ink trocando de página.</li>
++<li><b>Esmaecer</b>: a janela surge e some esmaecendo em tons de cinza, rápido.</li>
++</ul>
++<pre><code>lume tema animacao esmaecer   # ou refresh, ou nenhuma</code></pre>
++
++<h2>Se a tela ficar lenta</h2>
++<p>O filtro e as animações usam a placa de vídeo. Num computador sem aceleração de vídeo (por exemplo, depois que o LumeBSD voltou ao modo seguro por causa de um driver), tudo é feito pelo processador e pode ficar lento: desligue o filtro com <kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd> e veja <a href="internet.html">a parte de tela e vídeo</a>.</p>
++
++<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
++</main>
++</body>
++</html>
+diff --git a/usr.sbin/lume-configurar/loja/catalogo b/usr.sbin/lume-configurar/loja/catalogo
+index eac9e4ab1..a542d2151 100644
+--- a/usr.sbin/lume-configurar/loja/catalogo
++++ b/usr.sbin/lume-configurar/loja/catalogo
+@@ -35,14 +35,14 @@
+ @kit sociais|Sociais aplicadas|Estatística e econometria com R (RKWard, com menus), Python para dados, gerenciador de referências (ABNT) e Power BI na web. Para Economia, Administração, Contabilidade, Direito e afins. Inclui o Uso geral.|geral
+ 
+ # --- Escritório ----------------------------------------------------------
+-libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
++libreoffice|escritorio|LibreOffice|libreoffice pt_BR-libreoffice pt-hunspell|geral|Word, Excel, PowerPoint, Microsoft Office, Pages, Numbers, Keynote, iWork|Textos, planilhas e apresentações, em português. Abre e salva arquivos do Office (.docx, .xlsx, .pptx).|libreoffice-startcenter|
+ fontes-office|escritorio|Fontes compatíveis com o Office|webfonts liberation-fonts-ttf crosextrafonts-carlito crosextrafonts-caladea|geral|Arial, Times New Roman, Calibri, Cambria|As fontes do Windows e substitutas com as mesmas medidas: documentos do Word abrem com a mesma paginação.|preferences-desktop-font|-
+-xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
+-thunderbird|escritorio|Thunderbird|thunderbird||Outlook|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
++xournalpp|escritorio|Xournal++|xournalpp|geral|Notability, GoodNotes, OneNote, Notas do iPad|Anotações à mão e por cima de PDFs (listas, provas, artigos). Bom com mesa digitalizadora ou tela de toque.|com.github.xournalpp.xournalpp|
++thunderbird|escritorio|Thunderbird|thunderbird||Outlook, Mail do Mac, Apple Mail|E-mail, agenda e contatos, com várias contas (Gmail, Outlook, e-mail da faculdade).|thunderbird|
+ calligra|escritorio|Calligra|calligra||Microsoft Office|Outra suíte de escritório, do KDE: textos, planilhas e apresentações.|calligrawords|
+ projectlibre|escritorio|ProjectLibre|projectlibre||Microsoft Project|Cronogramas e gráficos de Gantt para projetos.|projectlibre|
+ freeplane|escritorio|Freeplane|freeplane||XMind, MindManager|Mapas mentais para estudar e organizar ideias.|freeplane|
+-kontact|escritorio|Kontact|kontact korganizer||Outlook|E-mail, agenda e tarefas integrados ao KDE.|kontact|
++kontact|escritorio|Kontact|kontact korganizer||Outlook, Calendário do Mac, Lembretes|E-mail, agenda e tarefas integrados ao KDE.|kontact|
+ pdftk|escritorio|Ferramentas de PDF|pdftk qpdf||Adobe Acrobat|Juntar, separar, girar e proteger PDFs pelo terminal (o Okular já lê e anota PDFs).|application-pdf|-
+ 
+ # --- Ciência e matemática ------------------------------------------------
+@@ -51,7 +51,7 @@ python-ciencia|ciencia|Python científico|python312 py312-numpy py312-scipy py31
+ wxmaxima|ciencia|wxMaxima|wxmaxima|exatas|Mathematica, Maple|Álgebra simbólica: derivadas, integrais, limites, equações e séries, com resposta exata.|wxmaxima|
+ geogebra|ciencia|GeoGebra|geogebra|exatas|GeoGebra|Geometria, gráficos de funções e cálculo de forma visual.|geogebra|
+ labplot|ciencia|LabPlot|labplot|exatas|Origin, SigmaPlot|Gráficos científicos e ajuste de curvas a partir de planilhas e arquivos de dados.|labplot|
+-qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
++qalculate|ciencia|Qalculate!|qalculate-qt|exatas|HP 50g, calculadora científica, Calculadora do Mac, Soulver|Calculadora científica e de unidades: entende "5 km/h em m/s", constantes físicas e moedas.|qalculate|
+ kmplot|ciencia|KmPlot|kmplot kalgebra||Calculadora gráfica|Gráficos de funções em 2D e 3D, rápidos e simples.|kmplot|
+ gnuplot|ciencia|gnuplot|gnuplot||Origin|Gráficos científicos por linha de comando e scripts.|gnuplot|-
+ kalzium|ciencia|Kalzium e Avogadro|kalzium avogadro2||ChemDraw|Tabela periódica completa e editor de moléculas em 3D.|kalzium|
+@@ -85,11 +85,11 @@ latex|escrita|LaTeX completo|texlive-full texstudio||MiKTeX, TeXworks|Todo o TeX
+ lyx|escrita|LyX|lyx||Word com LaTeX|Escreve em LaTeX vendo o documento quase como fica (precisa do LaTeX completo).|lyx|
+ ghostwriter|escrita|Ghostwriter|ghostwriter||Typora, iA Writer|Editor de Markdown sem distrações.|ghostwriter|
+ joplin|escrita|Joplin|joplin-desktop||Evernote, OneNote, Notion|Anotações e listas, com sincronização na nuvem.|joplin|
+-anki|escrita|Anki|anki||Quizlet|Cartões de memória com repetição espaçada para estudar.|anki|
++anki|escrita|Anki|anki||Quizlet, Flashcards Hero|Cartões de memória com repetição espaçada para estudar.|anki|
+ calibre|escrita|Calibre|calibre||Kindle|Organiza e converte livros digitais.|calibre|
+ 
+ # --- Programação ---------------------------------------------------------
+-vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
++vscode|programacao|VS Code (Code - OSS)|vscode||Visual Studio Code, Xcode, BBEdit|Editor de código com extensões (Python, C, Java, LaTeX).|com.visualstudio.code.oss|
+ python|programacao|Python|python312 py312-pip py312-ipython||Python|Python 3, o pip e o IPython.|python|-
+ c|programacao|C e C++ (GCC)|gcc15 gdb||Dev-C++, Code::Blocks|O compilador GCC e o depurador (o LumeBSD já vem com o clang).|codeblocks|-
+ codeblocks|programacao|Code::Blocks|codeblocks||Dev-C++|IDE simples para C e C++, comum nas disciplinas de introdução.|codeblocks|
+@@ -108,8 +108,8 @@ teams|web|Microsoft Teams|web:https://teams.microsoft.com/|geral|Teams|Aulas, re
+ outlook|web|Outlook|web:https://outlook.office.com/mail/||Outlook|O e-mail da Microsoft (e o institucional).|internet-mail|
+ googledrive|web|Google Drive|web:https://drive.google.com/|geral|Google Docs, Planilhas, Apresentações|Os arquivos e documentos do Google.|folder-cloud|
+ whatsapp|web|WhatsApp|web:https://web.whatsapp.com/|geral|WhatsApp|O WhatsApp no computador, pelo celular.|dialog-messages|
+-meet|web|Google Meet|web:https://meet.google.com/||Meet|Videochamadas do Google.|camera-web|
+-zoom|web|Zoom|web:https://app.zoom.us/wc/home||Zoom|Reuniões do Zoom pelo navegador.|camera-web|
++meet|web|Google Meet|web:https://meet.google.com/||Meet, FaceTime|Videochamadas do Google.|camera-web|
++zoom|web|Zoom|web:https://app.zoom.us/wc/home||Zoom, FaceTime|Reuniões do Zoom pelo navegador.|camera-web|
+ classroom|web|Google Sala de Aula|web:https://classroom.google.com/||Classroom|Turmas, tarefas e notas do Google Classroom.|applications-education|
+ overleaf|web|Overleaf|web:https://www.overleaf.com/project|exatas|LaTeX, TeXstudio|LaTeX no navegador, com os modelos de TCC e artigos, em grupo e sem instalar nada.|text-x-tex|
+ desmos|web|Desmos|web:https://www.desmos.com/calculator|exatas|Calculadora gráfica|Calculadora gráfica rápida e bonita.|accessories-calculator|
+@@ -130,21 +130,21 @@ krdc|internet|Área de trabalho remota|krdc freerdp||Conexão de Área de Trabal
+ kdeconnect|internet|KDE Connect|kdeconnect-kde||Phone Link|Liga o celular ao computador: arquivos, notificações e área de transferência.|kdeconnect|
+ 
+ # --- Gráficos e design ---------------------------------------------------
+-gimp|graficos|GIMP|gimp||Photoshop|Edição e retoque de fotos.|gimp|
+-krita|graficos|Krita|krita||Photoshop, Procreate|Pintura e desenho digital.|krita|
+-inkscape|graficos|Inkscape|inkscape||Illustrator, CorelDRAW|Desenho vetorial: logos, cartazes e diagramas.|inkscape|
+-scribus|graficos|Scribus|scribus||InDesign|Diagramação de revistas, folhetos e livros.|scribus|
++gimp|graficos|GIMP|gimp||Photoshop, Pixelmator, Preview|Edição e retoque de fotos.|gimp|
++krita|graficos|Krita|krita||Photoshop, Procreate, Pixelmator, Affinity Photo|Pintura e desenho digital.|krita|
++inkscape|graficos|Inkscape|inkscape||Illustrator, CorelDRAW, Affinity Designer, Sketch|Desenho vetorial: logos, cartazes e diagramas.|inkscape|
++scribus|graficos|Scribus|scribus||InDesign, Affinity Publisher, Pages|Diagramação de revistas, folhetos e livros.|scribus|
+ drawio|graficos|draw.io|drawio||Visio, Lucidchart|Fluxogramas, diagramas UML e organogramas.|drawio|
+ dia|graficos|Dia|dia||Visio|Diagramas simples, leve.|dia|
+ kolourpaint|graficos|KolourPaint|kolourpaint||Paint|Desenho simples, como o Paint.|kolourpaint|
+ 
+ # --- Música e vídeo ------------------------------------------------------
+ vlc|multimidia|VLC|vlc|geral|Windows Media Player|Toca qualquer vídeo ou música.|vlc|
+-kdenlive|multimidia|Kdenlive|kdenlive||Premiere, Vegas, CapCut|Edição de vídeo.|kdenlive|
+-shotcut|multimidia|Shotcut|shotcut||Premiere|Edição de vídeo, mais simples.|shotcut|
++kdenlive|multimidia|Kdenlive|kdenlive||Premiere, Vegas, CapCut, iMovie, Final Cut Pro|Edição de vídeo.|kdenlive|
++shotcut|multimidia|Shotcut|shotcut||Premiere, iMovie|Edição de vídeo, mais simples.|shotcut|
+ obs|multimidia|OBS Studio|obs-studio||OBS|Gravar a tela e fazer transmissões ao vivo.|com.obsproject.Studio|
+ audacity|multimidia|Audacity|audacity||Audition|Gravar e editar áudio.|audacity|
+-elisa|multimidia|Elisa|elisa||Groove, iTunes|Tocador de músicas.|elisa|
++elisa|multimidia|Elisa|elisa||Groove, iTunes, Música do Mac, iTunes|Tocador de músicas.|elisa|
+ 
+ # --- Educação ------------------------------------------------------------
+ kig|educacao|Kig|kig||Cabri|Geometria interativa.|kig|
+@@ -154,13 +154,21 @@ minuet|educacao|Minuet|minuet||Teoria musical|Treino de ouvido e teoria musical.
+ kturtle|educacao|KTurtle|kturtle||Logo|Primeiros passos em programação, com a tartaruga.|kturtle|
+ 
+ # --- Finanças ------------------------------------------------------------
+-kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken|Controle das contas e do orçamento pessoal.|kmymoney|
++kmymoney|financas|KMyMoney|kmymoney||Microsoft Money, Quicken, Moneywise|Controle das contas e do orçamento pessoal.|kmymoney|
+ gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas, pessoal ou de pequena empresa.|gnucash|
+ 
+ # --- Sistema e compatibilidade -------------------------------------------
+ windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe de 64 bits do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
+ linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|-
+ virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
+-filelight|sistema|Filelight|filelight||WinDirStat|Mostra o que está ocupando o disco.|filelight|
+-keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass|Cofre de senhas.|keepassxc|
++filelight|sistema|Filelight|filelight||WinDirStat, DaisyDisk|Mostra o que está ocupando o disco.|filelight|
++keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass, Keychain, Chaves do Mac|Cofre de senhas.|keepassxc|
+ skanlite|sistema|Scanner|skanlite||Digitalizador do Windows|Digitalizar documentos e fotos.|skanlite|
++
++# --- Também para quem vem do Mac ---------------------------------------
++okular|escritorio|Okular|okular||Preview, Pré-Visualização do Mac, Adobe Reader|Lê e anota PDFs, imagens e livros digitais (já vem com o LumeBSD).|okular|
++digikam|graficos|digiKam|digikam||Fotos do Mac, Lightroom, Google Fotos|Organiza a biblioteca de fotos, com álbuns, rostos, datas e edição básica.|digikam|
++darktable|graficos|darktable|darktable||Lightroom, Capture One|Revelação de fotos RAW, para quem fotografa.|darktable|
++ardour|multimidia|Ardour|ardour||Logic Pro, Pro Tools, GarageBand, FL Studio|Gravação e mixagem de áudio com várias faixas.|ardour|
++musescore|multimidia|MuseScore|musescore||Sibelius, Finale|Partituras: escrever, ouvir e imprimir.|mscore|
++kdevelop|programacao|KDevelop|kdevelop||Xcode, CLion|IDE completa para C, C++ e Python.|kdevelop|
+diff --git a/usr.sbin/lume-configurar/loja/lume-mac.desktop b/usr.sbin/lume-configurar/loja/lume-mac.desktop
+new file mode 100644
+index 000000000..a316e14a2
+--- /dev/null
++++ b/usr.sbin/lume-configurar/loja/lume-mac.desktop
+@@ -0,0 +1,12 @@
++[Desktop Entry]
++Type=Application
++Name=Mac program
++Name[pt_BR]=Programa do Mac
++Name[pt]=Programa do Mac
++Comment=Shows what to use instead on LumeBSD
++Comment[pt_BR]=Mostra o que usar no lugar, no LumeBSD
++Exec=/usr/sbin/lume-compat abrir %f
++Icon=application-x-apple-diskimage
++NoDisplay=true
++Terminal=false
++MimeType=application/x-apple-diskimage;
+diff --git a/usr.sbin/lume-configurar/lume-ajuda.sh b/usr.sbin/lume-configurar/lume-ajuda.sh
+index aee95a71e..31ce9a55f 100644
+--- a/usr.sbin/lume-configurar/lume-ajuda.sh
++++ b/usr.sbin/lume-configurar/lume-ajuda.sh
+@@ -12,11 +12,12 @@ case "${1:-}" in
+ "")				t=index ;;
+ programas|loja|kit|kits)	t=programas ;;
+ trocando|equivalentes|matlab|excel|office)	t=trocando ;;
+-windows|exe|wine|linux|compat|compatibilidade|web)	t=compatibilidade ;;
+-wifi|internet|rede|som|video|vídeo|tela|impressora)	t=internet ;;
++tinta|eink|e-ink|tela|animacao|animação)	t=tela ;;
++windows|exe|wine|linux|mac|macos|dmg|compat|compatibilidade|web)	t=compatibilidade ;;
++wifi|internet|rede|som|video|vídeo|impressora)	t=internet ;;
+ atualizar|atualizacoes|atualizações|tempo|backup)	t=atualizacoes ;;
+ problemas|erro|socorro)		t=problemas ;;
+-*)	echo "uso: lume ajuda [programas | trocando | windows | wifi | atualizar | problemas]" >&2
++*)	echo "uso: lume ajuda [programas | trocando | windows | mac | tinta | wifi | atualizar | problemas]" >&2
+ 	exit 1 ;;
+ esac
+ f=$D/$t.html
+diff --git a/usr.sbin/lume-configurar/lume-compat.8 b/usr.sbin/lume-configurar/lume-compat.8
+index 5f59280bb..38fee26a7 100644
+--- a/usr.sbin/lume-configurar/lume-compat.8
++++ b/usr.sbin/lume-configurar/lume-compat.8
+@@ -16,6 +16,11 @@
+ .Nm
+ .Cm windows
+ .Nm
++.Cm windows32
++.Nm
++.Cm mac
++.Op Ar arquivo
++.Nm
+ .Cm abrir
+ .Ar arquivo
+ .Sh DESCRIPTION
+@@ -39,6 +44,24 @@ Cada usuário tem a sua
+ .Dq unidade C:
+ em
+ .Pa ~/.wine .
++.Pp
++Um
++.Pa .exe
++de 64 bits roda pelo
++.Pa wine64.bin .
++Um de 32 bits precisa da parte de 32 bits do Wine, que cada usuário baixa
++uma vez, sem senha, para
++.Pa ~/.i386-wine-pkg
++.Pq Cm windows32 , ou na primeira vez que abre um :
++o
++.Pa pkg32.sh
++do Wine com os pacotes i386 do FreeBSD 14
++.Pq o FreeBSD 15 não publica pacotes i386 ,
++sobre as bibliotecas de 32 bits do sistema
++.Pq Pa /usr/lib32 .
++Cerca de 480 MB para baixar e 2,6 GB no disco.
++Quando o Wine do sistema muda de versão, a parte de 32 bits é atualizada
++junto, na vez seguinte.
+ .It Linux
+ A camada Linux do FreeBSD
+ .Pq Xr linux 4 :
+@@ -52,6 +75,27 @@ O
+ .Xr lume-loja 8
+ faz isso sozinho antes de instalar um programa para Linux, como o
+ Google Chrome.
++.It Mac
++Nenhum programa do Mac roda no FreeBSD ainda.
++Dois cliques num
++.Pa .dmg
++.Pq ou num Pa .pkg No do Mac
++mostram isso e abrem o
++.Xr lume-programas 1
++procurando o programa pelo nome, tirado do arquivo
++.Pq Pa Spotify-1.2.3.dmg No vira Dq Spotify :
++o catálogo conhece os programas da Apple e os substitutos.
++O estudo de portar o Darling está em
++.Pa docs/MACOS.md
++no repositório do LumeBSD.
++.El
++.Sh ENVIRONMENT
++.Bl -tag -width indent
++.It Ev LUME_PKG32_REPOS , Ev LUME_PKG32_REPO
++Uma pasta de configurações de repositório do
++.Xr pkg 8
++e o nome do repositório nela, de onde vem a parte de 32 bits do Wine
++.Pq para testes ; o padrão é o repositório FreeBSD-ports do sistema .
+ .El
+ .Sh SEE ALSO
+ .Xr lume 1 ,
+diff --git a/usr.sbin/lume-configurar/lume-compat.sh b/usr.sbin/lume-configurar/lume-compat.sh
+index afa64a08a..b159824c9 100644
+--- a/usr.sbin/lume-configurar/lume-compat.sh
++++ b/usr.sbin/lume-configurar/lume-compat.sh
+@@ -6,10 +6,22 @@
+ #
+ #   Windows: o Wine roda muitos .exe; dois cliques num .exe (ou .msi) no
+ #            Dolphin passam por "lume-compat abrir", que oferece instalar o
+-#            Wine na primeira vez.
++#            Wine na primeira vez. Programas de 64 bits vão pelo wine64.bin;
++#            os de 32 bits, pela parte de 32 bits do Wine, que cada usuário
++#            baixa uma vez para a pasta pessoal (o pkg32.sh do Wine, com os
++#            pacotes i386 do FreeBSD 14: o FreeBSD 15 não tem mais pacotes
++#            i386) e que usa as bibliotecas de 32 bits do sistema (lib32).
+ #   Linux:   a camada Linux do FreeBSD (linux64.ko e as montagens de
+ #            /compat/linux) roda programas feitos para Linux, como o Chrome
+ #            e o Discord; os pacotes linux-* dependem dela.
++#   Mac:     nada roda programas do Mac no FreeBSD ainda (docs/MACOS.md).
++#            Dois cliques num .dmg explicam e abrem a loja procurando o
++#            programa: muitos têm versão para Windows ou Linux, ou um
++#            substituto no catálogo.
++#
++# Para testes: LUME_PKG32_REPOS (uma pasta de configurações de repositório
++# do pkg) e LUME_PKG32_REPO (o nome do repositório nela) trocam de onde vem a
++# parte de 32 bits.
+ #
+ 
+ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+@@ -21,7 +33,12 @@ ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+ erro() { printf '  \033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+ precisa_root() { [ $root = s ] || erro "precisa ser root (su -)"; }
+ 
+-tem_wine()  { [ -x /usr/local/bin/wine64.bin ]; }
++WINE32=${WINE_i386_ROOT:-$HOME/.i386-wine-pkg}
++PKG32=/usr/local/share/wine/pkg32.sh
++
++tem_wine()   { [ -x /usr/local/bin/wine64.bin ]; }
++tem_wine32() { [ -x "$WINE32/usr/local/bin/wine" ]; }
++tem_lib32()  { [ -f /usr/lib32/libc.so.7 ]; }
+ 
+ # 64 ou 32: o tipo de máquina no cabeçalho PE de um .exe ("?" se não for).
+ pe_bits()
+@@ -37,10 +54,29 @@ pe_bits()
+ linux_on()  { kldstat -q -m linuxelf 2>/dev/null || kldstat -q -n linux64 2>/dev/null; }
+ linux_cfg() { [ "$(sysrc -n linux_enable 2>/dev/null)" = YES ]; }
+ 
++grafico=n
++[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null && grafico=s
++
++aviso() {
++	# aviso TÍTULO TEXTO: uma janela (no desktop) ou o terminal.
++	if [ $grafico = s ]; then
++		kdialog --title "$1" --sorry "$2"
++	else
++		printf '  %s\n' "$2" | sed 's/<br>/\n  /g; s/<[^>]*>//g' >&2
++	fi
++}
++
+ estado() {
+ 	echo
+ 	if tem_wine; then
+-		ok "Windows: Wine $(pkg query %v wine 2>/dev/null) instalado (dois cliques num .exe de 64 bits)"
++		ok "Windows: Wine $(pkg query %v wine 2>/dev/null) (dois cliques num .exe)"
++		if tem_wine32; then
++			ok "Windows 32 bits: pronto para $(id -un)"
++		elif tem_lib32; then
++			echo "  · Windows 32 bits: baixado na primeira vez que abrir um (lume compat windows32)"
++		else
++			echo "  · Windows 32 bits: este sistema não tem as bibliotecas de 32 bits"
++		fi
+ 	else
+ 		echo "  · Windows: desligado (lume loja instalar windows)"
+ 	fi
+@@ -51,6 +87,7 @@ estado() {
+ 	else
+ 		echo "  · Linux: desligada (lume compat linux ligar)"
+ 	fi
++	echo "  · Mac: ainda não (dois cliques num .dmg mostram o que usar no lugar)"
+ 	echo
+ 	echo "  Apps da web (Office 365, Teams, Overleaf...): lume loja lista web"
+ 	echo
+@@ -77,30 +114,58 @@ linux() {
+ 	esac
+ }
+ 
++# A parte de 32 bits do Wine, para o usuário que roda (sem senha: vai para
++# ~/.i386-wine-pkg). Também atualiza, quando o Wine do sistema mudou de
++# versão. Devolve 0 se ficou pronta.
++wine32() {
++	[ $root = n ] || erro "a parte de 32 bits do Wine é de cada usuário: rode sem ser root"
++	tem_wine || erro "o Wine não está instalado: lume loja instalar windows"
++	tem_lib32 || erro "este sistema não tem as bibliotecas de 32 bits (/usr/lib32)"
++	acao=install
++	if tem_wine32; then
++		v32=$(env -u WINELOADERNOEXEC "$WINE32/usr/local/bin/wine" --version 2>/dev/null)
++		v64=$(env -u WINELOADERNOEXEC /usr/local/bin/wine64 --version 2>/dev/null)
++		[ "$v32" = "$v64" ] && return 0
++		acao=upgrade
++	fi
++	set --
++	[ -n "${LUME_PKG32_REPOS:-}" ] && set -- -R "$LUME_PKG32_REPOS"
++	repo=${LUME_PKG32_REPO:-FreeBSD-ports}
++	mkdir -p "$HOME/.cache"
++	log=$HOME/.cache/lume-wine32.log
++	ref=
++	if [ $grafico = s ]; then
++		ref=$(kdialog --title "Programa do Windows" --progressbar \
++		    "Baixando a parte de 32 bits do Wine (uma vez só). Leva alguns minutos." 0 2>/dev/null)
++	else
++		echo "  Baixando a parte de 32 bits do Wine (uma vez só)..."
++	fi
++	if [ $acao = install ]; then
++		ASSUME_ALWAYS_YES=yes "$PKG32" --old "$@" install -r "$repo" wine mesa-dri > "$log" 2>&1
++	else
++		ASSUME_ALWAYS_YES=yes "$PKG32" --old "$@" upgrade -r "$repo" > "$log" 2>&1
++	fi
++	rc=$?
++	if [ -n "$ref" ]; then
++		for q in qdbus6 qdbus; do
++			command -v $q >/dev/null 2>&1 && { $q $ref org.kde.kdialog.ProgressDialog.close >/dev/null 2>&1; break; }
++		done
++	fi
++	if [ $rc -ne 0 ] || ! tem_wine32; then
++		aviso "Programa do Windows" "Não deu para baixar a parte de 32 bits do Wine. Tem internet?<br><br>Detalhes em $log"
++		return 1
++	fi
++	return 0
++}
++
+ # Abre um .exe/.msi/.bat com o Wine (o atalho "Programa do Windows" do
+ # Dolphin chama isto). Na primeira vez, oferece instalar o Wine pelo app
+ # Programas do LumeBSD, que pede a senha e mostra o progresso.
+-#
+-# Só 64 bits: o Wine do FreeBSD 15 roda os de 32 bits com uma cópia i386 do
+-# Wine e as bibliotecas de 32 bits do sistema (lib32), que o FreeBSD 15 não
+-# empacota mais. Um .exe de 32 bits ganha uma explicação, não um erro mudo.
+-abrir() {
++abrir_windows() {
+ 	f=$1
+-	[ -f "$f" ] || erro "arquivo não encontrado: $f"
+-	grafico=n
+-	[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null && grafico=s
++	bits=64
+ 	case "$f" in
+-	*.[eE][xX][eE])
+-		if [ "$(pe_bits "$f")" = 32 ] && [ ! -x "$HOME/.i386-wine-pkg/usr/local/bin/wine" ]; then
+-			txt="<b>${f##*/}</b> é um programa do Windows de <b>32 bits</b>.<br><br>O LumeBSD roda os programas do Windows de 64 bits; os de 32 bits ainda não (o FreeBSD 15 não traz mais a parte de 32 bits que o Wine usa para eles).<br><br>Procure a versão de 64 bits no site do programa (muitos oferecem as duas), a versão para a web, ou um substituto no app Programas do LumeBSD."
+-			if [ $grafico = s ]; then
+-				kdialog --title "Programa do Windows" --yes-label "Abrir a Ajuda" \
+-				    --no-label "Fechar" --warningyesno "$txt" &&
+-				    exec /usr/sbin/lume-ajuda windows
+-				exit 0
+-			fi
+-			erro "${f##*/} é de 32 bits; o LumeBSD roda os programas do Windows de 64 bits (lume ajuda windows)"
+-		fi ;;
++	*.[eE][xX][eE]) bits=$(pe_bits "$f") ;;
+ 	esac
+ 	if ! tem_wine; then
+ 		if [ $grafico = s ]; then
+@@ -113,16 +178,38 @@ abrir() {
+ 			erro "o Wine não está instalado: lume loja instalar windows"
+ 		fi
+ 	fi
++	if [ "$bits" = 32 ] && ! tem_wine32; then
++		if ! tem_lib32; then
++			aviso "Programa do Windows" "<b>${f##*/}</b> é um programa do Windows de <b>32 bits</b>, e este sistema não tem as bibliotecas de 32 bits que o Wine usa para eles.<br><br>Procure a versão de 64 bits no site do programa, a versão para a web, ou um substituto no app Programas do LumeBSD."
++			exit 0
++		fi
++		if [ $grafico = s ]; then
++			kdialog --title "Programa do Windows" --yes-label "Baixar" \
++			    --no-label "Cancelar" --yesno "<b>${f##*/}</b> é um programa do Windows de <b>32 bits</b> (como muitos instaladores e programas mais antigos).<br><br>Para ele, o Wine precisa da parte de 32 bits, que vai para a sua pasta pessoal: baixa cerca de 480 MB e ocupa uns 2,6 GB. Não pede senha.<br><br>Baixar agora?" ||
++			    exit 0
++		fi
++		wine32 || exit 1
++	fi
+ 	# A primeira vez cria a "unidade C:" em ~/.wine e demora um pouco.
+ 	if [ ! -d "${WINEPREFIX:-$HOME/.wine}" ] && [ $grafico = s ]; then
+ 		kdialog --title "Programa do Windows" --passivepopup \
+ 		    "Preparando o Wine na primeira vez; leva cerca de um minuto." 20 &
+ 	fi
+ 	cd "$(dirname "$f")" || exit 1
+-	# Tudo pelo wine64.bin, também os processos que o Wine abre sozinho (o
+-	# wineboot da primeira vez): os scripts wine e wine64 do FreeBSD exigem
+-	# o Wine i386. O LD_BIND_NOW é o do script wine64 (bug 50257 do Wine).
+-	# Sem WINESERVER: com ele, o Wine volta a procurar o script wine.
++	if tem_wine32 && [ "$bits" != 64 ]; then
++		# 32 bits (e .msi/.bat com a parte de 32 bits pronta): o script
++		# wine do FreeBSD, que junta o Wine de 32 e o de 64 bits.
++		case "$f" in
++		*.[mM][sS][iI])	exec wine msiexec /i "$f" ;;
++		*.[bB][aA][tT]|*.[cC][mM][dD])	exec wine cmd /c "$f" ;;
++		*)		exec wine "$f" ;;
++		esac
++	fi
++	# Só 64 bits: tudo pelo wine64.bin, também os processos que o Wine abre
++	# sozinho (o wineboot da primeira vez): os scripts wine e wine64 do
++	# FreeBSD exigem a parte de 32 bits. O LD_BIND_NOW é o do script wine64
++	# (bug 50257 do Wine). Sem WINESERVER: com ele, o Wine volta a procurar
++	# o script wine.
+ 	WINELOADER=/usr/local/bin/wine64.bin
+ 	LD_BIND_NOW=1
+ 	export WINELOADER LD_BIND_NOW
+@@ -133,12 +220,68 @@ abrir() {
+ 	esac
+ }
+ 
++# O nome do programa a partir do arquivo do Mac: "Spotify-1.2.3.dmg",
++# "Microsoft_Excel_16.89_Installer.pkg" e "VLC-3.0.21-universal.dmg" viram
++# "Spotify", "Microsoft Excel" e "VLC".
++nome_mac() {
++	n=${1##*/}
++	n=${n%.*}
++	echo "$n" | tr '_-' '  ' | awk '{
++	    s = ""
++	    for (i = 1; i <= NF; i++) {
++		w = tolower($i)
++		if ($i ~ /[0-9]/ || w ~ /^(universal|arm64|x64|x86|intel|apple|silicon|mac|macos|osx|installer|install|setup|latest|beta|dmg|app)$/)
++			continue
++		s = s (s == "" ? "" : " ") $i
++	    }
++	    print s
++	}'
++}
++
++abrir_mac() {
++	f=$1
++	n=$(nome_mac "$f")
++	[ -n "$n" ] || n=${f##*/}
++	txt="<b>${f##*/}</b> é um programa do <b>Mac</b>.<br><br>O LumeBSD ainda não roda programas do Mac. Mas muitos deles têm uma versão para Windows (que abre com o Wine) ou para Linux, ou um substituto que faz o mesmo trabalho.<br><br>Procurar <b>$n</b> nos Programas do LumeBSD?"
++	if [ $grafico = s ]; then
++		kdialog --title "Programa do Mac" --yes-label "Procurar" \
++		    --no-label "Ler a Ajuda" --cancel-label "Fechar" --yesnocancel "$txt"
++		case $? in
++		0)	exec /usr/bin/lume-programas --procurar "$n" ;;
++		1)	exec /usr/sbin/lume-ajuda mac ;;
++		esac
++		exit 0
++	fi
++	echo "  ${f##*/} é um programa do Mac; o LumeBSD ainda não roda programas do Mac."
++	echo "  O que usar no lugar: lume loja procurar \"$n\"   (e lume ajuda mac)"
++}
++
++abrir() {
++	f=$1
++	[ -e "$f" ] || erro "arquivo não encontrado: $f"
++	case "$f" in
++	*.[dD][mM][gG]|*.[aA][pP][pP]|*.[aA][pP][pP]/|*.[iI][pP][aA])
++		abrir_mac "$f" ;;
++	*.[pP][kK][gG])
++		# .pkg do Mac (xar) ou do FreeBSD (tar)? Os do Mac começam com "xar!".
++		if [ "$(head -c 4 "$f" 2>/dev/null)" = "xar!" ]; then
++			abrir_mac "$f"
++		else
++			aviso "Pacote do FreeBSD" "<b>${f##*/}</b> é um pacote do FreeBSD. Para instalar: <b>pkg add ${f##*/}</b>, como root."
++		fi ;;
++	*)	[ -f "$f" ] || erro "arquivo não encontrado: $f"
++		abrir_windows "$f" ;;
++	esac
++}
++
+ case "${1:-}" in
+ ""|estado)	estado ;;
+ linux)		shift; linux "$@" ;;
+-windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe de 64 bits abrem o programa."
++windows)	if tem_wine; then ok "Wine instalado: dois cliques num .exe abrem o programa."
+ 		else echo "  Para programas do Windows: lume loja instalar windows"; fi ;;
++windows32)	wine32 && ok "A parte de 32 bits do Wine está pronta para $(id -un)." ;;
++mac)		shift; [ -n "${1:-}" ] && abrir_mac "$1" || estado ;;
+ abrir)		shift; abrir "$1" ;;
+-*)	echo "uso: lume compat [estado | linux [ligar | desligar] | windows | abrir ARQUIVO]" >&2
++*)	echo "uso: lume compat [estado | linux [ligar | desligar] | windows | windows32 | abrir ARQUIVO]" >&2
+ 	exit 1 ;;
+ esac
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index d53865a9a..85e35d2c7 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -61,7 +61,7 @@ roda()
+     morrer "lume instalar roda a partir do pendrive do LumeBSD"
+ : > "$LOG"
+ 
+-printf "\n  ${NEGRITO}LumeBSD 1.3 \"Farol\" - instalação${FIM}\n\n"
++printf "\n  ${NEGRITO}LumeBSD 1.4 \"Farol\" - instalação${FIM}\n\n"
+ 
+ # --- 1. escolher o disco ------------------------------------------------
+ 
+@@ -256,7 +256,7 @@ fdesc			/dev/fd	fdescfs	rw	0	0
+ proc			/proc	procfs	rw	0	0
+ EOF
+ cat > "$ALVO/boot/loader.conf" <<EOF
+-# LumeBSD 1.3 - notebook
++# LumeBSD 1.4 - notebook
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+@@ -280,7 +280,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
+ cat >> "$ALVO/etc/make.conf" <<'EOF'
+ # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
+-# diz "LumeBSD 1.3-FAROL", que o configure dos programas não conhece; a
++# diz "LumeBSD 1.4-FAROL", que o configure dos programas não conhece; a
+ # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
+ .if !defined(_OSRELEASE)
+ _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
+diff --git a/usr.sbin/lume-configurar/lume-loja.sh b/usr.sbin/lume-configurar/lume-loja.sh
+index 89ab2420b..a73965c62 100644
+--- a/usr.sbin/lume-configurar/lume-loja.sh
++++ b/usr.sbin/lume-configurar/lume-loja.sh
+@@ -314,7 +314,12 @@ procurar() {
+ 	[ $# -gt 0 ] || erro "uso: lume loja procurar TEXTO"
+ 	carregar_instalados
+ 	achou=n
+-	for id in $(itens | grep -i -- "$*" | cut -d'|' -f1); do
++	# Todas as palavras, em qualquer ordem ("microsoft excel").
++	achados=$(itens)
++	for w in "$@"; do
++		achados=$(echo "$achados" | grep -i -- "$w")
++	done
++	for id in $(echo "$achados" | grep . | cut -d'|' -f1); do
+ 		achou=s
+ 		marca=" "
+ 		instalado "$id" && marca="✓"
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 0019ff3e9..4bb11797b 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -12,9 +12,17 @@
+ #                       polkit), a Ajuda, os dois cliques num .exe (lume
+ #                       compat) e o "Versões anteriores" do Dolphin (o tema
+ #                       chama isto, e o lume_saude também, depois de uma
+-#                       atualização)
++#                       atualização), e os efeitos do KWin do LumeBSD
++#   lume tema tinta [liga | desliga | NÚMERO]
++#                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
++#                       papel e tinta; fotos, vídeos e tela cheia ficam com
++#                       cor. NÚMERO é a intensidade, de 0 a 100
++#   lume tema animacao [refresh | esmaecer | nenhuma]
++#                       como as janelas abrem e fecham
+ #
+-# Papel, tinta e cinzas; sem animações, sombras nem transparência; fontes
++# Os dois últimos valem para o usuário que roda (sem root), na hora.
++#
++# Papel, tinta e cinzas; sem sombras nem transparência; fontes
+ # IBM Plex; ícones Breeze convertidos para tons de cinza; papel de parede
+ # com o farol em traço e, no login e no bloqueio, a versão "noite".
+ #
+@@ -149,6 +157,10 @@ integrar()
+ 	if [ -f "$MARCA" ]; then
+ 		papel_de_parede LumePapel "Papel (LumeBSD)" $T/papel.png
+ 		papel_de_parede LumePapelNoite "Papel noite (LumeBSD)" $T/papel-noite.png
++		# E o kwinrc do tema: o da 1.4 liga o compositor, o filtro e-ink e
++		# as animações (quem atualizou de antes tinha o compositor
++		# desligado). O que cada usuário mudou no próprio kwinrc vale mais.
++		instalar $T/kwinrc $XDG/kwinrc 0644
+ 	fi
+ 	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
+ 	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
+@@ -178,6 +190,11 @@ integrar()
+ 	    $P/share/applications/lume-windows.desktop 0644
+ 	padrao_mime "application/x-ms-dos-executable application/x-msdownload application/vnd.microsoft.portable-executable application/x-msi application/x-ms-installer" \
+ 	    lume-windows.desktop
++	# Dois cliques num .dmg: o que usar no lugar do programa do Mac.
++	instalar /usr/share/lume/loja/lume-mac.desktop \
++	    $P/share/applications/lume-mac.desktop 0644
++	padrao_mime "application/x-apple-diskimage" lume-mac.desktop
++	efeitos
+ 	# Impressoras: o CUPS vem com o desktop; quem atualizou de antes da 1.3
+ 	# não o tinha ligado (vale a partir do próximo boot).
+ 	if [ -x $P/sbin/cupsd ] && [ -z "$(sysrc -qn cupsd_enable 2>/dev/null)" ]; then
+@@ -190,6 +207,107 @@ integrar()
+ 	return 0
+ }
+ 
++# Os efeitos do KWin do LumeBSD (/usr/share/lume/kwin): o filtro e-ink
++# (lume_tinta, um plugin em C++) e as animações (lume_refresh e
++# lume_esmaecer, em JavaScript), para o KWin do X11 e o do Wayland. O
++# plugin só vai se foi compilado para a versão do KWin instalada (o KWin
++# recusa outro); depois de uma atualização do KWin pelo pkg, fica de fora
++# até a próxima versão do LumeBSD.
++efeitos()
++{
++	K=/usr/share/lume/kwin
++	[ -d $K ] || return 0
++	for v in x11 wayland; do
++		case $v in
++		x11)	pkg=plasma6-kwin-x11; plug=$P/lib/qt6/plugins/kwin-x11/effects/plugins
++			share=$P/share/kwin-x11/effects ;;
++		*)	pkg=plasma6-kwin; plug=$P/lib/qt6/plugins/kwin/effects/plugins
++			share=$P/share/kwin/effects ;;
++		esac
++		tem=$(pkg query %v $pkg 2>/dev/null | sed 's/_[0-9]*$//; s/,[0-9]*$//')
++		[ -n "$tem" ] || continue
++		if [ -f $K/$v/lume_tinta.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
++			instalar $K/$v/lume_tinta.so $plug/lume_tinta.so 0555
++		else
++			rm -f $plug/lume_tinta.so
++		fi
++		for e in $K/efeitos/*/; do
++			[ -d "$e" ] || continue
++			n=$(basename "$e")
++			mkdir -p $share/$n/contents/code
++			instalar $e/metadata.json $share/$n/metadata.json 0644
++			instalar $e/contents/code/main.js $share/$n/contents/code/main.js 0644
++		done
++	done
++}
++
++# Para o usuário da sessão: o kwinrc dele e o KWin recarrega.
++kwin_recarregar()
++{
++	for q in qdbus6 qdbus; do
++		command -v $q >/dev/null 2>&1 &&
++		    { $q org.kde.KWin /KWin reconfigure >/dev/null 2>&1; return 0; }
++	done
++	dbus-send --session --type=method_call --dest=org.kde.KWin /KWin \
++	    org.kde.KWin.reconfigure >/dev/null 2>&1
++}
++
++kwin_config()
++{
++	for k in kwriteconfig6 kwriteconfig5; do
++		command -v $k >/dev/null 2>&1 && { $k --file kwinrc "$@"; return; }
++	done
++	echo "lume tema: kwriteconfig6 não encontrado (o desktop está instalado?)" >&2
++	exit 1
++}
++
++kwin_ler()
++{
++	for k in kreadconfig6 kreadconfig5; do
++		command -v $k >/dev/null 2>&1 && { $k --file kwinrc "$@"; return; }
++	done
++}
++
++tinta()
++{
++	case "${1:-}" in
++	"")	if [ "$(kwin_ler --group Plugins --key lume_tintaEnabled --default true)" = true ]; then
++			echo "  filtro e-ink: ligado, intensidade $(kwin_ler --group Effect-lume_tinta --key Intensidade --default 100)"
++		else
++			echo "  filtro e-ink: desligado   (lume tema tinta liga)"
++		fi
++		echo "  Atalhos: Ctrl+Meta+T liga e desliga; Ctrl+Meta+Y só na janela ativa." ;;
++	liga|ligar|on)	kwin_config --group Plugins --key lume_tintaEnabled true ;;
++	desliga|desligar|off)	kwin_config --group Plugins --key lume_tintaEnabled false ;;
++	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100]" >&2; exit 2 ;;
++	*)	[ "$1" -le 100 ] || { echo "lume tema: intensidade de 0 a 100" >&2; exit 2; }
++		kwin_config --group Effect-lume_tinta --key Intensidade "$1"
++		kwin_config --group Plugins --key lume_tintaEnabled true ;;
++	esac
++	[ -n "${1:-}" ] && kwin_recarregar
++	return 0
++}
++
++animacao()
++{
++	case "${1:-}" in
++	"")	a=nenhuma
++		[ "$(kwin_ler --group Plugins --key lume_esmaecerEnabled --default false)" = true ] && a=esmaecer
++		[ "$(kwin_ler --group Plugins --key lume_refreshEnabled --default true)" = true ] && a=refresh
++		echo "  animação das janelas: $a   (lume tema animacao refresh | esmaecer | nenhuma)"
++		return ;;
++	refresh|eink|e-ink)	r=true e=false ;;
++	esmaecer|fade)		r=false e=true ;;
++	nenhuma|nada|off)	r=false e=false ;;
++	*)	echo "uso: lume tema animacao [refresh | esmaecer | nenhuma]" >&2; exit 2 ;;
++	esac
++	kwin_config --group Plugins --key lume_refreshEnabled $r
++	kwin_config --group Plugins --key lume_esmaecerEnabled $e
++	kwin_config --group Plugins --key fadeEnabled false
++	kwin_config --group Plugins --key scaleEnabled false
++	kwin_recarregar
++}
++
+ # padrao_mime "tipos" app.desktop: o app padrão desses tipos, para todos (o
+ # mimeapps.list do sistema), sem mexer no que já estiver lá.
+ padrao_mime()
+@@ -228,5 +346,7 @@ padrao|padrão)
+ integrar)
+ 	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root" >&2; exit 1; }
+ 	integrar ;;
+-*)	echo "uso: lume tema [papel | padrao | integrar]" >&2; exit 2 ;;
++tinta)	shift; tinta "$@" ;;
++animacao|animação|animacoes|animações)	shift; animacao "$@" ;;
++*)	echo "uso: lume tema [papel | padrao | integrar | tinta | animacao]" >&2; exit 2 ;;
+ esac
+diff --git a/usr.sbin/lume-configurar/tema/kwinrc b/usr.sbin/lume-configurar/tema/kwinrc
+index 62a836ec1..f64311a67 100644
+--- a/usr.sbin/lume-configurar/tema/kwinrc
++++ b/usr.sbin/lume-configurar/tema/kwinrc
+@@ -1,17 +1,29 @@
+-# KWin no tema Papel: sem animações, sem sombras, sem transparência.
+-# Sem compositor no X11 a tela só muda quando precisa, como num e-ink,
+-# e o desktop fica leve mesmo sem aceleração de vídeo.
++# KWin no tema Papel: o filtro e-ink e as animações do LumeBSD, sem sombras,
++# sem transparência e sem as animações de deslizar e crescer.
++#
++# O filtro (lume_tinta) precisa do compositor (OpenGL). Ele desenha cada
++# janela em papel e tinta, menos fotos, vídeos e tela cheia; numa tela LCD,
++# isso se lê melhor sob luz forte sem aumentar o brilho.
+ [Compositing]
+-Enabled=false
++Enabled=true
++Backend=OpenGL
+ 
+ [Plugins]
++lume_tintaEnabled=true
++lume_refreshEnabled=true
++lume_esmaecerEnabled=false
+ blurEnabled=false
+ contrastEnabled=false
+ slidingpopupsEnabled=false
+ translucencyEnabled=false
++fadeEnabled=false
++scaleEnabled=false
+ kwin4_effect_fadeEnabled=false
+ kwin4_effect_scaleEnabled=false
+ 
++[Effect-lume_tinta]
++Intensidade=100
++
+ [org.kde.kdecoration2]
+ library=org.kde.breeze
+ theme=Breeze

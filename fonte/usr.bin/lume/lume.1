@@ -72,10 +72,45 @@ Instala o KDE Plasma, o Firefox e os drivers (precisa de internet).
 .It Cm tema
 .Cm papel
 aplica o visual padrão do LumeBSD no KDE, com estética e-ink: papel,
-tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem animações,
-sombras nem transparência, e o farol em traço como papel de parede.
+tinta e cinzas, fontes IBM Plex, ícones em tons de cinza, sem sombras nem
+transparência, e o farol em traço como papel de parede.
 .Cm padrao
 volta ao visual original do KDE.
+.Cm tinta
+mostra, liga
+.Pq Cm liga ,
+desliga
+.Pq Cm desliga
+ou muda a intensidade
+.Pq de 0 a 100
+do filtro e-ink, um efeito do KWin que desenha as janelas em papel e
+tinta; fotos, vídeos, editores de imagem e janelas em tela cheia ficam com
+as cores.
+Atalhos: Ctrl+Meta+T liga e desliga, Ctrl+Meta+Y só na janela ativa.
+.Cm animacao
+escolhe como as janelas abrem e fecham:
+.Cm refresh
+.Pq como numa tela de e-ink, o padrão ,
+.Cm esmaecer
+ou
+.Cm nenhuma .
+Os dois valem para o usuário que roda, sem root.
+.It Cm loja
+Os programas do LumeBSD por área, em português: kits
+.Pq Cm geral , exatas , sociais ,
+categorias e uma busca pelo programa que a pessoa usava; veja
+.Xr lume-loja 8 .
+O app gráfico é o
+.Xr lume-programas 1 .
+.It Cm compat
+Programas do Windows
+.Pq o Wine, de 64 e de 32 bits ,
+a camada Linux e, para programas do Mac, o que usar no lugar; veja
+.Xr lume-compat 8 .
+.It Cm ajuda
+Abre a Ajuda do LumeBSD no navegador; com um assunto
+.Pq Cm programas , trocando , windows , mac , tinta , wifi , atualizar , problemas ,
+vai direto a ele.
 .It Cm atualizar
 Atualiza o sistema sem risco.
 No desktop, o mesmo trabalho é feito pelo app
@@ -162,13 +197,16 @@ resumo da máquina do tempo para a linha
 .Dq tempo
 .El
 .Sh SEE ALSO
-.Xr bectl 8 ,
 .Xr freebsd-version 1 ,
 .Xr lume-atualizacoes 1 ,
+.Xr lume-programas 1 ,
+.Xr rc.conf 5 ,
+.Xr bectl 8 ,
+.Xr lume-compat 8 ,
 .Xr lume-configurar 8 ,
+.Xr lume-loja 8 ,
 .Xr lume-tempo 8 ,
-.Xr sysctl 8 ,
-.Xr rc.conf 5
+.Xr sysctl 8
 .Sh HISTORY
 O utilitário
 .Nm

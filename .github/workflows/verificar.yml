@@ -77,10 +77,10 @@ jobs:
             mandoc -T lint -W error "$m"
           done
 
-      # Os apps (Atualizações e Programas do LumeBSD) compilam contra o
-      # FreeBSD 15.1 (o base.txz da release) e o qt6-base do FreeBSD, como
-      # no build.
-      - name: Apps (compilam)
+      # Os apps (Atualizações e Programas do LumeBSD) e os efeitos do KWin
+      # compilam contra o FreeBSD 15.1 (o base.txz da release) e os pacotes
+      # do FreeBSD, como no build.
+      - name: Apps e efeitos (compilam)
         if: matrix.base == 'fixado'
         run: |
           sudo apt-get install -y -q clang-19 lld-19 llvm-19 libarchive-tools libxml2-utils
@@ -91,6 +91,16 @@ jobs:
           python3 ferramentas/montar-app.py --so-compilar freebsd \
               "$(ls qt/qt6-base-[0-9]*.pkg | head -1)" apps
           file apps/*
+          # Os efeitos do KWin (o filtro e-ink, para o X11 e o Wayland)
+          python3 ferramentas/pacotes.py --sem-dependencias qt kf6-kcoreaddons \
+              kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 libepoxy \
+              libxcb xorgproto libdrm wayland libxkbcommon libglvnd
+          python3 ferramentas/montar-efeitos.py --so-compilar freebsd qt efeitos
+          file efeitos/*/lume_tinta.so
+          for j in app/lume-animacoes/*/contents/code/main.js; do node --check "$j"; done
+          for m in app/lume-tinta/metadata.json app/lume-animacoes/*/metadata.json; do
+            python3 -m json.tool "$m" >/dev/null
+          done
           for x in app/*/*.policy; do xmllint --noout "$x"; done
           for d in app/*/*.desktop fonte/usr.sbin/lume-configurar/*/*.desktop \
                    fonte/usr.sbin/lume-configurar/loja/atalhos/*.desktop; do

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A tela de papel</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+<nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+<header>
+<h1>A tela de papel</h1>
+<p>O filtro e-ink, as fotos com cor e as animações das janelas.</p>
+</header>
+
+<h2>Por que papel e tinta</h2>
+<p>O LumeBSD desenha as janelas em tons de papel e tinta, como uma tela de e-ink. Numa tela comum (LCD), conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol: os reflexos aparecem menos sobre um fundo claro, e não é preciso aumentar o brilho (o que também poupa a bateria e a vista).</p>
+<p>O filtro não muda a tela em si: um reflexo continua sendo um reflexo. O que muda é o contraste do que está por baixo dele.</p>
+
+<h2>Fotos e vídeos ficam com cor</h2>
+<p>O filtro sai sozinho das janelas onde a cor importa:</p>
+<ul>
+<li>visualizadores de fotos (Gwenview, digiKam, darktable…);</li>
+<li>players de vídeo (VLC, mpv, Haruna…);</li>
+<li>editores de imagem, vídeo e 3D (GIMP, Krita, Inkscape, Kdenlive, Blender…);</li>
+<li>qualquer janela em <b>tela cheia</b>: um vídeo no navegador, uma apresentação, um jogo.</li>
+</ul>
+<p>Quando a janela sai da tela cheia, volta ao papel.</p>
+
+<h2>Ligar, desligar e ajustar</h2>
+<table>
+<tr><th>Para</th><th>Faça</th></tr>
+<tr><td>ligar ou desligar o filtro na tela inteira</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd></td></tr>
+<tr><td>tirar ou pôr o filtro só na janela ativa</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>Y</kbd></td></tr>
+<tr><td>deixar o filtro mais leve</td><td><code>lume tema tinta 60</code> (de 0 a 100)</td></tr>
+<tr><td>desligar de vez</td><td><code>lume tema tinta desliga</code> (e <code>liga</code> para voltar)</td></tr>
+</table>
+<p>A tecla <kbd>Meta</kbd> é a tecla com o logotipo do Windows, na maioria dos teclados. Tudo isso vale só para você, sem senha. O filtro também aparece em <span class="menu">Configurações do Sistema › Efeitos da área de trabalho</span>, como <b>E-ink do LumeBSD</b>.</p>
+
+<h2>Animações das janelas</h2>
+<p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>
+<ul>
+<li><b>Refresh de e-ink</b> (o padrão): a janela aparece escura por um instante e o conteúdo surge de uma vez, como uma tela de e-ink trocando de página.</li>
+<li><b>Esmaecer</b>: a janela surge e some esmaecendo em tons de cinza, rápido.</li>
+</ul>
+<pre><code>lume tema animacao esmaecer   # ou refresh, ou nenhuma</code></pre>
+
+<h2>Se a tela ficar lenta</h2>
+<p>O filtro e as animações usam a placa de vídeo. Num computador sem aceleração de vídeo (por exemplo, depois que o LumeBSD voltou ao modo seguro por causa de um driver), tudo é feito pelo processador: o KDE desliga sozinho as animações das janelas, e o filtro pode ficar lento; desligue o filtro com <kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>T</kbd> e veja <a href="internet.html">a parte de tela e vídeo</a>.</p>
+
+<footer><a href="index.html">← Ajuda do LumeBSD</a></footer>
+</main>
+</body>
+</html>

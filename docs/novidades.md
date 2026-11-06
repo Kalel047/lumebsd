@@ -1,25 +1,27 @@
-# LumeBSD 1.3 "Farol"
+# LumeBSD 1.4 "Farol"
 
-Sobre o FreeBSD 15.1. Feito para estudantes e professores de exatas e de sociais aplicadas, e para quem só quer um computador que funcione.
+Sobre o FreeBSD 15.1. A tela de papel, a loja nova e mais programas de outros sistemas.
 
-## Programas do LumeBSD, a loja
+## A tela de papel
 
-- Um app no menu (**Sistema › Programas do LumeBSD**) com mais de 100 programas escolhidos, em português, por categoria: escritório, ciência e matemática, estatística, engenharia e CAD, programação, LaTeX e referências, gráficos, vídeo, educação e finanças.
-- **Kits por área**, instalados de uma vez: **Uso geral** (LibreOffice em português, as fontes do Office, VLC, anotações em PDF), **Exatas e engenharia** (GNU Octave, Python científico com Jupyter, wxMaxima, GeoGebra, LabPlot) e **Sociais aplicadas** (R com RKWard, Python para dados, Zotero). O instalador pergunta qual na hora de instalar.
-- **Procure pelo programa que você usava**: "matlab" mostra o Octave, "spss" o R com RKWard, "autocad" o LibreCAD e o FreeCAD.
-- Instalar pede a sua senha e mostra o progresso; remover tira só o que nenhum outro programa usa.
+- **Filtro e-ink**: todas as janelas em tons de papel e tinta. Numa tela comum, conteúdo claro e sem cores fortes se lê melhor sob luz forte ou ao sol, sem aumentar o brilho.
+- **Fotos e vídeos ficam com cor**: o filtro sai sozinho de visualizadores de fotos, players de vídeo, editores de imagem e de qualquer janela em tela cheia.
+- **Ctrl+Meta+T** liga e desliga o filtro; **Ctrl+Meta+Y** tira ou põe só na janela ativa; `lume tema tinta 60` deixa mais leve.
+- **Atalhos de teclado do KDE funcionando**: Alt+Tab, Alt+F4, Meta+W (visão geral) e os outros atalhos das janelas ficavam sem tecla, porque o KWin começava antes do serviço de atalhos. Agora o serviço sobe quando o KWin pede.
+- **Animações das janelas** sem movimento, como no papel: o **refresh de e-ink** (a janela aparece escura por um instante e o conteúdo surge de uma vez) ou o **esmaecer** em tons de cinza (`lume tema animacao esmaecer`).
 
-## Programas do Windows, do Linux e da web
+## Programas do LumeBSD, de cara nova
 
-- **Dois cliques num .exe**: na primeira vez, o LumeBSD oferece instalar o Wine e abre o programa.
-- **Apps da web no menu**: Microsoft 365 (Word, Excel, PowerPoint), Teams, Outlook, Google Drive, Meet, Zoom, WhatsApp, Overleaf, Power BI e outros, em janela própria.
-- A **camada Linux** liga sozinha quando um programa precisa dela (Google Chrome, Discord).
+- A loja tem uma aparência própria, de papel e tinta: títulos com serifa, um índice como o sumário de um livro e os kits como capítulos. Não depende mais do tema do KDE.
+- A busca acha por todas as palavras, em qualquer ordem ("microsoft excel").
 
-## Ajuda do LumeBSD
+## Mais programas de outros sistemas
 
-- Um guia em português no menu (**Ajuda do LumeBSD**, ou `lume ajuda`): instalar programas, o que usar no lugar de cada programa do Windows e do Mac, Wi-Fi e hardware, atualizações e o que fazer quando algo dá errado.
+- **Programas do Windows de 32 bits**: muitos instaladores e programas antigos. Na primeira vez, o LumeBSD baixa a parte de 32 bits do Wine para a sua pasta (sem senha); depois, dois cliques bastam.
+- **Programas do Mac**: ainda não rodam no FreeBSD, mas dois cliques num `.dmg` mostram o que usar no lugar, com a loja procurando pelo nome. A loja conhece os programas da Apple: Pages, Numbers, Keynote, iMovie, Final Cut, GarageBand, Logic, Fotos, Xcode e outros.
+- Novos no catálogo: Okular, digiKam, darktable, Ardour, MuseScore e KDevelop.
 
-## Também
+## Também desde a 1.3
 
-- Impressoras: o serviço de impressão já vem ligado.
-- Antes de instalar ou remover programas pela loja, uma foto do sistema vai para a máquina do tempo.
+- **Programas do LumeBSD**: mais de 100 programas em português, com kits por área (Uso geral, Exatas e engenharia, Sociais aplicadas) e a busca pelo programa que você usava ("matlab" mostra o Octave).
+- **Ajuda do LumeBSD** no menu (`lume ajuda`), agora com a tela de papel e os programas do Mac.

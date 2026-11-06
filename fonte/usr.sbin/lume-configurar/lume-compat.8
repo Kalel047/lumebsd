@@ -16,6 +16,11 @@
 .Nm
 .Cm windows
 .Nm
+.Cm windows32
+.Nm
+.Cm mac
+.Op Ar arquivo
+.Nm
 .Cm abrir
 .Ar arquivo
 .Sh DESCRIPTION
@@ -39,6 +44,24 @@ Cada usuário tem a sua
 .Dq unidade C:
 em
 .Pa ~/.wine .
+.Pp
+Um
+.Pa .exe
+de 64 bits roda pelo
+.Pa wine64.bin .
+Um de 32 bits precisa da parte de 32 bits do Wine, que cada usuário baixa
+uma vez, sem senha, para
+.Pa ~/.i386-wine-pkg
+.Pq Cm windows32 , ou na primeira vez que abre um :
+o
+.Pa pkg32.sh
+do Wine com os pacotes i386 do FreeBSD 14
+.Pq o FreeBSD 15 não publica pacotes i386 ,
+sobre as bibliotecas de 32 bits do sistema
+.Pq Pa /usr/lib32 .
+Cerca de 480 MB para baixar e 2,6 GB no disco.
+Quando o Wine do sistema muda de versão, a parte de 32 bits é atualizada
+junto, na vez seguinte.
 .It Linux
 A camada Linux do FreeBSD
 .Pq Xr linux 4 :
@@ -52,6 +75,27 @@ O
 .Xr lume-loja 8
 faz isso sozinho antes de instalar um programa para Linux, como o
 Google Chrome.
+.It Mac
+Nenhum programa do Mac roda no FreeBSD ainda.
+Dois cliques num
+.Pa .dmg
+.Pq ou num Pa .pkg No do Mac
+mostram isso e abrem o
+.Xr lume-programas 1
+procurando o programa pelo nome, tirado do arquivo
+.Pq Pa Spotify-1.2.3.dmg No vira Dq Spotify :
+o catálogo conhece os programas da Apple e os substitutos.
+O estudo de portar o Darling está em
+.Pa docs/MACOS.md
+no repositório do LumeBSD.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width indent
+.It Ev LUME_PKG32_REPOS , Ev LUME_PKG32_REPO
+Uma pasta de configurações de repositório do
+.Xr pkg 8
+e o nome do repositório nela, de onde vem a parte de 32 bits do Wine
+.Pq para testes ; o padrão é o repositório FreeBSD-ports do sistema .
 .El
 .Sh SEE ALSO
 .Xr lume 1 ,

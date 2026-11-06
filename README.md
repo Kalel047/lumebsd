@@ -1,4 +1,4 @@
-# LumeBSD 1.3 "Farol"
+# LumeBSD 1.4 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -26,7 +26,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.3
+        |[_]|        LumeBSD 1.4
         |===|        "Farol"
         |   |
         |===|
@@ -41,6 +41,9 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 | | |
 |---|---|
+| **A tela de papel** (1.4) | um filtro e-ink desenha as janelas em papel e tinta, que se lê melhor sob luz forte sem aumentar o brilho; fotos, vídeos e tela cheia ficam com cor; as janelas abrem com um **refresh de e-ink** ou esmaecendo |
+| **Loja de cara nova** (1.4) | os Programas do LumeBSD com aparência própria de papel e tinta, como um livro: índice numerado, kits como capítulos |
+| **Windows 32 bits e Mac** (1.4) | `.exe` de 32 bits abrem com o Wine (a parte de 32 bits vem na primeira vez, sem senha); um `.dmg` do Mac mostra o que usar no lugar |
 | **Programas do LumeBSD** (1.3) | a loja em português: mais de 100 programas escolhidos, **kits por área** (Uso geral, Exatas e engenharia, Sociais aplicadas) e uma busca que acha pelo programa que você usava (“matlab” mostra o Octave, “spss” o R com RKWard) |
 | **Windows, Linux e web** (1.3) | dois cliques num `.exe` oferecem o Wine e abrem o programa; Microsoft 365, Teams, Overleaf, WhatsApp e outros como apps no menu; a camada Linux liga sozinha |
 | **Ajuda do LumeBSD** (1.3) | um guia em português no menu (`lume ajuda`): o que usar no lugar de cada programa, Wi-Fi e hardware, e o que fazer quando algo dá errado |
@@ -344,9 +347,13 @@ O desktop vem com um visual próprio inspirado nas telas de e-ink
   acento é um vermelho escuro para erros; seleção invertida (tinta sobre
   papel, como num e-reader);
 - **fontes**: IBM Plex Sans, Serif (títulos das janelas) e Mono (terminal);
-- **sem animações, sombras nem transparência** (`AnimationDurationFactor=0`,
-  composição desligada): a tela muda de uma vez, como e-ink, e o desktop
-  fica leve até no modo sem aceleração;
+- **filtro e-ink** (1.4): um efeito do KWin desenha cada janela em papel e
+  tinta; fotos, vídeos, editores de imagem e janelas em tela cheia ficam
+  com cor (Ctrl+Meta+T liga e desliga, `lume tema tinta`);
+- **sem sombras, transparência nem animações de deslizar e crescer**
+  (`AnimationDurationFactor=0`): as janelas abrem com o **refresh de
+  e-ink**, escuras por um instante e o conteúdo de uma vez, ou esmaecendo
+  em cinza (`lume tema animacao`);
 - **ícones em tons de cinza**: o tema `lume-papel` é gerado a partir do
   Breeze, convertendo cada cor para luminância;
 - **papel de parede**: o farol em traço sobre papel (`papel.png`) e uma
@@ -432,7 +439,10 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
   0025                 lume tempo, a máquina do tempo (1.1.2)
   0026..0027           lume atualizar pela base FreeBSD, lume_pacotes; 1.2
   0028..0030           lume loja, lume compat, lume ajuda; 1.3
-app/                   os apps Atualizações e Programas do LumeBSD (Qt 6),
+  0031..0034           a tela de papel, Windows 32 bits, Mac, atalhos
+                       do KWin; 1.4
+app/                   os apps Atualizações e Programas do LumeBSD (Qt 6) e os
+                       efeitos do KWin (o filtro e-ink e as animações),
                        fora da árvore do FreeBSD; ferramentas/montar-app.py
                        os compila
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
@@ -500,6 +510,7 @@ python3 tests/teste-pendrive.py app-falhou falhou.log    # depois de uma atualiz
 python3 tests/teste-pendrive.py app-voltar voltar.log    # voltar para a versão anterior
 LUME_TESTE_KIT=geral python3 tests/teste-pendrive.py aovivo aovivo.log  # instala com um kit
 python3 tests/teste-pendrive.py loja      loja.log       # loja, senha, um .exe no Wine, Ajuda
+python3 tests/teste-pendrive.py eink      eink.log       # filtro e-ink, loja nova, .exe 32 bits, .dmg
 ```
 
 ## Status
@@ -507,7 +518,7 @@ python3 tests/teste-pendrive.py loja      loja.log       # loja, senha, um .exe 
 Tudo abaixo foi testado de ponta a ponta no QEMU (UEFI/OVMF, sem KVM),
 com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
-- [x] **Build do zero**: FreeBSD 15.1 + 30 patches, world com LLVM, kernel
+- [x] **Build do zero**: FreeBSD 15.1 + 32 patches, world com LLVM, kernel
   `LUME` completo (847 módulos) com LLVM 19 — também no GitHub Actions
   (2h12 de build, imagem bootada no QEMU), a partir deste repositório
 - [x] **Pendrive ao vivo**: boot até o login em ~1 min (emulado), `lume
@@ -595,7 +606,7 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
 
 ### Compilando programas à mão
 
-O `uname` do LumeBSD diz `LumeBSD 1.3-FAROL`. Pela forja ou por
+O `uname` do LumeBSD diz `LumeBSD 1.4-FAROL`. Pela forja ou por
 `/usr/ports` isso é resolvido sozinho. Para um `./configure` fora dos
 ports que não reconheça o sistema:
 
@@ -620,7 +631,9 @@ ajuda, [SUPPORT.md](SUPPORT.md); falhas de segurança, em particular, pelo
 ## Licença
 
 Tudo o que está neste repositório é distribuído sob a licença BSD de 2
-cláusulas (veja `LICENSE`): os patches, a forja, o `lume`, o vigia, os
+cláusulas (veja `LICENSE`), menos os efeitos do KWin (`app/lume-tinta` e
+`app/lume-animacoes`), que são GPL 2.0 ou posterior, como o próprio KWin,
+de que são plugins: os patches, a forja, o `lume`, o vigia, os
 scripts, o tema Papel, os papéis de parede e o emblema do farol.
 
 A imagem do pendrive junta isso ao FreeBSD (licenças BSD e outras, veja

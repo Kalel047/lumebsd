@@ -1,0 +1,7 @@
+# LumeBSD: chama o kglobalacceld (os atalhos de teclado do KDE) quando o
+# KWin pede, no começo da sessão. O pacote do FreeBSD não traz este arquivo,
+# e sem ele os atalhos do KWin (Alt+Tab, Alt+F4, Ctrl+Meta+T...) ficavam
+# sem tecla. Vem do lume tema integrar.
+[D-BUS Service]
+Name=org.kde.kglobalaccel
+Exec=/usr/local/lib/libexec/kglobalacceld
