@@ -1,5 +1,5 @@
 name: Algo não funciona
-description: Um bug no LumeBSD (instalação, vídeo, forja, vigia, desktop...)
+description: Um bug no LumeBSD (instalação, vídeo, programas, atualizações, desktop...)
 labels: [bug]
 body:
   - type: textarea
@@ -19,12 +19,23 @@ body:
         - Primeiro boot / assistente
         - Vídeo (NVIDIA, Intel, scfb)
         - Desktop / tema Papel
+        - Programas do LumeBSD (lume loja, kits)
+        - Programas do Windows ou do Linux (lume compat)
+        - Atualizações do LumeBSD (lume atualizar)
+        - Máquina do tempo (lume tempo)
+        - Ajuda do LumeBSD
         - forja
         - vigia
         - Build (build-lumebsd.sh)
         - Outro
     validations:
       required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão
+      description: A primeira linha de "lume" (ou de "uname -v").
+      placeholder: "ex.: LumeBSD 1.3.0"
   - type: textarea
     id: hardware
     attributes:
@@ -35,5 +46,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: "Se tiver: /tmp/lume-instalar.log, /var/log/forja/<pacote>.log, vigia log <serviço>, /var/log/Xorg.0.log"
+      description: "Se tiver: /tmp/lume-instalar.log, /var/log/lume-atualizar.log, /var/log/forja/<pacote>.log, vigia log <serviço>, /var/log/Xorg.0.log"
       render: text

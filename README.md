@@ -606,8 +606,16 @@ env UNAME_s=FreeBSD UNAME_r=15.1-RELEASE ./configure
 ## Bugs e hardware
 
 Abra uma [issue](https://github.com/Kalel047/lumebsd/issues/new/choose):
-há modelos para bugs e para relatar em que computador o LumeBSD rodou
+há modelos para bugs, ideias e para relatar em que computador o LumeBSD rodou
 (com a saída de `lume hardware`).
+
+## Contribuindo
+
+Relatos de hardware, bugs, programas para o catálogo, correções de texto e
+código são bem-vindos: veja [CONTRIBUTING.md](CONTRIBUTING.md). Quem
+participa segue o [Código de Conduta](CODE_OF_CONDUCT.md). Para pedir
+ajuda, [SUPPORT.md](SUPPORT.md); falhas de segurança, em particular, pelo
+[SECURITY.md](SECURITY.md).
 
 ## Licença
 

@@ -1,0 +1,28 @@
+name: Ideia ou pedido
+description: Um programa para o catálogo, um kit, uma melhoria no sistema
+labels: [ideia]
+body:
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo
+      options:
+        - Programa para o catálogo (Programas do LumeBSD)
+        - Kit por área (um novo, ou mudar um)
+        - Melhoria no sistema ou num app
+        - Ajuda do LumeBSD (um assunto, uma correção)
+        - Outro
+    validations:
+      required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: A ideia
+      description: O que você quer e para quem (curso, área, uso). Para um programa, diga o nome e, se souber, o pacote do FreeBSD (pkg search NOME) e o programa do Windows ou do Mac que ele substitui.
+    validations:
+      required: true
+  - type: textarea
+    id: hoje
+    attributes:
+      label: Como você faz hoje
+      description: Opcional. O que você usa no lugar, ou por que não dá.

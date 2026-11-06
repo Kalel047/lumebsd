@@ -1,1 +1,8 @@
 blank_issues_enabled: true
+contact_links:
+  - name: Ajuda do LumeBSD
+    url: https://github.com/Kalel047/lumebsd/blob/main/SUPPORT.md
+    about: Como usar o sistema, e onde pedir ajuda antes de abrir uma issue.
+  - name: Falha de segurança
+    url: https://github.com/Kalel047/lumebsd/security/advisories/new
+    about: Relate em particular, não numa issue pública (veja SECURITY.md).
