@@ -29,7 +29,8 @@ jobs:
       run:
         shell: bash
     env:
-      IMG: LumeBSD-1.4-Farol-pendrive.img
+      IMG: LumeBSD-1.5-Farol-pendrive.img
+      ISO: LumeBSD-1.5-Farol.iso
     steps:
       - uses: actions/checkout@v4
 
@@ -71,13 +72,22 @@ jobs:
       - name: Compactar e calcular os SHA256
         run: |
           xz -T0 -6 -k "$IMG"
-          sha256sum "$IMG.xz" "$IMG" atualizacao/*.tar.zst | tee SHA256SUMS
+          # Um arquivo de Release vai até 2 GiB: a .iso vai inteira se
+          # couber, senão compactada.
+          if [ "$(stat -c %s "$ISO")" -ge 2147483648 ]; then
+            xz -T0 -6 "$ISO"
+            echo "ISO_PUB=$ISO.xz" >> "$GITHUB_ENV"
+          else
+            echo "ISO_PUB=$ISO" >> "$GITHUB_ENV"
+          fi
+          sha256sum "$IMG.xz" "$IMG" LumeBSD-*.iso* atualizacao/*.tar.zst | tee SHA256SUMS
 
       - uses: actions/upload-artifact@v4
         with:
-          name: LumeBSD-1.4-Farol-pendrive
+          name: LumeBSD-1.5-Farol
           path: |
-            LumeBSD-1.4-Farol-pendrive.img.xz
+            LumeBSD-1.5-Farol-pendrive.img.xz
+            LumeBSD-1.5-Farol.iso*
             SHA256SUMS
           compression-level: 0
           retention-days: 14
@@ -112,7 +122,7 @@ jobs:
           # "lume atualizar" lê a versão nova.
           # As novidades (que o app também mostra) e o guia do pendrive.
           cat docs/novidades.md docs/release.md > notas-release.md
-          gh release create "${{ inputs.tag }}" "$IMG.xz" SHA256SUMS \
+          gh release create "${{ inputs.tag }}" "$IMG.xz" "$ISO_PUB" SHA256SUMS \
               atualizacao/atualizacao.txt atualizacao/*.tar.zst atualizacao/*.md \
               --target "$GITHUB_SHA" --title "LumeBSD $(cat VERSAO) \"Farol\"" \
               --notes-file notas-release.md

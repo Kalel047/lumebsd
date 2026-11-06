@@ -131,7 +131,8 @@ def compilar_tinta(stage, pacotes, saida_dir):
             cmd = [os.path.join(LLVM, "clang++"), "--target=x86_64-unknown-freebsd15.1",
                    f"--sysroot={raiz}", "-std=c++20", "-O2", "-fPIC", "-shared",
                    "-Wall", "-Wno-deprecated-declarations",
-                   "-DQT_NO_KEYWORDS", "-DQT_NO_DEBUG", "-I", gerado, "-isystem", os.path.join(inc, pasta)]
+                   "-DQT_NO_KEYWORDS", "-DQT_NO_DEBUG", f"-DLUME_KWIN_{variante.upper()}",
+                   "-I", gerado, "-isystem", os.path.join(inc, pasta)]
             for d in [qt] + [os.path.join(qt, m) for m in ("QtCore", "QtGui", "QtDBus")] + \
                      [os.path.join(inc, "KF6", m) for m in ("KConfigCore", "KConfig",
                                                             "KCoreAddons", "KGlobalAccel")] + [inc]:

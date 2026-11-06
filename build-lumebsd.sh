@@ -13,7 +13,8 @@ SRC=$TOP/src
 OBJ=$TOP/obj
 STAGE=$TOP/stage
 PACOTES=$TOP/pacotes
-IMG=$TOP/LumeBSD-1.4-Farol-pendrive.img
+IMG=$TOP/LumeBSD-1.5-Farol-pendrive.img
+ISO=$TOP/LumeBSD-1.5-Farol.iso
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
 VERSAO=$(cat "$TOP/VERSAO")
 ATUALIZACAO=$TOP/atualizacao
@@ -58,11 +59,12 @@ mk buildkernel
 rm -rf "$STAGE" && mkdir -p "$STAGE"
 mk -DNO_ROOT DESTDIR="$STAGE" installworld distribution installkernel
 
-# 4. Pacotes que vão no pendrive: gerenciador de pacotes, vídeo Intel e NVIDIA,
-#    firmwares de vídeo e Wi-Fi e microcódigo da CPU
+# 4. Pacotes que vão no pendrive: gerenciador de pacotes, vídeo Intel, AMD e
+#    NVIDIA, firmwares de vídeo e Wi-Fi e microcódigo da CPU (Intel e AMD)
 python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
-    'gpu-firmware-intel-kmod-*' wifi-firmware-iwlwifi-kmod \
-    cpu-microcode-intel
+    'gpu-firmware-intel-kmod-*' 'gpu-firmware-amd-kmod-*' \
+    'gpu-firmware-radeon-kmod-*' wifi-firmware-iwlwifi-kmod \
+    cpu-microcode-intel cpu-microcode-amd
 
 # 4b. Os apps (Atualizações e Programas do LumeBSD, Qt 6) e os efeitos do
 #     KWin (o filtro e-ink e as animações), compilados contra os pacotes do
@@ -73,8 +75,9 @@ python3 "$TOP/ferramentas/pacotes.py" --sem-dependencias "$TOP/qt" qt6-base \
 python3 "$TOP/ferramentas/montar-app.py" "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]*.pkg | head -1)"
 python3 "$TOP/ferramentas/montar-efeitos.py" "$STAGE" "$TOP/qt"
 
-# 5. Imagem do pendrive (UEFI e BIOS)
-python3 "$TOP/ferramentas/montar-pendrive.py" "$STAGE" "$PACOTES" \
+# 5. Imagem do pendrive (UEFI e BIOS) e a .iso (DVD, máquina virtual ou
+#    pendrive; UEFI e BIOS)
+python3 "$TOP/ferramentas/montar-pendrive.py" --iso "$ISO" "$STAGE" "$PACOTES" \
     "$OBJ$SRC/amd64.amd64/tmp/legacy/bin" "$IMG" "$VERSAO"
 
 # 6. Pacote de atualização (lume atualizar): o sistema base inteiro e o índice
@@ -83,7 +86,7 @@ python3 "$TOP/ferramentas/montar-atualizacao.py" "$STAGE" "$VERSAO" "$ATUALIZACA
     --notas "$TOP/docs/novidades.md"
 
 echo
-echo "Pronto: $IMG (LumeBSD $VERSAO)"
+echo "Pronto: $IMG e $ISO (LumeBSD $VERSAO)"
 echo "Atualização: $ATUALIZACAO/ (publique atualizacao.txt, o .tar.zst e as notas juntos)"
 echo "Grave num pendrive de 8 GB ou mais (no Windows: Rufus, modo DD;"
 echo "no Linux/FreeBSD: dd if=$(basename "$IMG") of=/dev/SEU_PENDRIVE bs=1m)."

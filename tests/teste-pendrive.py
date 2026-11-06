@@ -60,7 +60,7 @@ REPO = os.environ.get("LUME_REPO_URL", "http://10.0.2.2:8000")
 
 fase, logpath = sys.argv[1], sys.argv[2]
 os.makedirs(DIR, exist_ok=True)
-if fase == "aovivo" or not os.path.exists(NVME):
+if fase in ("aovivo", "iso") or not os.path.exists(NVME):
     if os.path.exists(NVME):
         os.remove(NVME)
     subprocess.run(["truncate", "-s", "40G", NVME], check=True)
@@ -81,6 +81,16 @@ if os.environ.get("LUME_REINICIAR"):
     args.remove("-no-reboot")
 if os.environ.get("LUME_KVM"):
     args += ["-enable-kvm", "-cpu", "host"]
+if fase in ("iso", "isousb"):
+    # A .iso: num DVD (iso) ou gravada num pendrive com dd (isousb, a mesma
+    # imagem como disco: o GPT híbrido).
+    ISO = os.environ["LUME_ISO"]
+    if fase == "iso":
+        args += ["-drive", f"if=none,id=dvd,media=cdrom,format=raw,file={ISO}",
+                 "-device", "ide-cd,bus=ide.0,drive=dvd,bootindex=0"]
+    else:
+        args += ["-drive", f"if=none,id=pen,format=raw,file={ISO},snapshot=on",
+                 "-device", "ide-hd,bus=ide.0,drive=pen,bootindex=0"]
 if fase in ("aovivo", "fumaca"):
     # fumaca: boota a imagem sem gravar nada nela (snapshot do QEMU).
     extra = ",snapshot=on" if fase == "fumaca" else ""
@@ -234,6 +244,32 @@ if fase == "aovivo":
     for c in ["cat /tmp/lume-instalar.log | grep -iE 'erro|error|fail' | head -20",
               "gpart show -l nda0", "efibootmgr"]:
         comando(c, P)
+    enviar("shutdown -p now")
+    esperar("Uptime", 300)
+
+elif fase in ("iso", "isousb"):
+    P = "root@lume-ao-vivo:~ # "
+    esperar("login: ", 900)
+    marca(f"{fase}: bootou até o login")
+    enviar("root")
+    esperar(P, 120)
+    foto(f"{fase}-console")
+    for c in ["uname -a", "mount", "df -h / /etc /var /tmp /root",
+              "touch /etc/teste-escrita /var/teste /root/teste && echo escreve-ok",
+              "glabel status | grep -iE 'iso9660|lumeroot'; sysctl kern.disks",
+              "lume hardware", "lume video", "ls /usr/share/lume/pacotes | wc -l"]:
+        comando(c, P, 180)
+    if fase == "iso":
+        marca("instalando no NVMe a partir do DVD")
+        enviar(f"env LUME_DISCO=nda0 LUME_CONFIRMA=APAGAR LUME_SENHA_DISCO={SENHA_DISCO}"
+               f" LUME_DESKTOP={os.environ.get('LUME_TESTE_DESKTOP', 'n')} LUME_CONSOLE_SERIAL=1 LUME_REPO_URL={REPO}"
+               " lume instalar")
+        esperar("LumeBSD instalado em", 7200)
+        marca("instalação concluída")
+        esperar(P, 60)
+        for c in ["grep -iE 'erro|error|fail' /tmp/lume-instalar.log | head -20",
+                  "gpart show -l nda0"]:
+            comando(c, P)
     enviar("shutdown -p now")
     esperar("Uptime", 300)
 
