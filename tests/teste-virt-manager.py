@@ -258,7 +258,11 @@ for resposta in [SENHA, SENHA, "kalel", "", SENHA, SENHA, "farol", "", "3", "1",
 x, texto = esperar_tela(["login:"], 900)
 f = foto("4-login")
 marca(f"configurado: a tela chegou ao login -> {f}")
-# Pela tela, como uma pessoa: entra como root e confere o console e o usuário.
+# Pela tela, como uma pessoa: entra como root e confere o console e o usuário
+# (depois que o boot parou de escrever na tela).
+time.sleep(20)
+digitar("\n")
+time.sleep(3)
 digitar("root\n")
 time.sleep(4)
 digitar(SENHA + "\n")
