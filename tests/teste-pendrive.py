@@ -235,6 +235,11 @@ if fase == "aovivo":
     for c in ["uname -a", "lume hardware", "lume video testar", "lume video",
               "ls /usr/share/lume/pacotes", "kldstat | tail -5"]:
         comando(c, P, 180)
+    # LUME_TESTE_ANTES: comandos antes de instalar, um por linha (p. ex. tirar
+    # da lista um pacote que falta no espelho local).
+    for c in os.environ.get("LUME_TESTE_ANTES", "").splitlines():
+        if c.strip():
+            comando(c, P, 180)
     marca("instalando no NVMe")
     enviar(f"env LUME_DISCO=nda0 LUME_CONFIRMA=APAGAR LUME_SENHA_DISCO={SENHA_DISCO}"
            f" LUME_DESKTOP={os.environ.get('LUME_TESTE_DESKTOP', 's')} LUME_CONSOLE_SERIAL=1 LUME_REPO_URL={REPO}"
