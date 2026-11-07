@@ -606,10 +606,16 @@ com um disco NVMe de 40 GB como destino e o pendrive ligado em SATA:
   com a raiz só de leitura, a instalação a partir do DVD; o filtro com o
   grão e a viscosidade; o `lume-macho` com um programa do macOS; o
   `lume-motor` sem tela (quadros em [docs/motor](docs/motor))
-- [ ] **Hardware real**: não testado aqui. Em especial o driver NVIDIA e as
-  placas AMD (precisam da placa), e o `lume-motor` na tela (precisa de
-  placa de vídeo com KMS) — no pendrive, rode `lume hardware` e
-  `lume video testar` antes de instalar
+- [x] **1.5.1**: em máquinas virtuais como as do virt-manager (SeaBIOS e
+  UEFI, disco SATA, porta serial): a instalação, o boot pelo disco e o
+  assistente na tela (`tests/teste-virt-manager.py`); o Papel noite numa
+  sessão do KDE
+- [x] **Hardware real, NVIDIA**: funciona num Core i5-10400F com GeForce
+  GTX 1650 e com GeForce GTX 1080 Ti (testado por Kalel)
+- [ ] **Hardware real, o resto**: placas AMD, Intel integrada, Wi-Fi e o
+  `lume-motor` na tela (precisa de placa de vídeo com KMS) — no pendrive,
+  rode `lume hardware` e `lume video testar` antes de instalar; se testar,
+  conte numa issue
 
 ### Bugs que os testes pegaram (e já estão corrigidos)
 

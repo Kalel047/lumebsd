@@ -24,7 +24,7 @@ Já tem o LumeBSD instalado? Abra **Atualizações do LumeBSD** no menu (ou `lum
 
 ## Limitações conhecidas
 
-- Testado no QEMU (UEFI e BIOS, como o virt-manager cria); em hardware real, só pelo `lume hardware` de cada um. Os drivers NVIDIA e AMD não foram testados com placa real, nem o `lume-motor` na tela.
+- Testado no QEMU (UEFI e BIOS, como o virt-manager cria) e em hardware real com NVIDIA: Core i5-10400F com GeForce GTX 1650 e com GTX 1080 Ti. Placas AMD, Intel integrada e o `lume-motor` na tela ainda não foram testados em hardware real; rode `lume hardware` no pendrive antes de instalar.
 - Notebooks híbridos Intel + NVIDIA e Ryzen + NVIDIA usam só o vídeo integrado.
 - A viscosidade da tinta precisa de placa de vídeo (sem ela, o KDE desliga as animações e a viscosidade).
 - O Secure Boot precisa estar desligado.
