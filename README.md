@@ -381,6 +381,11 @@ O desktop vem com um visual próprio inspirado nas telas de e-ink
 - Konsole, SDDM (tela de login), tela de bloqueio, GTK e splash seguem o
   mesmo tema.
 
+| Papel | Papel noite |
+|---|---|
+| ![O tema Papel](docs/capturas/papel-1-claro.png) | ![O tema Papel noite](docs/capturas/papel-noite-1.png) |
+|  | ![A loja no Papel noite](docs/capturas/papel-noite-2-loja.png) |
+
 `lume tema padrao` volta ao visual original do KDE; `lume tema papel`
 aplica de novo.
 
