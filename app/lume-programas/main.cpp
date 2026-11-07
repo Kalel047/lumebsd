@@ -338,6 +338,31 @@ QMessageBox QLabel { font-family: "IBM Plex Serif", serif; font-size: 14px; }
 QToolTip { background: #1c1b19; color: #efeadf; border: none; padding: 4px 6px; }
 )QSS";
 
+// A mesma folha à noite: cada cor do papel trocada pela sua par escura
+// (os mesmos tons do tema Papel noite).
+static QString
+estiloNoite()
+{
+	static const char *const PARES[][2] = {
+		{"#efeadf", "#1e1d1b"}, // papel -> fundo
+		{"#1c1b19", "#dedad0"}, // tinta -> texto
+		{"#f6f2e9", "#272623"}, // cartão
+		{"#5d5950", "#a9a499"}, // texto secundário
+		{"#e2dccd", "#34322e"}, // ao passar o mouse
+		{"#3b3934", "#c4bfb3"}, // botão principal, ao passar o mouse
+		{"#9b968b", "#6e6a62"}, // desabilitado
+		{"#bdb7a9", "#4a4740"}, // contorno desabilitado
+		{"#8a857a", "#7c776d"}, // barra de rolagem
+	};
+	QString e = QString::fromUtf8(ESTILO);
+	// Em duas passadas, para uma troca não desfazer a outra (papel <-> tinta).
+	for (int i = 0; i < int(sizeof PARES / sizeof PARES[0]); i++)
+		e.replace(QLatin1String(PARES[i][0]), QStringLiteral("@%1@").arg(i), Qt::CaseInsensitive);
+	for (int i = 0; i < int(sizeof PARES / sizeof PARES[0]); i++)
+		e.replace(QStringLiteral("@%1@").arg(i), QLatin1String(PARES[i][1]));
+	return e;
+}
+
 static QFrame *
 fio(bool vertical = false)
 {
@@ -982,10 +1007,14 @@ main(int argc, char *argv[])
 	QObject::connect(&app, &QGuiApplication::saveStateRequest, &app,
 	    [](QSessionManager &m) { m.setRestartHint(QSessionManager::RestartNever); });
 
-	// A loja tem a própria cara (papel e tinta), seja qual for o tema.
+	// A loja tem a própria cara (papel e tinta), seja qual for o tema; com um
+	// tema escuro (Papel noite), a mesma cara à noite: papel claro sobre tinta.
+	const bool noite = app.palette().color(QPalette::Window).lightness() < 128;
 	app.setStyle(QStyleFactory::create("Fusion"));
 	QPalette pal;
-	const QColor papel(0xef, 0xea, 0xdf), tinta(0x1c, 0x1b, 0x19), cartao(0xf6, 0xf2, 0xe9);
+	const QColor papel = noite ? QColor(0x1e, 0x1d, 0x1b) : QColor(0xef, 0xea, 0xdf);
+	const QColor tinta = noite ? QColor(0xde, 0xda, 0xd0) : QColor(0x1c, 0x1b, 0x19);
+	const QColor cartao = noite ? QColor(0x27, 0x26, 0x23) : QColor(0xf6, 0xf2, 0xe9);
 	pal.setColor(QPalette::Window, papel);
 	pal.setColor(QPalette::Base, cartao);
 	pal.setColor(QPalette::AlternateBase, papel);
@@ -994,9 +1023,9 @@ main(int argc, char *argv[])
 		pal.setColor(r, tinta);
 	pal.setColor(QPalette::Highlight, tinta);
 	pal.setColor(QPalette::HighlightedText, papel);
-	pal.setColor(QPalette::PlaceholderText, QColor(0x8a, 0x85, 0x7a));
+	pal.setColor(QPalette::PlaceholderText, noite ? QColor(0x7c, 0x77, 0x6d) : QColor(0x8a, 0x85, 0x7a));
 	app.setPalette(pal);
-	app.setStyleSheet(ESTILO);
+	app.setStyleSheet(noite ? estiloNoite() : QString::fromUtf8(ESTILO));
 
 	QString instalar, procurar;
 	QStringList a = app.arguments();

@@ -14,6 +14,18 @@ MARCA=/var/db/lume/configurado
 MODO=manual
 [ "$1" = "--boot" ] && MODO=boot
 
+# No boot, o rc roda o assistente no console principal. Numa máquina virtual
+# com porta serial (o virt-manager cria uma), o firmware pode fazer da serial
+# o console principal, e as perguntas iriam para lá: a pessoa veria só um
+# cursor. O assistente é para quem está na frente da tela, então vai para
+# ela (ttyv0), a não ser que o console serial tenha sido pedido de propósito
+# (boot_serial="YES" no loader.conf, como nos testes automáticos).
+if [ "$MODO" = boot ] && [ -c /dev/ttyv0 ] &&
+    ! grep -qs '^boot_serial="YES"' /boot/loader.conf &&
+    [ "$(tty </dev/stdin 2>/dev/null)" != /dev/ttyv0 ]; then
+	exec </dev/ttyv0 >/dev/ttyv0 2>&1
+fi
+
 if [ "$(id -u)" -ne 0 ]; then
 	echo "lume-configurar: precisa ser executado como root (use: su -)." >&2
 	exit 1

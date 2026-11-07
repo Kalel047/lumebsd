@@ -58,6 +58,12 @@ jobs:
       - name: fonte/ igual aos patches
         run: python3 ferramentas/fonte.py conferir src
 
+      - name: Papel noite igual ao gerado do Papel
+        run: |
+          cp -R src/usr.sbin/lume-configurar/tema tema-gerado
+          python3 ferramentas/tema-noite.py tema-gerado
+          diff -r src/usr.sbin/lume-configurar/tema tema-gerado
+
       - name: Scripts (sh -n e shellcheck)
         run: |
           set -e

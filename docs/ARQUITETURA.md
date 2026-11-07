@@ -129,18 +129,34 @@ como root sem senha e não monta nada do disco do computador.
 `lume instalar` (`lume-instalar.sh`):
 
 1. confere que `zfs.ko` e `geom_eli.ko` carregam, **antes** de mexer no disco;
-2. GPT: EFI (260 MB, FAT32), swap (8 GB, criptografada com chave
-   descartável a cada boot) e o resto para o ZFS;
+2. GPT: EFI (260 MB, FAT32), freebsd-boot (512 KB, o `gptzfsboot` para
+   BIOS, com o `pmbr` no setor 0), swap (8 GB, criptografada com chave
+   descartável a cada boot) e o resto para o ZFS: o "GPT (BIOS+UEFI)" do
+   instalador do FreeBSD, para o disco ligar nos dois tipos de firmware;
 3. GELI AES-256-XTS na partição do ZFS, com `-b` (o loader pede a senha e
    repassa a chave ao kernel — uma pergunta só);
 4. pool `zroot` com o esquema de ambientes de boot (`zroot/ROOT/default`,
    `home`, `tmp`, `usr/ports`, `var/*`...);
 5. copia o sistema pela lista `sistema.mtree` (os arquivos do build, sem o
    que é só do modo ao vivo);
-6. loader no caminho padrão `EFI/BOOT/BOOTX64.EFI` e uma entrada "LumeBSD"
-   no `efibootmgr`;
+6. loader no caminho padrão `EFI/BOOT/BOOTX64.EFI` e, se o boot foi em
+   UEFI, uma entrada "LumeBSD" no `efibootmgr`;
 7. `loader.conf`, `rc.conf`, `sysctl.conf` e `/etc/make.conf` do sistema
    instalado; pacotes do pendrive; com internet, o desktop.
+
+**O console é a tela.** Numa máquina virtual com porta serial (o
+virt-manager cria uma), o firmware UEFI põe a serial na frente no `ConOut`,
+e o `loader.efi` passa isso ao kernel (`boot_serial`): o rc e o assistente
+iam para a serial. O `loader.conf` do sistema instalado e o do pendrive
+levam `boot_serial="NO"`. Em BIOS, o loader faz da serial o console
+principal sempre que `comconsole` está na lista; o pendrive tem um
+`/boot/lua/local.lua` que, só em BIOS, deixa `console="vidconsole"` (a
+serial continua de segunda, por `boot_multicons`). E o assistente do
+primeiro boot vai para o `ttyv0` se mesmo assim cair na serial. Numa máquina
+virtual em BIOS, o `vt` escolheria o modo texto do VGA (`vt_vga.c`, quando
+`vm_guest` está definido), cuja fonte não tem ã nem õ; `hw.vga.textmode="0"`
+nos dois `loader.conf` deixa o modo gráfico. Testado por
+`tests/teste-virt-manager.py` (SeaBIOS e UEFI, disco SATA, porta serial).
 
 Variáveis para instalação sem perguntas (usadas nos testes):
 `LUME_DISCO`, `LUME_CONFIRMA=APAGAR`, `LUME_SENHA_DISCO`, `LUME_DESKTOP`,

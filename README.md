@@ -43,6 +43,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 |---|---|
 | **Papel e tinta de verdade** (1.5) | o filtro e-ink ganhou o **grão do papel** (fibras paradas na tela) e a **viscosidade da tinta**: quando a tela muda, o conteúdo novo assenta sobre o anterior, sem piscar |
 | **Motor de renderização** (1.5) | o protótipo `lume-motor`: desenha direto na placa de vídeo (DRM/KMS), letras e desenhos calculados pelas equações das curvas em cada pixel, papel num compute shader, no modo de maior taxa do monitor ([docs/MOTOR.md](docs/MOTOR.md)) |
+| **Papel noite** (1.5.1) | o tema escuro: fundo de tinta, letras de papel; `lume tema escuro` e `lume tema claro` trocam na hora; o filtro e-ink acompanha. E o disco instalado dá boot também em BIOS (máquinas virtuais do virt-manager e do GNOME Boxes) |
 | **AMD e .iso** (1.5) | placas AMD (amdgpu e radeonkms) e processadores Ryzen; além do `.img`, uma **`.iso`** para DVD, máquina virtual ou pendrive |
 | **Mac, começo** (1.5) | o `lume-macho` roda programas do macOS que falam direto com o kernel, traduzindo as chamadas do macOS para as do FreeBSD ([docs/MACOS.md](docs/MACOS.md)) |
 | **A tela de papel** (1.4) | um filtro e-ink desenha as janelas em papel e tinta, que se lê melhor sob luz forte sem aumentar o brilho; fotos, vídeos e tela cheia ficam com cor; as janelas abrem com um **refresh de e-ink** ou esmaecendo |
@@ -123,7 +124,8 @@ disco e instala:
   GELI (AES-256-XTS); a senha é pedida pelo loader, antes do sistema;
 - datasets do ZFS no esquema de ambientes de boot (`zroot/ROOT/default`),
   então `bectl` e as atualizações da forja têm volta;
-- boot UEFI registrado com `efibootmgr` e no caminho padrão `BOOTX64.EFI`;
+- boot UEFI registrado com `efibootmgr` e no caminho padrão `BOOTX64.EFI`,
+  e o boot para BIOS (`gptzfsboot`): o disco liga nos dois tipos de firmware;
 - os drivers e firmwares que vêm no pendrive;
 - com internet, o desktop (KDE Plasma 6, Firefox, Konsole, Dolphin, Kate,
   Okular, PipeWire...) já com o driver de vídeo certo e o tema Papel;
@@ -370,8 +372,19 @@ O desktop vem com um visual próprio inspirado nas telas de e-ink
   Breeze, convertendo cada cor para luminância;
 - **papel de parede**: o farol em traço sobre papel (`papel.png`) e uma
   versão noturna (`papel-noite.png`), em 4K;
+- **Papel noite** (1.5.1): o mesmo tema no escuro, com fundo de tinta e
+  letras de papel; cores do KDE e do Konsole, ícones Breeze Dark em cinza,
+  GTK, os apps do LumeBSD e o filtro e-ink acompanham. `lume tema escuro` e
+  `lume tema claro` trocam na hora para quem roda; `lume tema papel noite`
+  (root) faz do escuro o padrão. Os arquivos são gerados do Papel por
+  `ferramentas/tema-noite.py`;
 - Konsole, SDDM (tela de login), tela de bloqueio, GTK e splash seguem o
   mesmo tema.
+
+| Papel | Papel noite |
+|---|---|
+| ![O tema Papel](docs/capturas/papel-1-claro.png) | ![O tema Papel noite](docs/capturas/papel-noite-1.png) |
+|  | ![A loja no Papel noite](docs/capturas/papel-noite-2-loja.png) |
 
 `lume tema padrao` volta ao visual original do KDE; `lume tema papel`
 aplica de novo.
@@ -398,7 +411,7 @@ aplica de novo.
 | `lume loja` | programas por área e kits (o app **Programas do LumeBSD** faz o mesmo no desktop) |
 | `lume compat` | programas do Windows (Wine) e do Linux |
 | `lume ajuda` | a Ajuda do LumeBSD, no navegador |
-| `lume tema [papel\|padrao]` | visual do KDE |
+| `lume tema [papel\|escuro\|claro\|padrao]` | visual do KDE (claro ou o Papel noite) |
 | `lume configurar` | assistente de configuração |
 | `vigia` | gerenciador de serviços (abaixo) |
 | `forja` | pacotes por binário ou código-fonte |

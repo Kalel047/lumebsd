@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [ { "Name": "LumeBSD" } ],
+        "Description": "Papel noite: o Papel à noite, papel claro sobre tinta, sem animações nem sombras.",
+        "Id": "org.lumebsd.papel-noite",
+        "License": "BSD-2-Clause",
+        "Name": "Papel noite (LumeBSD)",
+        "Version": "1.5"
+    },
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "X-Plasma-APIVersion": "2"
+}

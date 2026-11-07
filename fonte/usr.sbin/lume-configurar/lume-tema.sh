@@ -5,7 +5,12 @@
 # lume-tema - o visual "Papel" do LumeBSD para o KDE Plasma (estética e-ink).
 #
 #   lume tema           mostra qual tema está em uso
-#   lume tema papel     aplica o Papel (o lume desktop já faz isso)
+#   lume tema papel     aplica o Papel (o lume desktop já faz isso); com os
+#                       dois jeitos dele: o claro e o Papel noite (escuro)
+#   lume tema papel noite
+#                       o mesmo, com o Papel noite como padrão do sistema
+#   lume tema escuro    passa o seu usuário para o Papel noite, na hora
+#   lume tema claro     e de volta para o Papel
 #   lume tema padrao    volta ao visual original do KDE
 #   lume tema integrar  põe no KDE o que é do sistema: os apps Atualizações
 #                       e Programas do LumeBSD (menu, aviso na sessão,
@@ -14,16 +19,18 @@
 #                       chama isto, e o lume_saude também, depois de uma
 #                       atualização), os efeitos do KWin do LumeBSD e os
 #                       atalhos de teclado do KWin (o kglobalacceld no D-Bus)
-#   lume tema tinta [liga | desliga | NÚMERO | grao N | viscosidade MS]
+#   lume tema tinta [liga | desliga | NÚMERO | grao N | viscosidade MS | noite M]
 #                       o filtro e-ink (efeito lume_tinta do KWin): a tela em
 #                       papel e tinta; fotos, vídeos e tela cheia ficam com
 #                       cor. NÚMERO é a intensidade, de 0 a 100; grao, as
 #                       fibras do papel (0 a 100); viscosidade, quanto a tinta
-#                       demora para assentar (ms; 0 desliga)
+#                       demora para assentar (ms; 0 desliga); noite, o papel e
+#                       a tinta do Papel noite (auto: segue o tema)
 #   lume tema animacao [refresh | esmaecer | nenhuma]
 #                       como as janelas abrem e fecham
 #
-# Os dois últimos valem para o usuário que roda (sem root), na hora.
+# escuro, claro, tinta e animacao valem para o usuário que roda (sem root),
+# na hora.
 #
 # Papel, tinta e cinzas; sem sombras nem transparência; fontes
 # IBM Plex; ícones Breeze convertidos para tons de cinza; papel de parede
@@ -37,7 +44,9 @@ T=/usr/share/lume/tema
 P=/usr/local
 XDG=$P/etc/xdg
 LNF=$P/share/plasma/look-and-feel/org.lumebsd.papel
+LNF_NOITE=$P/share/plasma/look-and-feel/org.lumebsd.papel-noite
 ICONES=$P/share/icons/lume-papel
+ICONES_NOITE=$P/share/icons/lume-papel-noite
 MARCA=$P/etc/xdg/.lume-tema-papel
 
 # Arquivos que o tema coloca, para poder tirar depois.
@@ -63,16 +72,23 @@ papel_de_parede()
 
 # Ícones Breeze em tons de cinza: troca cada cor #rrggbb (ou #rgb) dos SVG
 # pela luminância dela. Os ícones simbólicos já seguem as cores do tema.
+#   icones_cinza ORIGEM DESTINO NOME (o Papel sai do Breeze; o Papel noite,
+#   do Breeze Dark, que tem os traços claros para o fundo escuro). O corpo
+#   das pastas é a cor de destaque do esquema (ColorScheme-Accent): a tinta
+#   no Papel, um cinza médio no Papel noite.
 icones_cinza()
 {
-	origem=$P/share/icons/breeze
-	[ -d "$origem" ] || { echo "  (sem ícones Breeze; pulei os ícones)"; return; }
-	rm -rf "$ICONES"
-	cp -RP "$origem" "$ICONES"
-	sed -i '' -e 's/^Name=.*/Name=Papel (LumeBSD)/' \
-	    -e 's/^Comment=.*/Comment=Breeze em tons de cinza (LumeBSD)/' \
-	    "$ICONES/index.theme"
-	find "$ICONES" -type f -name '*.svg' -print0 |
+	origem=$P/share/icons/$1
+	destino=$2
+	[ -d "$origem" ] || { echo "  (sem os ícones $1; pulei os ícones $3)"; return; }
+	rm -rf "$destino"
+	cp -RP "$origem" "$destino"
+	sed -i '' -e "s/^Name=.*/Name=$3 (LumeBSD)/" \
+	    -e "s/^Comment=.*/Comment=$1 em tons de cinza (LumeBSD)/" \
+	    "$destino/index.theme"
+	# O Breeze Dark herda do Breeze o que não tem; aqui, do Papel.
+	sed -i '' -e 's/^Inherits=breeze$/Inherits=lume-papel/' "$destino/index.theme"
+	find "$destino" -type f -name '*.svg' -print0 |
 	    xargs -0 -n 400 awk '
 	function hx(c) { return index("0123456789abcdef", c) - 1 }
 	function cinza(h,   r, g, b, y) {
@@ -101,19 +117,19 @@ icones_cinza()
 		}
 		print feito linha > saida
 	}'
-	find "$ICONES" -type f -name '*.svg.papel' | while read -r f; do
+	find "$destino" -type f -name '*.svg.papel' | while read -r f; do
 		mv "$f" "${f%.papel}"
 	done
 	# Programas que não têm ícone no Breeze (o Firefox traz o próprio, em cores).
 	for app in firefox org.mozilla.firefox; do
 		for t in 32 48 64; do
-			mkdir -p "$ICONES/apps/$t"
-			cp "$T/navegador.svg" "$ICONES/apps/$t/$app.svg"
+			mkdir -p "$destino/apps/$t"
+			cp "$T/navegador.svg" "$destino/apps/$t/$app.svg"
 		done
 	done
 	command -v gtk-update-icon-cache >/dev/null &&
-	    gtk-update-icon-cache -q -f "$ICONES" 2>/dev/null
-	echo "  ícones: $(find "$ICONES" -type f -name '*.svg' | wc -l | tr -d ' ') em tons de cinza"
+	    gtk-update-icon-cache -q -f "$destino" 2>/dev/null
+	echo "  ícones $3: $(find "$destino" -type f -name '*.svg' | wc -l | tr -d ' ') em tons de cinza"
 }
 
 aplicar()
@@ -122,35 +138,56 @@ aplicar()
 		echo "  O KDE Plasma não está instalado: rode lume desktop." >&2
 		exit 1
 	}
-	echo "  Aplicando o tema Papel..."
+	# O padrão do sistema (quem entrar pela primeira vez): o claro ou o noite.
+	case "${1:-}" in
+	noite|escuro)	sufixo=-noite; nome="Papel noite" ;;
+	*)		sufixo=; nome=Papel ;;
+	esac
+	echo "  Aplicando o tema $nome..."
 	instalar $T/Papel.colors $P/share/color-schemes/Papel.colors
-	instalar $T/Papel.colorscheme $P/share/konsole/Papel.colorscheme
-	instalar $T/Papel.profile $P/share/konsole/Papel.profile
+	instalar $T/PapelNoite.colors $P/share/color-schemes/PapelNoite.colors
+	for k in Papel PapelNoite; do
+		instalar $T/$k.colorscheme $P/share/konsole/$k.colorscheme
+		instalar $T/$k.profile $P/share/konsole/$k.profile
+	done
+	# Os dois temas globais: aparecem em Configurações do Sistema >
+	# Aparência > Tema global, e o lume tema escuro/claro troca entre eles.
 	instalar $T/metadata.json $LNF/metadata.json
 	instalar $T/defaults $LNF/contents/defaults
 	instalar $T/layout.js $LNF/contents/layouts/org.kde.plasma.desktop-layout.js
 	instalar $T/papel.png $LNF/contents/previews/preview.png
+	instalar $T/metadata-noite.json $LNF_NOITE/metadata.json
+	instalar $T/defaults-noite $LNF_NOITE/contents/defaults
+	instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
+	instalar $T/papel-noite.png $LNF_NOITE/contents/previews/preview.png
 	papel_de_parede LumePapel "Papel (LumeBSD)" $T/papel.png
 	papel_de_parede LumePapelNoite "Papel noite (LumeBSD)" $T/papel-noite.png
 	for c in $CONFS; do
-		instalar $T/$c $XDG/$c 0644
+		if [ -n "$sufixo" ] && [ -f $T/$c$sufixo ]; then
+			instalar $T/$c$sufixo $XDG/$c 0644
+		else
+			instalar $T/$c $XDG/$c 0644
+		fi
 	done
 	# Fontes: IBM Plex como padrão para sans, serif e mono.
 	instalar $T/fontes.conf $P/etc/fonts/conf.d/60-lume-papel.conf 0644
 	# Programas GTK (Firefox e cia.) com o mesmo jeito.
-	instalar $T/gtk-settings.ini $XDG/gtk-3.0/settings.ini 0644
-	instalar $T/gtk-settings.ini $XDG/gtk-4.0/settings.ini 0644
+	instalar $T/gtk-settings$sufixo.ini $XDG/gtk-3.0/settings.ini 0644
+	instalar $T/gtk-settings$sufixo.ini $XDG/gtk-4.0/settings.ini 0644
 	integrar
 	# Tela de login
 	instalar $T/sddm.conf $P/etc/sddm.conf.d/lume.conf 0644
 	[ -d $P/share/sddm/themes/breeze ] &&
 	    instalar $T/sddm-breeze.conf.user \
 	    $P/share/sddm/themes/breeze/theme.conf.user 0644
-	icones_cinza
+	icones_cinza breeze "$ICONES" Papel
+	icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite"
+	echo "${nome}" > "$MARCA.padrao"
 	date > "$MARCA"
-	echo "  ✓ Tema Papel aplicado. Vale para quem entrar a partir de agora;"
-	echo "    quem já usa o KDE escolhe \"Papel (LumeBSD)\" em"
-	echo "    Configurações do Sistema > Aparência > Tema global."
+	echo "  ✓ Tema $nome aplicado. Vale para quem entrar a partir de agora;"
+	echo "    quem já usa o KDE escolhe \"$nome (LumeBSD)\" em"
+	echo "    Configurações do Sistema > Aparência > Tema global, ou roda"
+	echo "    lume tema escuro / lume tema claro."
 }
 
 integrar()
@@ -164,6 +201,16 @@ integrar()
 		# as animações (quem atualizou de antes tinha o compositor
 		# desligado). O que cada usuário mudou no próprio kwinrc vale mais.
 		instalar $T/kwinrc $XDG/kwinrc 0644
+		# O Papel noite (1.5.1): quem atualizou de antes ganha o tema escuro
+		# junto, sem mudar o que usa.
+		instalar $T/PapelNoite.colors $P/share/color-schemes/PapelNoite.colors
+		instalar $T/PapelNoite.colorscheme $P/share/konsole/PapelNoite.colorscheme
+		instalar $T/PapelNoite.profile $P/share/konsole/PapelNoite.profile
+		instalar $T/metadata-noite.json $LNF_NOITE/metadata.json
+		instalar $T/defaults-noite $LNF_NOITE/contents/defaults
+		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
+		instalar $T/papel-noite.png $LNF_NOITE/contents/previews/preview.png
+		[ -d "$ICONES_NOITE" ] || icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite" >/dev/null
 	fi
 	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
 	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
@@ -306,6 +353,7 @@ tinta()
 			echo "  filtro e-ink: desligado   (lume tema tinta liga)"
 		fi
 		echo "  papel: grão $(kwin_ler --group Effect-lume_tinta --key Grao --default 40), viscosidade da tinta $(kwin_ler --group Effect-lume_tinta --key Viscosidade --default 35) ms"
+		echo "  noite: $(kwin_ler --group Effect-lume_tinta --key Noite --default auto)   (auto segue o tema: no Papel noite, a tinta mais funda e o papel menos claro)"
 		echo "  Atalhos: Ctrl+Meta+T liga e desliga; Ctrl+Meta+Y só na janela ativa." ;;
 	liga|ligar|on)	kwin_config --group Plugins --key lume_tintaEnabled true ;;
 	desliga|desligar|off)	kwin_config --group Plugins --key lume_tintaEnabled false ;;
@@ -313,11 +361,16 @@ tinta()
 		case "${2:-}" in ""|*[!0-9]*) echo "uso: lume tema tinta grao 0-100" >&2; exit 2 ;; esac
 		[ "$2" -le 100 ] || { echo "lume tema: grão de 0 a 100" >&2; exit 2; }
 		kwin_config --group Effect-lume_tinta --key Grao "$2" ;;
+	noite)
+		case "${2:-}" in
+		auto|sim|nao)	kwin_config --group Effect-lume_tinta --key Noite "$2" ;;
+		*)	echo "uso: lume tema tinta noite auto | sim | nao" >&2; exit 2 ;;
+		esac ;;
 	viscosidade)
 		case "${2:-}" in ""|*[!0-9]*) echo "uso: lume tema tinta viscosidade MS (0 desliga)" >&2; exit 2 ;; esac
 		[ "$2" -le 500 ] || { echo "lume tema: viscosidade de 0 a 500 ms" >&2; exit 2; }
 		kwin_config --group Effect-lume_tinta --key Viscosidade "$2" ;;
-	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100 | grao 0-100 | viscosidade MS]" >&2; exit 2 ;;
+	*[!0-9]*)	echo "uso: lume tema tinta [liga | desliga | 0-100 | grao 0-100 | viscosidade MS | noite auto|sim|nao]" >&2; exit 2 ;;
 	*)	[ "$1" -le 100 ] || { echo "lume tema: intensidade de 0 a 100" >&2; exit 2; }
 		kwin_config --group Effect-lume_tinta --key Intensidade "$1"
 		kwin_config --group Plugins --key lume_tintaEnabled true ;;
@@ -346,6 +399,58 @@ animacao()
 	kwin_recarregar
 }
 
+# lume tema escuro | claro: o seu usuário no Papel noite ou no Papel, na
+# hora (sem root; dentro da sessão do KDE). O tema global troca cores,
+# ícones e papel de parede; o Konsole, o GTK e o filtro e-ink acompanham.
+escuro_claro()
+{
+	if [ "$1" = escuro ]; then
+		lnf=org.lumebsd.papel-noite; cores=PapelNoite; perfil=PapelNoite.profile
+		fundo=LumePapelNoite; gtk=true; gtktema=Breeze-Dark; icones=lume-papel-noite
+		nome="Papel noite"; destaque=120,116,108
+	else
+		lnf=org.lumebsd.papel; cores=Papel; perfil=Papel.profile
+		fundo=LumePapel; gtk=false; gtktema=Breeze; icones=lume-papel
+		nome=Papel; destaque=26,26,26
+	fi
+	[ -d $P/share/plasma/look-and-feel/$lnf ] || {
+		echo "  O tema $nome não está instalado: rode, como root, lume tema papel." >&2
+		exit 1
+	}
+	if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] || ! command -v plasma-apply-lookandfeel >/dev/null 2>&1; then
+		echo "  lume tema $1: rode dentro da sessão do KDE (no Konsole, por exemplo)." >&2
+		exit 1
+	fi
+	plasma-apply-lookandfeel -a $lnf >/dev/null 2>&1
+	# O tema global nem sempre troca o esquema de cores de quem já mexeu nele.
+	command -v plasma-apply-colorscheme >/dev/null 2>&1 &&
+	    plasma-apply-colorscheme $cores >/dev/null 2>&1
+	command -v plasma-apply-wallpaperimage >/dev/null 2>&1 &&
+	    plasma-apply-wallpaperimage $P/share/wallpapers/$fundo/contents/images/3840x2160.png >/dev/null 2>&1
+	for k in kwriteconfig6 kwriteconfig5; do
+		command -v $k >/dev/null 2>&1 || continue
+		$k --file kdeglobals --group Icons --key Theme $icones
+		# A cor de destaque pinta o corpo das pastas e as seleções: a
+		# tinta no Papel; no escuro, um cinza médio (tinta sumiria no fundo).
+		$k --file kdeglobals --group General --key AccentColor $destaque
+		$k --file konsolerc --group "Desktop Entry" --key DefaultProfile $perfil
+		for g in gtk-3.0 gtk-4.0; do
+			mkdir -p "$HOME/.config/$g"
+			$k --file "$HOME/.config/$g/settings.ini" --group Settings \
+			    --key gtk-application-prefer-dark-theme $gtk
+			$k --file "$HOME/.config/$g/settings.ini" --group Settings \
+			    --key gtk-theme-name $gtktema
+			$k --file "$HOME/.config/$g/settings.ini" --group Settings \
+			    --key gtk-icon-theme-name $icones
+		done
+		break
+	done
+	# O filtro e-ink troca o papel e a tinta sozinho (Noite=auto, segue o
+	# esquema de cores); o reconfigure é para valer já.
+	kwin_recarregar
+	echo "  ✓ $nome. Programas abertos antes podem precisar ser reabertos."
+}
+
 # padrao_mime "tipos" app.desktop: o app padrão desses tipos, para todos (o
 # mimeapps.list do sistema), sem mexer no que já estiver lá.
 padrao_mime()
@@ -367,17 +472,31 @@ padrao()
 	for c in $CONFS; do rm -f "$XDG/$c"; done
 	rm -f $XDG/gtk-3.0/settings.ini $XDG/gtk-4.0/settings.ini \
 	    $P/etc/fonts/conf.d/60-lume-papel.conf $P/etc/sddm.conf.d/lume.conf \
-	    $P/share/sddm/themes/breeze/theme.conf.user "$MARCA"
+	    $P/share/sddm/themes/breeze/theme.conf.user "$MARCA" "$MARCA.padrao"
 	echo "  ✓ Padrões do KDE de volta (o tema Papel continua disponível"
 	echo "    em Configurações do Sistema > Aparência)."
 }
 
 case "${1:-}" in
-"")	if [ -f "$MARCA" ]; then echo "  tema: Papel (desde $(cat "$MARCA"))"
+"")	if [ -f "$MARCA" ]; then
+		echo "  tema do sistema: $(cat "$MARCA.padrao" 2>/dev/null || echo Papel) (desde $(cat "$MARCA"))"
+		k=$(command -v kreadconfig6 || command -v kreadconfig5)
+		if [ -n "$k" ] && [ "$(id -u)" -ne 0 ]; then
+			case "$($k --file kdeglobals --group General --key ColorScheme)" in
+			PapelNoite)	echo "  o seu: Papel noite   (lume tema claro para o Papel)" ;;
+			Papel|"")	echo "  o seu: Papel   (lume tema escuro para o Papel noite)" ;;
+			*)		echo "  o seu: outro esquema de cores" ;;
+			esac
+		fi
 	else echo "  tema: padrão do KDE   (lume tema papel para o visual e-ink)"; fi ;;
 papel|aplicar)
 	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root" >&2; exit 1; }
-	aplicar ;;
+	aplicar "${2:-}" ;;
+noite)
+	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root (para você: lume tema escuro)" >&2; exit 1; }
+	aplicar noite ;;
+escuro|dark)	escuro_claro escuro ;;
+claro|light)	escuro_claro claro ;;
 padrao|padrão)
 	[ "$(id -u)" -eq 0 ] || { echo "lume tema: precisa ser root" >&2; exit 1; }
 	padrao ;;
@@ -386,5 +505,5 @@ integrar)
 	integrar ;;
 tinta)	shift; tinta "$@" ;;
 animacao|animação|animacoes|animações)	shift; animacao "$@" ;;
-*)	echo "uso: lume tema [papel | padrao | integrar | tinta | animacao]" >&2; exit 2 ;;
+*)	echo "uso: lume tema [papel [noite] | escuro | claro | padrao | integrar | tinta | animacao]" >&2; exit 2 ;;
 esac
