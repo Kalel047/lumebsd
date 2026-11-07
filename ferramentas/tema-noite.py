@@ -192,7 +192,7 @@ def main():
 
     kg = trocar_kde(ler("kdeglobals"))
     kg = kg.replace("(tema Papel)", "(tema Papel noite)")
-    kg = re.sub(r"^AccentColor=.*$", "AccentColor=222,218,208", kg, flags=re.M)
+    kg = re.sub(r"^AccentColor=.*$", "AccentColor=120,116,108", kg, flags=re.M)
     gravar("kdeglobals-noite", cab + nomes(kg))
 
     gravar("PapelNoite.colorscheme", KONSOLE)

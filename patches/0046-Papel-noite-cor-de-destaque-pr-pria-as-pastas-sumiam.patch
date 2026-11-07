@@ -1,0 +1,69 @@
+From 58d5f9933c05f94f12ffbc0734b5673a35f886bb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 7 Nov 2026 12:17:02 -0300
+Subject: [PATCH] =?UTF-8?q?Papel=20noite:=20cor=20de=20destaque=20pr=C3=B3?=
+ =?UTF-8?q?pria=20(as=20pastas=20sumiam=20no=20escuro)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O corpo das pastas do Breeze é a cor de destaque (ColorScheme-Accent).
+No Papel ela é a tinta; no escuro, a tinta some no fundo. O Papel noite
+usa um cinza médio, e o lume tema escuro/claro troca o AccentColor.
+---
+ usr.sbin/lume-configurar/lume-tema.sh          | 11 ++++++++---
+ usr.sbin/lume-configurar/tema/kdeglobals-noite |  2 +-
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 3fccc55e1..f7172ac80 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -73,7 +73,9 @@ papel_de_parede()
+ # Ícones Breeze em tons de cinza: troca cada cor #rrggbb (ou #rgb) dos SVG
+ # pela luminância dela. Os ícones simbólicos já seguem as cores do tema.
+ #   icones_cinza ORIGEM DESTINO NOME (o Papel sai do Breeze; o Papel noite,
+-#   do Breeze Dark, que tem os traços claros para o fundo escuro)
++#   do Breeze Dark, que tem os traços claros para o fundo escuro). O corpo
++#   das pastas é a cor de destaque do esquema (ColorScheme-Accent): a tinta
++#   no Papel, um cinza médio no Papel noite.
+ icones_cinza()
+ {
+ 	origem=$P/share/icons/$1
+@@ -405,11 +407,11 @@ escuro_claro()
+ 	if [ "$1" = escuro ]; then
+ 		lnf=org.lumebsd.papel-noite; cores=PapelNoite; perfil=PapelNoite.profile
+ 		fundo=LumePapelNoite; gtk=true; gtktema=Breeze-Dark; icones=lume-papel-noite
+-		nome="Papel noite"
++		nome="Papel noite"; destaque=120,116,108
+ 	else
+ 		lnf=org.lumebsd.papel; cores=Papel; perfil=Papel.profile
+ 		fundo=LumePapel; gtk=false; gtktema=Breeze; icones=lume-papel
+-		nome=Papel
++		nome=Papel; destaque=26,26,26
+ 	fi
+ 	[ -d $P/share/plasma/look-and-feel/$lnf ] || {
+ 		echo "  O tema $nome não está instalado: rode, como root, lume tema papel." >&2
+@@ -428,6 +430,9 @@ escuro_claro()
+ 	for k in kwriteconfig6 kwriteconfig5; do
+ 		command -v $k >/dev/null 2>&1 || continue
+ 		$k --file kdeglobals --group Icons --key Theme $icones
++		# A cor de destaque pinta o corpo das pastas e as seleções: a
++		# tinta no Papel; no escuro, um cinza médio (tinta sumiria no fundo).
++		$k --file kdeglobals --group General --key AccentColor $destaque
+ 		$k --file konsolerc --group "Desktop Entry" --key DefaultProfile $perfil
+ 		for g in gtk-3.0 gtk-4.0; do
+ 			mkdir -p "$HOME/.config/$g"
+diff --git a/usr.sbin/lume-configurar/tema/kdeglobals-noite b/usr.sbin/lume-configurar/tema/kdeglobals-noite
+index 3df9b2d26..85c4a82ac 100644
+--- a/usr.sbin/lume-configurar/tema/kdeglobals-noite
++++ b/usr.sbin/lume-configurar/tema/kdeglobals-noite
+@@ -8,7 +8,7 @@ fixed=IBM Plex Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+ menuFont=IBM Plex Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+ toolBarFont=IBM Plex Sans,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+ smallestReadableFont=IBM Plex Sans,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
+-AccentColor=222,218,208
++AccentColor=120,116,108
+ 
+ [WM]
+ activeFont=IBM Plex Serif,10,-1,5,500,0,0,0,0,0,0,0,0,0,0,1

@@ -73,7 +73,9 @@ papel_de_parede()
 # Ícones Breeze em tons de cinza: troca cada cor #rrggbb (ou #rgb) dos SVG
 # pela luminância dela. Os ícones simbólicos já seguem as cores do tema.
 #   icones_cinza ORIGEM DESTINO NOME (o Papel sai do Breeze; o Papel noite,
-#   do Breeze Dark, que tem os traços claros para o fundo escuro)
+#   do Breeze Dark, que tem os traços claros para o fundo escuro). O corpo
+#   das pastas é a cor de destaque do esquema (ColorScheme-Accent): a tinta
+#   no Papel, um cinza médio no Papel noite.
 icones_cinza()
 {
 	origem=$P/share/icons/$1
@@ -405,11 +407,11 @@ escuro_claro()
 	if [ "$1" = escuro ]; then
 		lnf=org.lumebsd.papel-noite; cores=PapelNoite; perfil=PapelNoite.profile
 		fundo=LumePapelNoite; gtk=true; gtktema=Breeze-Dark; icones=lume-papel-noite
-		nome="Papel noite"
+		nome="Papel noite"; destaque=120,116,108
 	else
 		lnf=org.lumebsd.papel; cores=Papel; perfil=Papel.profile
 		fundo=LumePapel; gtk=false; gtktema=Breeze; icones=lume-papel
-		nome=Papel
+		nome=Papel; destaque=26,26,26
 	fi
 	[ -d $P/share/plasma/look-and-feel/$lnf ] || {
 		echo "  O tema $nome não está instalado: rode, como root, lume tema papel." >&2
@@ -428,6 +430,9 @@ escuro_claro()
 	for k in kwriteconfig6 kwriteconfig5; do
 		command -v $k >/dev/null 2>&1 || continue
 		$k --file kdeglobals --group Icons --key Theme $icones
+		# A cor de destaque pinta o corpo das pastas e as seleções: a
+		# tinta no Papel; no escuro, um cinza médio (tinta sumiria no fundo).
+		$k --file kdeglobals --group General --key AccentColor $destaque
 		$k --file konsolerc --group "Desktop Entry" --key DefaultProfile $perfil
 		for g in gtk-3.0 gtk-4.0; do
 			mkdir -p "$HOME/.config/$g"

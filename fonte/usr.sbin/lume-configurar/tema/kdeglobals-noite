@@ -8,7 +8,7 @@ fixed=IBM Plex Mono,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 menuFont=IBM Plex Sans,10,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 toolBarFont=IBM Plex Sans,9,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
 smallestReadableFont=IBM Plex Sans,8,-1,5,400,0,0,0,0,0,0,0,0,0,0,1
-AccentColor=222,218,208
+AccentColor=120,116,108
 
 [WM]
 activeFont=IBM Plex Serif,10,-1,5,500,0,0,0,0,0,0,0,0,0,0,1
