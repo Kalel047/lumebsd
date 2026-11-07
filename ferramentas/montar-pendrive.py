@@ -134,6 +134,13 @@ vigia_enable="YES"
     escrever("boot/loader.conf", f"""# LumeBSD {SERIE} - pendrive ao vivo
 boot_multicons="YES"
 console="efi,comconsole"
+# A tela é o console principal: sem isto, numa máquina virtual com porta
+# serial o loader UEFI segue o firmware, que põe a serial na frente (veja
+# também /boot/lua/local.lua, para o BIOS).
+boot_serial="NO"
+# Numa máquina virtual em BIOS, o console usaria o modo texto do VGA, cuja
+# fonte não tem ã nem õ ("n?o"); o modo gráfico tem a fonte inteira.
+hw.vga.textmode="0"
 autoboot_delay="5"
 kern.geom.label.disk_ident.enable="0"
 kern.geom.label.gptid.enable="0"
@@ -142,6 +149,17 @@ cpu_microcode_name="/boot/firmware/intel-ucode.bin"
 compat.linuxkpi.iwlwifi_11n_disable="0"
 compat.linuxkpi.iwlwifi_disable_11ac="0"
 """),
+    # Em BIOS (SeaBIOS, o padrão do virt-manager e do GNOME Boxes), o loader
+    # faz da serial o console principal sempre que "comconsole" está na
+    # lista: as mensagens do boot e o rc iriam para ela, e a tela ficaria só
+    # com o cursor. Lá, só "vidconsole"; a serial continua de segunda
+    # (boot_multicons). O loader.lua roda este arquivo depois do loader.conf.
+    escrever("boot/lua/local.lua", """-- LumeBSD: a tela é o console principal também em BIOS.
+local core = require("core")
+if not core.isUEFIBoot() then
+	loader.setenv("console", "vidconsole")
+end
+""", "0444"),
     escrever("etc/motd.template", f"""
    LumeBSD {SERIE} "Farol"  -  pendrive ao vivo
 

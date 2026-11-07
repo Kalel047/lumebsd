@@ -4,10 +4,12 @@
 #
 # lume-instalar - instala o LumeBSD num disco inteiro, a partir do pendrive.
 #
-# Layout (o mesmo do instalador do FreeBSD com ZFS + criptografia):
+# Layout (o mesmo do instalador do FreeBSD com ZFS + criptografia, no modo
+# "GPT (BIOS+UEFI)": o disco dá boot nos dois tipos de firmware):
 #   p1  efi          260 MB  FAT32, carregador UEFI
-#   p2  swap           8 GB  criptografada com chave descartável a cada boot
-#   p3  zfs         o resto  GELI (AES-256-XTS) pedindo a senha no boot,
+#   p2  freebsd-boot 512 KB  gptzfsboot, o carregador para BIOS (legado)
+#   p3  swap           8 GB  criptografada com chave descartável a cada boot
+#   p4  zfs         o resto  GELI (AES-256-XTS) pedindo a senha no boot,
 #                            pool "zroot" com ambientes de boot (bectl)
 #
 # Variáveis para testes automatizados (todas opcionais):
@@ -191,11 +193,17 @@ done
 gpart destroy -F "$disco" >> "$LOG" 2>&1
 roda gpart create -s gpt "$disco" || morrer "não deu para criar a tabela GPT"
 roda gpart add -a 1m -s 260m -t efi -l efiboot0 "$disco" &&
+roda gpart add -a 4k -s 512k -t freebsd-boot -l gptboot0 "$disco" &&
 roda gpart add -a 1m -s "$SWAP" -t freebsd-swap -l swap0 "$disco" &&
 roda gpart add -a 1m -t freebsd-zfs -l zfs0 "$disco" ||
     morrer "não deu para criar as partições"
 roda newfs_msdos -F 32 -c 1 -L EFISYS "/dev/gpt/efiboot0" ||
     morrer "não deu para formatar a partição EFI"
+# O boot para BIOS (computadores antigos e máquinas virtuais com SeaBIOS, o
+# padrão do virt-manager e do GNOME Boxes): o pmbr no setor 0 e o
+# gptzfsboot, que pede a senha do GELI e lê o loader do ZFS.
+roda gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 2 "$disco" ||
+    morrer "não deu para gravar o carregador para BIOS"
 feito
 
 passo "Criptografando (AES-256-XTS)"
@@ -247,7 +255,11 @@ mkdir -p /tmp/lume-efi/EFI/BOOT /tmp/lume-efi/EFI/LumeBSD
 cp "$ALVO/boot/loader.efi" /tmp/lume-efi/EFI/BOOT/BOOTX64.EFI &&
 cp "$ALVO/boot/loader.efi" /tmp/lume-efi/EFI/LumeBSD/loader.efi ||
     morrer "não deu para copiar o loader.efi"
-roda efibootmgr -a -c -l /tmp/lume-efi/EFI/LumeBSD/loader.efi -L LumeBSD
+# A entrada no menu de boot do firmware, quando ele é UEFI (em BIOS não há o
+# que registrar: o pmbr do disco já dá o boot).
+if [ "$(sysctl -n machdep.bootmethod 2>/dev/null)" = UEFI ]; then
+	roda efibootmgr -a -c -l /tmp/lume-efi/EFI/LumeBSD/loader.efi -L LumeBSD
+fi
 roda umount /tmp/lume-efi
 
 cat > "$ALVO/etc/fstab" <<EOF
@@ -280,7 +292,15 @@ compat.linuxkpi.iwlwifi_power_save="1"
 EOF
 if [ -n "${LUME_CONSOLE_SERIAL:-}" ]; then
 	printf 'boot_multicons="YES"\nboot_serial="YES"\nconsole="comconsole,efi"\n' >> "$ALVO/boot/loader.conf"
+else
+	# A tela é o console principal. Sem isto, o loader UEFI segue o firmware,
+	# que numa máquina virtual com porta serial põe a serial na frente: as
+	# mensagens do boot e o assistente iriam para ela.
+	printf '# A tela é o console principal, mesmo com porta serial (máquinas virtuais)\nboot_serial="NO"\n' >> "$ALVO/boot/loader.conf"
 fi
+# Numa máquina virtual em BIOS, o console usaria o modo texto do VGA, cuja
+# fonte não tem ã nem õ ("n?o"); o modo gráfico tem a fonte inteira.
+printf 'hw.vga.textmode="0"\n' >> "$ALVO/boot/loader.conf"
 # Programas que caem não deixam arquivos .core na pasta do usuário;
 # só os do root vão para /var/crash.
 echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"

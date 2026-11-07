@@ -58,6 +58,18 @@ A arquitetura inteira está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 Para mudanças pequenas num script, editar a cópia em `fonte/` ajuda a
 mostrar a ideia num pull request; quem mantém o projeto transforma em patch.
 
+### Mudar as cores do tema
+
+O tema Papel fica em `usr.sbin/lume-configurar/tema`. O Papel noite (escuro)
+é gerado dele: depois de mudar uma cor do Papel, rode
+
+```sh
+python3 ferramentas/tema-noite.py SRC/usr.sbin/lume-configurar/tema
+```
+
+e ponha a cor nova e a sua par escura no `MAPA` do script, se ele reclamar.
+O CI confere que os arquivos do Papel noite são os que o script gera.
+
 ### Adicionar um programa ao catálogo
 
 O catálogo da loja é `usr.sbin/lume-configurar/loja/catalogo`, uma linha por

@@ -16,7 +16,11 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
 		tema/sddm.conf tema/sddm-breeze.conf.user tema/fontes.conf \
 		tema/gtk-settings.ini tema/papel.png tema/papel-noite.png \
 		tema/navegador.svg tema/lume-tempo.desktop \
-		tema/org.kde.kglobalaccel.service
+		tema/org.kde.kglobalaccel.service \
+		tema/PapelNoite.colors tema/PapelNoite.colorscheme \
+		tema/PapelNoite.profile tema/kdeglobals-noite tema/konsolerc-noite \
+		tema/gtk-settings-noite.ini tema/metadata-noite.json \
+		tema/defaults-noite tema/layout-noite.js
 
 # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
 # programas do Windows com dois cliques (lume compat).

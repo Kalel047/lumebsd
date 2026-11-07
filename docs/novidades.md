@@ -1,3 +1,20 @@
+# LumeBSD 1.5.1 "Farol"
+
+Sobre o FreeBSD 15.1. O tema escuro, e máquinas virtuais e computadores com BIOS.
+
+## Papel noite: o tema escuro
+
+- O Papel visto à noite: o fundo é a tinta (um preto quente, não o preto puro) e as letras são o papel, um pouco apagado para não ofuscar. Os ícones, o terminal, os apps do LumeBSD, o papel de parede com o farol à noite e o filtro e-ink acompanham.
+- `lume tema escuro` troca na hora, só para você e sem senha; `lume tema claro` volta. Também em Configurações do Sistema › Aparência › Tema global: **Papel noite (LumeBSD)**.
+- No tema escuro, o filtro e-ink usa uma tinta mais funda e um papel menos claro, sozinho.
+
+## Máquinas virtuais e computadores com BIOS
+
+- **O disco instalado dá boot em BIOS**: computadores antigos e máquinas virtuais com SeaBIOS, o padrão do virt-manager e do GNOME Boxes. Antes, a instalação terminava sem erro e o disco não ligava.
+- **A tela é o console principal**: numa máquina virtual com porta serial, o boot e o assistente do primeiro boot iam para a serial, e a tela ficava só com um cursor. Agora vão para a tela, em BIOS e em UEFI, e com acentos: em BIOS, a máquina virtual mostrava "não" como "n?o".
+
+Para quem já instalou: a correção do boot vale para instalações novas (a partição do BIOS é criada pelo instalador).
+
 # LumeBSD 1.5 "Farol"
 
 Sobre o FreeBSD 15.1. Papel e tinta de verdade, um motor de renderização próprio, AMD, a .iso e o começo dos programas do Mac.

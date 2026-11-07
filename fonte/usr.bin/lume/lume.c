@@ -72,6 +72,7 @@ static const char *tips[] = {
 	"Ctrl+Meta+T liga e desliga o filtro e-ink; Ctrl+Meta+Y só na janela ativa.",
 	"Fotos e vídeos ficam com cor: o filtro e-ink sai sozinho dessas janelas.",
 	"lume tema animacao esmaecer troca o refresh de e-ink por um esmaecer suave.",
+	"lume tema escuro passa para o Papel noite, o tema escuro; lume tema claro volta.",
 	"Programas do Windows de 32 bits também abrem: o LumeBSD baixa o que falta na primeira vez.",
 	"Um .dmg do Mac? Dois cliques mostram o que usar no lugar.",
 	"Apagou sem querer? lume tempo recuperar ARQUIVO traz de volta.",
@@ -397,7 +398,8 @@ usage(void)
 	fprintf(stderr,
 	    "uso: lume [farol | dica | versao]\n"
 	    "     lume configurar | hardware | wifi | desktop | instalar\n"
-	    "     lume tema [papel | padrao | tinta [liga | desliga | 0-100] |\n"
+	    "     lume tema [papel [noite] | escuro | claro | padrao |\n"
+	    "                tinta [liga | desliga | 0-100] |\n"
 	    "                animacao [refresh | esmaecer | nenhuma]]\n"
 	    "     lume video [testar | auto | nvidia | intel | amd | scfb]\n"
 	    "     lume atualizar [verificar | aplicar | estado | voltar]\n"

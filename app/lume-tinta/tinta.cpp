@@ -27,7 +27,12 @@
 // Atalhos: Ctrl+Meta+T liga e desliga o filtro na tela inteira; Ctrl+Meta+Y
 // tira ou põe o filtro só na janela ativa. Configuração em kwinrc, grupo
 // [Effect-lume_tinta]: Intensidade (0-100), Excecoes (classes de janela),
-// Grao (0-100), Viscosidade (ms; 0 desliga).
+// Grao (0-100), Viscosidade (ms; 0 desliga), Noite (auto, sim ou nao).
+//
+// Noite: com um esquema de cores escuro (o tema Papel noite), o papel e a
+// tinta trocam de tom: a tinta fica mais funda e o papel menos claro, para
+// não ofuscar no escuro. No automático, o filtro segue o fundo das janelas do
+// esquema do KDE e troca na hora em que o esquema muda.
 //
 // Sem moc: nenhuma classe daqui declara sinais ou slots (as conexões são
 // lambdas), e os metadados do plugin vêm de metadata.json, convertidos para
@@ -45,6 +50,7 @@
 #include "opengl/gltexture.h"
 
 #include <KConfigGroup>
+#include <KConfigWatcher>
 #include <KGlobalAccel>
 #include <KSharedConfig>
 #include <QAction>
@@ -205,6 +211,7 @@ private:
     void atualizar(EffectWindow *w);
     void atualizarTodas();
     void observar(EffectWindow *w);
+    void cores();
 #ifdef LUME_KWIN_X11
     bool viscosa() const;
 
@@ -227,6 +234,8 @@ private:
 
     std::unique_ptr<GLShader> m_shader;
     std::unique_ptr<GLShader> m_mistura;
+    KConfigWatcher::Ptr m_kdeglobals; // o esquema de cores (Papel ou Papel noite)
+    bool m_noite = false;
     float m_grao = 0.4f;
     int m_viscosidade = 35; // ms (a constante de tempo do decaimento)
     bool m_iniciado = false;
@@ -279,6 +288,15 @@ Tinta::Tinta()
         m_tingidas.remove(w);
     });
 
+    // Trocou o esquema de cores (Configurações do Sistema, lume tema escuro):
+    // o papel e a tinta acompanham.
+    m_kdeglobals = KConfigWatcher::create(KSharedConfig::openConfig(QStringLiteral("kdeglobals")));
+    connect(m_kdeglobals.data(), &KConfigWatcher::configChanged, this, [this](const KConfigGroup &grupo) {
+        if (grupo.name().startsWith(QLatin1String("Colors:")) || grupo.name() == QLatin1String("General")) {
+            reconfigure(ReconfigureAll);
+        }
+    });
+
     reconfigure(ReconfigureAll);
     const auto janelas = effects->stackingOrder();
     for (EffectWindow *w : janelas) {
@@ -306,10 +324,31 @@ void Tinta::reconfigure(ReconfigureFlags)
     m_excecoes << g.readEntry("Excecoes", QStringList());
     m_grao = qBound(0, g.readEntry("Grao", 40), 100) / 100.0f;
     m_viscosidade = qBound(0, g.readEntry("Viscosidade", 35), 500);
+    const QString noite = g.readEntry("Noite", QStringLiteral("auto")).toLower();
+    if (noite == QLatin1String("sim") || noite == QLatin1String("true")) {
+        m_noite = true;
+    } else if (noite == QLatin1String("nao") || noite == QLatin1String("não") || noite == QLatin1String("false")) {
+        m_noite = false;
+    } else {
+        // Automático: o fundo das janelas do esquema de cores é escuro?
+        KSharedConfig::Ptr kg = KSharedConfig::openConfig(QStringLiteral("kdeglobals"));
+        kg->reparseConfiguration();
+        // "r,g,b" (lido como texto: QColor no KConfig pediria o KConfigGui).
+        const QStringList rgb = KConfigGroup(kg, QStringLiteral("Colors:Window"))
+                                    .readEntry("BackgroundNormal", QStringLiteral("244,242,236"))
+                                    .split(QLatin1Char(','));
+        if (rgb.size() >= 3) {
+            const int luz = (rgb[0].trimmed().toInt() * 299 + rgb[1].trimmed().toInt() * 587 + rgb[2].trimmed().toInt() * 114) / 1000;
+            m_noite = luz < 128;
+        } else {
+            m_noite = false;
+        }
+    }
     if (m_shader) {
         ShaderManager::instance()->pushShader(m_shader.get());
         m_shader->setUniform("intensidade", m_intensidade);
         m_shader->setUniform("grao", m_grao);
+        cores();
         ShaderManager::instance()->popShader();
     }
 #ifdef LUME_KWIN_X11
@@ -322,6 +361,20 @@ void Tinta::reconfigure(ReconfigureFlags)
     }
 }
 
+// Com o shader já empilhado: o papel e a tinta de dia ou de noite.
+void Tinta::cores()
+{
+    if (m_noite) {
+        // Papel noite: o papel claro um pouco apagado, a tinta mais funda.
+        m_shader->setUniform("papel", QVector3D(214 / 255.0f, 209 / 255.0f, 198 / 255.0f));
+        m_shader->setUniform("tinta", QVector3D(22 / 255.0f, 21 / 255.0f, 19 / 255.0f));
+    } else {
+        // O papel e a tinta do tema Papel, um pouco mais quentes.
+        m_shader->setUniform("papel", QVector3D(240 / 255.0f, 236 / 255.0f, 226 / 255.0f));
+        m_shader->setUniform("tinta", QVector3D(28 / 255.0f, 27 / 255.0f, 25 / 255.0f));
+    }
+}
+
 bool Tinta::carregar()
 {
     m_iniciado = true;
@@ -331,9 +384,7 @@ bool Tinta::carregar()
         return false;
     }
     ShaderManager::instance()->pushShader(m_shader.get());
-    // O papel e a tinta do tema Papel, um pouco mais quentes.
-    m_shader->setUniform("papel", QVector3D(240 / 255.0f, 236 / 255.0f, 226 / 255.0f));
-    m_shader->setUniform("tinta", QVector3D(28 / 255.0f, 27 / 255.0f, 25 / 255.0f));
+    cores();
     m_shader->setUniform("intensidade", m_intensidade);
     m_shader->setUniform("grao", m_grao);
     ShaderManager::instance()->popShader();

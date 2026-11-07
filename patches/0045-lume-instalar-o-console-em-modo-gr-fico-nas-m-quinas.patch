@@ -1,0 +1,30 @@
+From 228b430643e62aba04ad8d7f881b7b58e191cdb3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 6 Nov 2026 22:34:08 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20instalar:=20o=20console=20em=20modo=20gr?=
+ =?UTF-8?q?=C3=A1fico=20nas=20m=C3=A1quinas=20virtuais=20com=20BIOS?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Numa máquina virtual com BIOS, o vt usa o modo texto do VGA, cuja fonte
+não tem ã nem õ: "não" aparecia como "n?o", no assistente inclusive.
+hw.vga.textmode=0 deixa o modo gráfico, com a fonte inteira.
+---
+ usr.sbin/lume-configurar/lume-instalar.sh | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index c96513ea8..f63ae1c73 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -298,6 +298,9 @@ else
+ 	# mensagens do boot e o assistente iriam para ela.
+ 	printf '# A tela é o console principal, mesmo com porta serial (máquinas virtuais)\nboot_serial="NO"\n' >> "$ALVO/boot/loader.conf"
+ fi
++# Numa máquina virtual em BIOS, o console usaria o modo texto do VGA, cuja
++# fonte não tem ã nem õ ("n?o"); o modo gráfico tem a fonte inteira.
++printf 'hw.vga.textmode="0"\n' >> "$ALVO/boot/loader.conf"
+ # Programas que caem não deixam arquivos .core na pasta do usuário;
+ # só os do root vão para /var/crash.
+ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
