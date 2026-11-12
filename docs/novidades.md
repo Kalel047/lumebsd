@@ -1,3 +1,35 @@
+# LumeBSD 2.0 "Farol"
+
+Sobre o FreeBSD 15.1. O primeiro update grande: uma cara própria, janelas em abas como no BeOS, atributos nos arquivos, o Wi-Fi sem Python e as ferramentas de construção em Rust.
+
+## A cara do LumeBSD
+
+- **O farol em todo lugar**: no carregador de boot, na tela de abertura da sessão, na tela de login, no botão do menu, em Configurações › Sobre este sistema e no menu de ajuda. Nenhum logo do KDE à vista.
+- **Decoração de janelas Papel**: a barra de título fina, de papel e tinta, com o fechar à esquerda.
+- O papel de parede novo, da 2.0.
+
+## Abas e janelas empilhadas, como no BeOS
+
+- **Ctrl+Meta+E** empilha a janela ativa com a anterior: as duas ficam no mesmo lugar, com uma aba para cada uma na barra de título. Clicar na aba troca de janela.
+- **Ctrl+Meta+PgDn** e **Ctrl+Meta+PgUp** passam de aba em aba; **Ctrl+Meta+Shift+E** separa a janela da pilha.
+- Ao trocar de aba, a janela aparece no lugar e no tamanho da anterior (maximizada, se ela estava); as outras da pilha ficam guardadas.
+
+## Atributos nos arquivos
+
+- Como no BeOS, um arquivo carrega atributos gravados nele mesmo: **etiquetas**, **nota** (de 0 a 5 estrelas), **comentário**, **origem** e os seus (autor, cliente, projeto...). Vão junto quando o arquivo é copiado, movido ou guardado na máquina do tempo.
+- No Dolphin, botão direito › **Atributos…** mostra e edita, também em vários arquivos de uma vez. O Dolphin mostra as mesmas etiquetas, nota e comentário no painel de informações (F11).
+- **Procurar por atributos** (no menu, ou botão direito numa pasta): `etiquetas=trabalho nota>=4 cliente~acme`. A procura salva vira um arquivo `.consulta`, como no BeOS: dois cliques nele procuram de novo.
+- No terminal: `lume atributo contrato.pdf etiquetas+=trabalho nota=4` e `lume atributo procurar etiquetas=trabalho`.
+
+## Wi-Fi sem Python
+
+- Um ícone de rede nosso, na bandeja, no lugar do networkmgr: o cabo e o Wi-Fi, as redes por perto com o sinal, conectar com a senha (também WPA3) e esquecer uma rede. Não pede a senha do administrador para conectar.
+
+## Por dentro
+
+- **O lume-motor é uma biblioteca** (`liblume-motor`, com os cabeçalhos em `/usr/include/lume`), para outros programas desenharem com ele. O papel do motor e o do filtro e-ink saem das mesmas contas: são o mesmo papel.
+- **As ferramentas de construção em Rust**: o pendrive, a .iso, o pacote de atualização e a compilação dos apps saem de um programa só, `lume-montar`, no lugar dos scripts em Python.
+
 # LumeBSD 1.5.1 "Farol"
 
 Sobre o FreeBSD 15.1. O tema escuro, e máquinas virtuais e computadores com BIOS.

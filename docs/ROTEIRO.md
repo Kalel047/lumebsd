@@ -10,9 +10,14 @@ A lista de Kalel para o primeiro update grande, e as decisões tomadas
 | **Identidade visual própria** | o farol do LumeBSD no carregador de boot, no splash, no SDDM, na tela de bloqueio, no botão do menu e em "Sobre o sistema"; nenhum logo do KDE à vista |
 | **Wi-Fi sem Python** | um app nosso em C++/Qt na bandeja, no lugar do networkmgr (a única peça visível em Python ao nosso alcance) |
 | **Abas e empilhamento de janelas** | como no BeOS e no Haiku (lá ficam no servidor de janelas, o app_server, não no kernel); aqui, fase 1, como plugin do KWin |
-| **Atributos de arquivo na interface** | como no BFS: atributos estendidos no ZFS (`extattr`), um indexador nosso em C para as buscas ao vivo, colunas e edição no Dolphin, pastas de busca salvas |
-| **lume-motor e lume-tinta juntos** | o motor vira biblioteca (papel, fibras, tinta) e o filtro do KWin a usa |
-| **Ferramentas de build sem Python** | `ferramentas/*.py` reescritas em C ou Rust |
+| **Atributos de arquivo na interface** | como no BFS: atributos estendidos no ZFS e no UFS (`extattr`), com os nomes do KDE (o Dolphin mostra as etiquetas, a nota e o comentário); `lume atributo` em C para ler, gravar e procurar; a janela de atributos no botão direito do Dolphin; consultas salvas em arquivos `.consulta`, que procuram de novo com dois cliques |
+| **lume-motor e lume-tinta juntos** | o motor vira biblioteca (`liblume-motor`, `/usr/include/lume`); as contas do papel (`papel.glsl`) e as cores (`papel.h`) são uma fonte só para o motor e o filtro do KWin |
+| **Ferramentas de build sem Python** | `ferramentas/*.py` reescritas em Rust: um programa, `lume-montar`, com subcomandos (`ferramentas/montar`) |
+
+Situação (novembro de 2026): os seis itens feitos no ramo `versao-2.0`. A
+procura por atributos percorre a pasta direto no disco; um índice vivo (com
+o kqueue, como as consultas ao vivo do BeOS) fica para o 2.x, junto com o
+compositor próprio.
 
 Sobre o Python: o sistema do LumeBSD (os comandos `lume`, o rc, os apps) não
 usa Python. Ele chega à máquina como dependência de pacotes de terceiros (o
