@@ -36,7 +36,7 @@
 //
 // Sem moc: nenhuma classe daqui declara sinais ou slots (as conexões são
 // lambdas), e os metadados do plugin vêm de metadata.json, convertidos para
-// CBOR pelo ferramentas/montar-efeitos.py (o que o moc faria). Assim compila
+// CBOR pelo lume-montar (ferramentas/montar efeitos; o que o moc faria). Assim compila
 // com o clang de fora do FreeBSD contra os cabeçalhos dos pacotes.
 
 #include "effect/effecthandler.h"
@@ -59,7 +59,7 @@
 #include <QSet>
 #include <QVector3D>
 
-// O papel do LumeBSD: as contas (papel.glsl, embutido pelo montar-efeitos.py
+// O papel do LumeBSD: as contas (papel.glsl, embutido pelo lume-montar
 // em papel_glsl.inc) e as cores (papel.h), as mesmas do lume-motor.
 #include "papel.h"
 #include "papel_glsl.inc"
@@ -627,6 +627,6 @@ public:
 } // namespace KWin
 
 // Os metadados do plugin (IID, classe e o metadata.json em CBOR), gerados
-// pelo montar-efeitos.py no lugar do moc.
+// pelo lume-montar no lugar do moc.
 #include "metadados.inc"
 QT_MOC_EXPORT_PLUGIN_V2(KWin::TintaFabrica, TintaFabrica, qt_pluginMetaDataV2_TintaFabrica)

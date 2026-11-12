@@ -233,6 +233,8 @@ pub fn main(args: &[String]) {
     g("layout-noite.js", l("layout.js")
         .replace("(tema Papel)", "(tema Papel noite)")
         .replace("wallpapers/LumePapel/", "wallpapers/LumePapelNoite/"));
-    g("defaults-noite", nomes(&l("defaults")).replace("Image=LumePapel\n", "Image=LumePapelNoite\n"));
+    g("defaults-noite", nomes(&l("defaults"))
+        .replace("Image=LumePapel\n", "Image=LumePapelNoite\n")
+        .replace("[KSplash]\nTheme=org.lumebsd.papel\n", "[KSplash]\nTheme=org.lumebsd.papel-noite\n"));
     println!("tema-noite: PapelNoite.colors, kdeglobals-noite, Konsole, GTK e o tema global gerados");
 }

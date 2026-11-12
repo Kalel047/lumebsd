@@ -16,7 +16,7 @@
 // decoração pergunta a este controlador o que desenhar (abas.h).
 //
 // Sem moc: como o lume_tinta, só sinais ligados a lambdas e os metadados
-// gerados pelo montar-efeitos.py.
+// gerados pelo lume-montar (ferramentas/montar efeitos).
 
 #include "abas.h"
 

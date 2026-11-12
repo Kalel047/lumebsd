@@ -25,7 +25,7 @@
 #include <GLES3/gl31.h>
 
 #include "motor.h"
-/* As contas do papel (papel.glsl), embutidas pelo montar-motor.py. */
+/* As contas do papel (papel.glsl), embutidas pelo lume-montar (ferramentas/montar motor). */
 #include "papel_glsl.inc"
 
 static char erro[512];

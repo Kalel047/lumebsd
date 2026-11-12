@@ -557,7 +557,10 @@ nos snapshots e no `zfs send`. Os nomes conhecidos são os do KDE
 (KFileMetaData), para o Dolphin mostrar os mesmos valores: `xdg.tags`
 (as etiquetas, separadas por vírgula), `xdg.comment`, `baloo.rating` (de 0
 a 10; o `lume atributo` mostra em estrelas) e `xdg.origin.url`. Os outros
-ficam como `lume.<nome>`.
+ficam como `lume.<nome>`. O painel de informações do Dolphin (F11) lê e
+edita as etiquetas, a nota e o comentário direto do arquivo; na lista, a
+coluna da nota também. As colunas de etiquetas e de comentário da lista
+ficam vazias com o Baloo desligado (testado no Dolphin 26.08).
 
 - `lume atributo` (`usr.bin/lume-atributo`, C) lê, grava e procura. A
   procura percorre a pasta com o `fts`, sem entrar nas ocultas, e lê os

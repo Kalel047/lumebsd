@@ -209,6 +209,7 @@ integrar()
 		instalar $T/PapelNoite.colorscheme $P/share/konsole/PapelNoite.colorscheme
 		instalar $T/PapelNoite.profile $P/share/konsole/PapelNoite.profile
 		instalar $T/metadata-noite.json $LNF_NOITE/metadata.json
+		instalar $T/defaults $LNF/contents/defaults
 		instalar $T/defaults-noite $LNF_NOITE/contents/defaults
 		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
 		instalar $T/papel-noite.png $LNF_NOITE/contents/previews/preview.png
@@ -221,6 +222,24 @@ integrar()
 		instalar $T/layout.js $LNF/contents/layouts/org.kde.plasma.desktop-layout.js
 		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
 		marca >/dev/null
+		# Quem usa o Papel ou o Papel noite: os padrões do tema global que o
+		# Plasma copiou para ~/.config/kdedefaults (os de antes da 2.0 diziam a
+		# decoração Breeze e nenhum splash) passam à decoração Papel e ao splash
+		# do farol. (sobrescreve o conteúdo, sem recriar o arquivo: ele
+		# continua do usuário)
+		for d in /home/*/.config/kdedefaults; do
+			grep -qs '^ColorScheme=Papel' "$d/kdeglobals" || continue
+			noite=; grep -qs '^ColorScheme=PapelNoite' "$d/kdeglobals" && noite=-noite
+			for rc in "$d/kwinrc" "$d/ksplashrc"; do
+				[ -f "$rc" ] || continue
+				tmp=$(mktemp)
+				sed -e 's/^library=org\.kde\.breeze$/library=org.lumebsd.papel/' \
+				    -e 's/^theme=Breeze$/theme=Papel/' \
+				    -e "s/^Theme=None\$/Theme=org.lumebsd.papel$noite/" "$rc" > "$tmp" &&
+				    cat "$tmp" > "$rc"
+				rm -f "$tmp"
+			done
+		done
 		# (sobrescreve o conteúdo, sem recriar o arquivo: ele continua do usuário)
 		for rc in /home/*/.config/plasma-org.kde.plasma.desktop-appletsrc; do
 			[ -f "$rc" ] && grep -q '^icon=start-here-kde\(-plasma\)\{0,1\}-symbolic$' "$rc" || continue

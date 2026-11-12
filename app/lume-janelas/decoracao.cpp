@@ -15,7 +15,7 @@
 //
 // Sem moc: a classe não declara sinais nem slots novos; o plugin é um
 // KPluginFactory com a resposta ao qobject_cast escrita à mão e os
-// metadados gerados pelo montar-efeitos.py.
+// metadados gerados pelo lume-montar (ferramentas/montar efeitos).
 
 #include "abas.h"
 
@@ -145,6 +145,7 @@ private:
         Aba aba;
     };
     QList<Pedaco> pedacos() const;
+    void posicionar(const QList<Pedaco> &lista);
     qreal altura() const { return m_altura; }
 
     KDecoration3::DecorationButtonGroup *m_esquerda = nullptr;
@@ -172,16 +173,29 @@ void Papel::medir()
     for (auto *b : m_direita->buttons()) {
         b->setGeometry(QRectF(0, 0, lado, lado));
     }
-    // A aba desta janela: onde os botões ficam.
+    posicionar(pedacos());
+    update();
+}
+
+// Os botões dentro da aba desta janela: o fechar no começo, o minimizar e o
+// maximizar no fim. A aba muda de lugar quando a janela entra ou sai de um
+// grupo, então isto roda também a cada desenho (só mexe se mudou).
+void Papel::posicionar(const QList<Pedaco> &lista)
+{
     QRectF minha;
-    for (const Pedaco &pd : pedacos()) {
+    for (const Pedaco &pd : lista) {
         if (pd.aba.daJanela) {
             minha = pd.r;
         }
     }
-    m_esquerda->setPos(minha.topLeft());
-    m_direita->setPos(QPointF(minha.right() - 2 * lado, 0));
-    update();
+    const QPointF esquerda = minha.topLeft();
+    const QPointF direita(minha.right() - 2 * m_altura, 0);
+    if (m_esquerda->pos() != esquerda) {
+        m_esquerda->setPos(esquerda);
+    }
+    if (m_direita->pos() != direita) {
+        m_direita->setPos(direita);
+    }
 }
 
 // As abas: sozinha, uma do tamanho do título; num grupo, uma por janela,
@@ -248,9 +262,10 @@ void Papel::paint(QPainter *p, const QRectF &)
         p->fillRect(QRectF(0, m_altura - fio, tudo.width(), fio), ativa ? tinta : tintaFraca);
     }
 
-    // As abas.
+    // As abas (e os botões na aba desta janela, que pode ter mudado de lugar).
     QFont fonte = settings()->font();
     const auto lista = pedacos();
+    posicionar(lista);
     for (const Pedaco &pd : lista) {
         const bool frente = pd.aba.daJanela;  // a desta janela fica ligada ao corpo
         const QRectF r = pd.r.adjusted(0, 0, -fio, 0);
