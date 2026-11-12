@@ -154,5 +154,5 @@ filtro e-ink do KWin (lume-tinta): o papel da tela e o do filtro são o mesmo.
 | `app/lume-motor/motor.c` | os shaders e o pipeline (GLES 3.1) |
 | `app/lume-motor/saida.c` | DRM/KMS (GBM, EGL, page flip) e sem tela (PNG) |
 | `app/lume-motor/demo.c` | a demonstração (`lume-motor`) |
-| `ferramentas/montar-motor.py` | compila para o FreeBSD e põe no sistema |
+| `ferramentas/montar motor` | compila para o FreeBSD e põe no sistema |
 | `app/lume-tinta/tinta.cpp` | o filtro do KWin, com grão e viscosidade |

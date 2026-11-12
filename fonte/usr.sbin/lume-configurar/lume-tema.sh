@@ -223,9 +223,9 @@ integrar()
 		marca >/dev/null
 		# (sobrescreve o conteúdo, sem recriar o arquivo: ele continua do usuário)
 		for rc in /home/*/.config/plasma-org.kde.plasma.desktop-appletsrc; do
-			[ -f "$rc" ] && grep -q '^icon=start-here-kde-symbolic$' "$rc" || continue
+			[ -f "$rc" ] && grep -q '^icon=start-here-kde\(-plasma\)\{0,1\}-symbolic$' "$rc" || continue
 			tmp=$(mktemp)
-			sed -e 's/^icon=start-here-kde-symbolic$/icon=start-here-lume-symbolic/' "$rc" > "$tmp" &&
+			sed -e 's/^icon=start-here-kde\(-plasma\)\{0,1\}-symbolic$/icon=start-here-lume-symbolic/' "$rc" > "$tmp" &&
 			    cat "$tmp" > "$rc"
 			rm -f "$tmp"
 		done
@@ -471,19 +471,32 @@ marca()
 	    gtk-update-icon-cache -q -f "$hi" 2>/dev/null
 	for tema in "$ICONES" "$ICONES_NOITE"; do
 		[ -d "$tema" ] || continue
-		find "$tema" -type f \( -name 'start-here*.svg' -o -name 'kde.svg' \
-		    -o -name 'kde-symbolic.svg' -o -name 'plasma.svg' \
+		# Muitos são links (o start-here-kde-plasma-symbolic, o botão do
+		# menu do Plasma 6, aponta para outro): troca o link pelo arquivo,
+		# sem escrever no alvo.
+		find "$tema" \( -type f -o -type l \) \( -name 'start-here*.svg' \
+		    -o -name 'kde.svg' -o -name 'kde-symbolic.svg' -o -name 'plasma.svg' \
 		    -o -name 'plasma-symbolic.svg' -o -name 'distributor-logo*.svg' \) |
 		while read -r f; do
-			# Os pequenos (até 22) e os simbólicos: o farol em silhueta.
+			rm -f "$f"
+			# Os pequenos (até 24) e os simbólicos: o farol em silhueta.
 			case "$f" in
 			*-symbolic.svg|*/16/*|*/22/*|*/24/*)	cp $M/lumebsd-symbolic.svg "$f" ;;
 			*)	cp $M/lumebsd.svg "$f" ;;
 			esac
 		done
-		mkdir -p "$tema/apps/scalable" "$tema/apps/symbolic"
-		cp $M/lumebsd.svg "$tema/apps/scalable/start-here-lume.svg"
-		cp $M/lumebsd-symbolic.svg "$tema/apps/symbolic/start-here-lume-symbolic.svg"
+		# O start-here-lume nas pastas que o tema lista (places/N).
+		for d in "$tema"/places/*; do
+			[ -d "$d" ] || continue
+			case "$d" in
+			*/16|*/22|*/24)	cp $M/lumebsd-symbolic.svg "$d/start-here-lume-symbolic.svg"
+					cp $M/lumebsd-symbolic.svg "$d/start-here-lume.svg" ;;
+			*@*)	;;
+			*)	cp $M/lumebsd.svg "$d/start-here-lume.svg"
+				cp $M/lumebsd-symbolic.svg "$d/start-here-lume-symbolic.svg" ;;
+			esac
+		done
+		rm -rf "$tema/apps/scalable" "$tema/apps/symbolic"
 		command -v gtk-update-icon-cache >/dev/null &&
 		    gtk-update-icon-cache -q -f "$tema" 2>/dev/null
 	done

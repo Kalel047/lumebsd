@@ -377,7 +377,7 @@ O desktop vem com um visual próprio inspirado nas telas de e-ink
   GTK, os apps do LumeBSD e o filtro e-ink acompanham. `lume tema escuro` e
   `lume tema claro` trocam na hora para quem roda; `lume tema papel noite`
   (root) faz do escuro o padrão. Os arquivos são gerados do Papel por
-  `ferramentas/tema-noite.py`;
+  `ferramentas/montar tema-noite`;
 - Konsole, SDDM (tela de login), tela de bloqueio, GTK e splash seguem o
   mesmo tema.
 
@@ -470,14 +470,15 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
 app/                   os apps Atualizações e Programas do LumeBSD (Qt 6), os
                        efeitos do KWin (o filtro e-ink e as animações) e o
                        lume-motor, fora da árvore do FreeBSD;
-                       ferramentas/montar-*.py os compilam
+                       o ferramentas/montar os compila
 mac/                   lume-macho (programas do macOS) e o programa de teste
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
                        (forja, lume, vigia, lume-configurar, rc.d, tema...)
 conf/                  src.conf (userland) e LUME (kernel)
 build-lumebsd.sh       do FreeBSD fixado até a imagem do pendrive
-ferramentas/           pacotes.py, montar-pendrive.py, fonte.py,
-                       papel-de-parede.py, conferir-catalogo.py (a loja)
+ferramentas/           lume-montar (Rust): o pendrive, a atualização, os
+                       pacotes, os apps, fonte/, o tema e a loja; rode com
+                       ferramentas/montar SUBCOMANDO
 tests/                 testes no QEMU pelo console serial
 docs/ARQUITETURA.md    como tudo funciona por dentro
 docs/                  sessões reais e capturas de tela
@@ -487,7 +488,7 @@ docs/                  sessões reais e capturas de tela
 Para mudar o código: edite a árvore do FreeBSD com os patches aplicados,
 faça commit, gere os patches de novo
 (`git format-patch -N --no-signature <commit fixado>..HEAD -o patches/`) e rode
-`python3 ferramentas/fonte.py gerar src`. O CI recusa `fonte/` diferente dos
+`ferramentas/montar fonte gerar src`. O CI recusa `fonte/` diferente dos
 patches.
 
 ## Construindo

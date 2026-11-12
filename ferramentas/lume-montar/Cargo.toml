@@ -1,0 +1,23 @@
+[package]
+name = "lume-montar"
+version = "2.0.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "As ferramentas de construção do LumeBSD (o pendrive, a atualização, os apps)"
+publish = false
+
+[dependencies]
+blake2 = "0.10"
+flate2 = "1"
+indexmap = "2"
+regex = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+tempfile = "3"
+tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }
+png = "0.17"
+ttf-parser = "0.25"
+
+[profile.release]
+opt-level = 2
+strip = true

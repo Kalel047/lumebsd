@@ -1,0 +1,7 @@
+#!/bin/sh
+# As ferramentas de construção do LumeBSD (ferramentas/lume-montar, em
+# Rust): compila na primeira vez (ou quando o código muda) e roda.
+#   ferramentas/montar SUBCOMANDO [argumentos]    (sem argumentos: a lista)
+D=$(cd "$(dirname "$0")/lume-montar" && pwd) || exit 1
+cargo build -q --release --locked --manifest-path "$D/Cargo.toml" || exit 1
+exec "$D/target/release/lume-montar" "$@"

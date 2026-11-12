@@ -1,11 +1,13 @@
 #!/bin/sh
-# Constrói o pendrive do LumeBSD 1.4 "Farol" (ao vivo + instalador) a partir
-# do código-fonte do FreeBSD 15.1.
+# Constrói o pendrive do LumeBSD "Farol" (ao vivo + instalador) a partir do
+# código-fonte do FreeBSD 15.1.
 # Roda em Linux (cross-build com LLVM) ou FreeBSD. Uso: sh build-lumebsd.sh
 #
-# Precisa de: git, python3, bsdtar (libarchive-tools); no Linux também
-# clang/lld/llvm 19 (o mesmo LLVM do FreeBSD 15.1), libarchive-dev,
-# libbz2-dev, zlib1g-dev, bison, flex e time. Veja docs/ARQUITETURA.md.
+# Precisa de: git, cargo (Rust: as ferramentas, ferramentas/montar), curl e
+# bsdtar (libarchive-tools); no Linux também python3 (o tools/build/make.py
+# do FreeBSD), clang/lld/llvm 19 (o mesmo LLVM do FreeBSD 15.1),
+# libarchive-dev, libbz2-dev, zlib1g-dev, bison, flex e time. Veja
+# docs/ARQUITETURA.md.
 set -e
 
 TOP=$(cd "$(dirname "$0")" && pwd)
@@ -61,7 +63,7 @@ mk -DNO_ROOT DESTDIR="$STAGE" installworld distribution installkernel
 
 # 4. Pacotes que vão no pendrive: gerenciador de pacotes, vídeo Intel, AMD e
 #    NVIDIA, firmwares de vídeo e Wi-Fi e microcódigo da CPU (Intel e AMD)
-python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
+"$TOP/ferramentas/montar" pacotes "$PACOTES" pkg drm-612-kmod nvidia-kmod \
     'gpu-firmware-intel-kmod-*' 'gpu-firmware-amd-kmod-*' \
     'gpu-firmware-radeon-kmod-*' wifi-firmware-iwlwifi-kmod \
     cpu-microcode-intel cpu-microcode-amd
@@ -69,25 +71,25 @@ python3 "$TOP/ferramentas/pacotes.py" "$PACOTES" pkg drm-612-kmod nvidia-kmod \
 # 4b. Os apps (Atualizações e Programas do LumeBSD, Qt 6) e os efeitos do
 #     KWin (o filtro e-ink e as animações), compilados contra os pacotes do
 #     FreeBSD; o Qt e o KWin em si vêm com o desktop, não no pendrive
-python3 "$TOP/ferramentas/pacotes.py" --sem-dependencias "$TOP/qt" qt6-base \
+"$TOP/ferramentas/montar" pacotes --sem-dependencias "$TOP/qt" qt6-base \
     kf6-kcoreaddons kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 \
     libepoxy libxcb xorgproto libdrm wayland libxkbcommon libglvnd mesa-libs \
     freetype2 png plasma6-kdecoration kf6-kwindowsystem
-python3 "$TOP/ferramentas/montar-app.py" "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]*.pkg | head -1)"
-python3 "$TOP/ferramentas/montar-efeitos.py" "$STAGE" "$TOP/qt"
+"$TOP/ferramentas/montar" app "$STAGE" "$(ls "$TOP"/qt/qt6-base-[0-9]*.pkg | head -1)"
+"$TOP/ferramentas/montar" efeitos "$STAGE" "$TOP/qt"
 # O lume-motor (app/lume-motor): o motor de renderização vetorial
-python3 "$TOP/ferramentas/montar-motor.py" "$STAGE" "$TOP/qt"
+"$TOP/ferramentas/montar" motor "$STAGE" "$TOP/qt"
 # O lume-macho (mac/): programas do macOS, experimental
-python3 "$TOP/ferramentas/montar-mac.py" "$STAGE"
+"$TOP/ferramentas/montar" mac "$STAGE"
 
 # 5. Imagem do pendrive (UEFI e BIOS) e a .iso (DVD, máquina virtual ou
 #    pendrive; UEFI e BIOS)
-python3 "$TOP/ferramentas/montar-pendrive.py" --iso "$ISO" "$STAGE" "$PACOTES" \
+"$TOP/ferramentas/montar" pendrive --iso "$ISO" "$STAGE" "$PACOTES" \
     "$OBJ$SRC/amd64.amd64/tmp/legacy/bin" "$IMG" "$VERSAO"
 
 # 6. Pacote de atualização (lume atualizar): o sistema base inteiro e o índice
 #    e as novidades que o app mostra
-python3 "$TOP/ferramentas/montar-atualizacao.py" "$STAGE" "$VERSAO" "$ATUALIZACAO" \
+"$TOP/ferramentas/montar" atualizacao "$STAGE" "$VERSAO" "$ATUALIZACAO" \
     --notas "$TOP/docs/novidades.md"
 
 echo

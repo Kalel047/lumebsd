@@ -50,10 +50,10 @@ A arquitetura inteira está em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
    ```sh
    git -C SRC format-patch -N --no-signature --start-number NN COMMIT~1..COMMIT -o patches/
-   python3 ferramentas/fonte.py gerar SRC
+   ferramentas/montar fonte gerar SRC
    ```
 
-4. Confira: `python3 ferramentas/fonte.py conferir SRC` não acusa diferença.
+4. Confira: `ferramentas/montar fonte conferir SRC` não acusa diferença.
 
 Para mudanças pequenas num script, editar a cópia em `fonte/` ajuda a
 mostrar a ideia num pull request; quem mantém o projeto transforma em patch.
@@ -64,7 +64,7 @@ O tema Papel fica em `usr.sbin/lume-configurar/tema`. O Papel noite (escuro)
 é gerado dele: depois de mudar uma cor do Papel, rode
 
 ```sh
-python3 ferramentas/tema-noite.py SRC/usr.sbin/lume-configurar/tema
+ferramentas/montar tema-noite SRC/usr.sbin/lume-configurar/tema
 ```
 
 e ponha a cor nova e a sua par escura no `MAPA` do script, se ele reclamar.
@@ -76,7 +76,7 @@ O catálogo da loja é `usr.sbin/lume-configurar/loja/catalogo`, uma linha por
 programa (o formato está no começo do arquivo). Antes de mandar:
 
 ```sh
-python3 ferramentas/conferir-catalogo.py fonte/usr.sbin/lume-configurar/loja/catalogo
+ferramentas/montar catalogo fonte/usr.sbin/lume-configurar/loja/catalogo
 ```
 
 Ele confere que cada pacote existe no repositório quarterly do FreeBSD 15 e
@@ -87,7 +87,7 @@ pessoas daquela área usa; o resto fica na loja.
 
 - **Rápido** (o mesmo que o CI roda a cada push): `shellcheck -s sh -S error`
   nos scripts, `mandoc -T lint` nos manuais, `conferir-catalogo.py` e
-  `fonte.py conferir`.
+  `montar fonte conferir`.
 - **Completo**: `./build-lumebsd.sh` compila tudo e gera a imagem (horas
   numa máquina de 2 núcleos; dependências no README), e
   `tests/teste-pendrive.py` faz o caminho de um usuário no QEMU. A seção

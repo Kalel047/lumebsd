@@ -18,11 +18,11 @@ encaixam. O README fala do uso; aqui é o "como funciona por dentro".
         │       installworld/distribution/installkernel -DNO_ROOT
         │                     │   (diretório "stage" + METALOG, sem root)
         │                     ▼
-        │       ferramentas/pacotes.py   pacotes essenciais do FreeBSD
+        │       ferramentas/montar pacotes   pacotes essenciais do FreeBSD
         │                     │   (pkg, drm, nvidia-kmod, firmwares,
         │                     │    microcódigo — hash BLAKE2b conferido)
         │                     ▼
-        │       ferramentas/montar-pendrive.py
+        │       ferramentas/montar pendrive
         │                     │   makefs (UFS) + FAT EFI + mkimg (GPT)
         ▼                     ▼
  fonte/ (cópia legível)   LumeBSD-1.2-Farol-pendrive.img
@@ -30,7 +30,7 @@ encaixam. O README fala do uso; aqui é o "como funciona por dentro".
 
 O LumeBSD **não é um fork**: é o FreeBSD 15.1 com uma série de patches. Os
 patches são a fonte de verdade; `fonte/` é a cópia legível dos arquivos que
-eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
+eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 
 ## Onde está cada coisa
 
@@ -42,7 +42,7 @@ eles criam, gerada por `ferramentas/fonte.py` e conferida no CI.
 | `usr.sbin/forja/` | a forja (sh), `forja.conf` e `forja(8)` |
 | `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), pacotes da base nova (`lume_pacotes`), vigia |
 | `app/lume-atualizacoes/`, `app/lume-programas/` (fora da árvore do FreeBSD) | os apps Atualizações e Programas do LumeBSD (Qt 6), os ícones, os atalhos e as políticas do polkit |
-| `app/lume-tinta/`, `app/lume-animacoes/` | os efeitos do KWin: o filtro e-ink (C++) e as animações de abrir e fechar (JavaScript); `ferramentas/montar-efeitos.py` os compila e empacota |
+| `app/lume-tinta/`, `app/lume-animacoes/` | os efeitos do KWin: o filtro e-ink (C++) e as animações de abrir e fechar (JavaScript); `ferramentas/montar efeitos` os compila e empacota |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
 | `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=1.1`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
@@ -62,10 +62,10 @@ listados em [`fonte/LEIAME.md`](../fonte/LEIAME.md).
    compilador cruzado.
 3. **stage**: `installworld distribution installkernel -DNO_ROOT` num
    diretório comum. Sem root, as permissões e donos ficam no `METALOG`.
-4. **pacotes**: `ferramentas/pacotes.py` lê o catálogo do repositório
+4. **pacotes**: `ferramentas/montar pacotes` lê o catálogo do repositório
    trimestral do FreeBSD, resolve dependências, baixa e confere o hash
    (BLAKE2b) de cada pacote.
-5. **imagem**: `ferramentas/montar-pendrive.py` acrescenta ao stage a lista
+5. **imagem**: `ferramentas/montar pendrive` acrescenta ao stage a lista
    do sistema para o instalador (`/usr/share/lume/sistema.mtree`), os
    pacotes (para instalar) e os mesmos pacotes já extraídos (para testar
    ao vivo), e a configuração do modo ao vivo; depois gera o UFS
@@ -175,7 +175,7 @@ tela de login (`sddm_xkb_layout`) e para o KDE (`kxkbrc`).
 
 ### O pacote
 
-`ferramentas/montar-atualizacao.py` gera, a partir do mesmo stage do
+`ferramentas/montar atualizacao` gera, a partir do mesmo stage do
 pendrive, o `LumeBSD-<versão>-sistema.tar.zst`: o sistema base inteiro,
 lido do `METALOG` original (donos, permissões e flags `schg` vão no tar), mais
 `/usr/share/lume/versao` e `/usr/share/lume/sistema.mtree`. Ao lado vai o
@@ -241,7 +241,7 @@ internet (`pkg-static install|upgrade -U -f`). Se falhar, fica
 
 `app/lume-atualizacoes/main.cpp`, Qt 6 Widgets **sem moc** (só sinais do
 Qt ligados a lambdas), para compilar fora do FreeBSD: o
-`ferramentas/montar-app.py` usa o clang 19 com `--target
+`ferramentas/montar app` usa o clang 19 com `--target
 x86_64-unknown-freebsd15.1`, a libc/libc++ do stage e os cabeçalhos e
 bibliotecas do pacote `qt6-base` (baixado só para isso; no sistema o Qt
 vem com o desktop). O binário vai para `/usr/bin/lume-atualizacoes`, com
@@ -389,7 +389,7 @@ office365|web|Microsoft 365|web:https://www.office.com/|geral|Word, Excel, Power
 - **abrir**: um atalho de menu que o LumeBSD põe junto (`loja/atalhos`),
   para pacotes que não trazem um (o JupyterLab).
 
-O CI (`ferramentas/conferir-catalogo.py`, toda semana) confere que cada
+O CI (`ferramentas/montar catalogo`, toda semana) confere que cada
 pacote existe no quarterly do FreeBSD 15 e mostra quanto cada kit baixa,
 descontando o que já vem com o desktop.
 
@@ -535,7 +535,7 @@ processador AMD, o `loader.conf` carrega o `amd-ucode.bin` e o `rc.conf`, o
 
 ## A .iso
 
-`montar-pendrive.py --iso` gera, do mesmo stage, uma `.iso` híbrida: El
+`montar pendrive --iso` gera, do mesmo stage, uma `.iso` híbrida: El
 Torito para BIOS (`cdboot`) e UEFI (um ESP FAT12 de 2 MB, como o do
 FreeBSD), e um GPT na área de sistema (com o `isoboot` e o ESP) para
 gravar num pendrive. A raiz é o cd9660, só de leitura (`root_rw_mount=NO`);

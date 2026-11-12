@@ -1,5 +1,5 @@
 # Esquema de cores do Konsole "Papel noite" (LumeBSD): o Papel à noite.
-# Gerado por ferramentas/tema-noite.py a partir do Papel.
+# Gerado por ferramentas/montar tema-noite a partir do Papel.
 [Background]
 Color=30,29,27
 
