@@ -18,7 +18,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sistema import RAIZ, linhas_do_build  # noqa: E402
+from sistema import RAIZ, embutir_papel, linhas_do_build  # noqa: E402
 
 TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LLVM = os.environ.get("LLVM_BIN", "/usr/lib/llvm-19/bin")
@@ -47,10 +47,13 @@ def compilar(raiz_base, pacotes, saida):
             os.symlink(os.path.join(raiz_base, d), os.path.join(raiz, d))
         os.symlink(local, os.path.join(raiz, "usr/local"))
         inc = os.path.join(local, "include")
+        # As contas do papel (papel.glsl), comuns com o filtro do KWin.
+        gerado = os.path.join(tmp, "gerado")
+        embutir_papel(gerado)
         cmd = [os.path.join(LLVM, "clang"), "--target=x86_64-unknown-freebsd15.1",
                f"--sysroot={raiz}", "-std=c11", "-O2", "-Wall", "-Wextra",
                "-Wno-unused-parameter", "-D_XOPEN_SOURCE=700", "-D__BSD_VISIBLE=1",
-               "-isystem", inc, "-isystem", os.path.join(inc, "libdrm"),
+               "-I", gerado, "-isystem", inc, "-isystem", os.path.join(inc, "libdrm"),
                "-isystem", os.path.join(inc, "freetype2")]
         cmd += [os.path.join(FONTE, a) for a in ARQUIVOS]
         cmd += ["-o", saida, "-fuse-ld=lld", f"-L{local}/lib",

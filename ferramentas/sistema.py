@@ -84,3 +84,22 @@ def com_originais(stage, linhas):
             l += f" contents={motd}"
         saida.append(l)
     return saida
+
+
+def embutir_papel(pasta):
+    """Escreve pasta/papel_glsl.inc: o app/lume-motor/papel.glsl (as contas
+    do papel, comuns ao lume-motor e ao lume-tinta) numa macro de texto,
+    LUME_PAPEL_GLSL, que serve ao C e ao C++."""
+    fonte = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                         "app", "lume-motor", "papel.glsl")
+    linhas = ["/* Gerado de app/lume-motor/papel.glsl; não edite. */",
+              "#define LUME_PAPEL_GLSL \\"]
+    for l in open(fonte, encoding="utf-8").read().splitlines():
+        if l.lstrip().startswith("//") or not l.strip():
+            continue
+        l = l.replace("\\", "\\\\").replace('"', '\\"')
+        linhas.append(f'    "{l}\\n" \\')
+    linhas.append('    ""')
+    os.makedirs(pasta, exist_ok=True)
+    with open(os.path.join(pasta, "papel_glsl.inc"), "w", encoding="utf-8") as f:
+        f.write("\n".join(linhas) + "\n")

@@ -100,9 +100,10 @@ jobs:
           # Os efeitos do KWin (o filtro e-ink, para o X11 e o Wayland)
           python3 ferramentas/pacotes.py --sem-dependencias qt kf6-kcoreaddons \
               kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 libepoxy \
-              libxcb xorgproto libdrm wayland libxkbcommon libglvnd
+              libxcb xorgproto libdrm wayland libxkbcommon libglvnd \
+              plasma6-kdecoration kf6-kwindowsystem
           python3 ferramentas/montar-efeitos.py --so-compilar freebsd qt efeitos
-          file efeitos/*/lume_tinta.so
+          file efeitos/*/lume_*.so efeitos/decoracao/*.so
           # O lume-motor para o FreeBSD
           python3 ferramentas/pacotes.py --sem-dependencias qt mesa-libs freetype2 png
           python3 ferramentas/montar-motor.py --so-compilar freebsd qt lume-motor

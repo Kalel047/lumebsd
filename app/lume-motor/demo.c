@@ -26,6 +26,7 @@
 
 #include <GLES3/gl31.h>
 
+#include "papel.h"
 #include "motor.h"
 #include "saida.h"
 
@@ -198,7 +199,7 @@ main(int argc, char **argv)
 	const char *png = NULL, *drm = "/dev/dri/card0", *arq_fonte = NULL;
 	int w = 1920, h = 1080;
 	double segundos = 8.0, hz = 180.0;
-	motor_opcoes o = { { 240 / 255.0f, 236 / 255.0f, 226 / 255.0f }, 0.4f, 35.0f, false };
+	motor_opcoes o = { { LUME_PAPEL_DIA }, 0.4f, 35.0f, false };
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i], *v = i + 1 < argc ? argv[i + 1] : NULL;
 		if (!strcmp(a, "--png") && v) png = argv[++i];

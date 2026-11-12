@@ -31,7 +31,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sistema import RAIZ, linhas_do_build  # noqa: E402
+from sistema import RAIZ, embutir_papel, linhas_do_build  # noqa: E402
 
 TOPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LLVM = os.environ.get("LLVM_BIN", "/usr/lib/llvm-19/bin")
@@ -157,9 +157,12 @@ def compilar(stage, pacotes, saida_dir):
                 os.makedirs(gerado)
                 with open(os.path.join(gerado, "metadados.inc"), "w") as f:
                     f.write(metadados("org.kde.kwin.EffectPluginFactory" + versao, classe, meta))
+                # O papel do lume-motor (as contas e as cores), para o lume-tinta.
+                embutir_papel(gerado)
                 so = os.path.join(saida_dir, variante, so_nome + ".so")
                 os.makedirs(os.path.dirname(so), exist_ok=True)
                 cmd = base_cmd(raiz, local) + [f"-DLUME_KWIN_{variante.upper()}", "-I", gerado,
+                                               "-I", os.path.join(TOPO, "app", "lume-motor"),
                                                "-isystem", os.path.join(inc, pasta)]
                 cmd += [os.path.join(fonte, arquivo), "-o", so, "-fuse-ld=lld",
                         f"-L{local}/lib", f"-L{local}/lib/qt6", f"-l{lib}",
