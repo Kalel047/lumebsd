@@ -5,7 +5,7 @@
         "Id": "org.lumebsd.papel",
         "License": "BSD-2-Clause",
         "Name": "Papel (LumeBSD)",
-        "Version": "1.5"
+        "Version": "2.0"
     },
     "KPackageStructure": "Plasma/LookAndFeel",
     "X-Plasma-APIVersion": "2"

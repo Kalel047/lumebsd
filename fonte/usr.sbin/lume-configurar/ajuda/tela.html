@@ -11,7 +11,7 @@
 <nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
 <header>
 <h1>A tela de papel</h1>
-<p>O filtro e-ink, as fotos com cor e as animações das janelas.</p>
+<p>O filtro e-ink, as fotos com cor, o tema escuro, as abas, os atributos dos arquivos e as animações das janelas.</p>
 </header>
 
 <h2>Por que papel e tinta</h2>
@@ -54,6 +54,25 @@
 <tr><td>o escuro como padrão de quem entrar pela primeira vez</td><td><code>lume tema noite</code>, como root</td></tr>
 </table>
 <p>No tema escuro, o filtro e-ink usa uma tinta mais funda e um papel menos claro, sozinho (<code>lume tema tinta noite auto</code>, o padrão). Programas que já estavam abertos podem precisar ser reabertos para trocar de cor.</p>
+
+<h2>Abas: janelas empilhadas, como no BeOS</h2>
+<p>Duas ou mais janelas podem ocupar o mesmo lugar, cada uma com a sua aba na barra de título, como as abas de um navegador. Clique numa aba para trocar.</p>
+<table>
+<tr><th>Para</th><th>Faça</th></tr>
+<tr><td>empilhar a janela ativa com a anterior</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>E</kbd></td></tr>
+<tr><td>a próxima aba e a anterior</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>PgDn</kbd> e <kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>PgUp</kbd></td></tr>
+<tr><td>tirar a janela da pilha</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td></tr>
+</table>
+<p>A janela que aparece ao trocar de aba fica no lugar e no tamanho da anterior. Os atalhos podem ser trocados em <span class="menu">Configurações do Sistema › Atalhos › KWin</span> (procure por "aba").</p>
+
+<h2>Atributos dos arquivos</h2>
+<p>Como no BeOS, cada arquivo pode levar <b>etiquetas</b>, uma <b>nota</b> de 0 a 5 estrelas, um <b>comentário</b> e atributos seus (autor, cliente, projeto…), gravados no próprio arquivo. Eles vão junto quando o arquivo é copiado, movido ou guardado na máquina do tempo.</p>
+<ul>
+<li>No Dolphin, clique com o botão direito num arquivo (ou em vários) › <b>Atributos…</b> para ver e editar. O painel de informações do Dolphin (<kbd>F11</kbd>) mostra as mesmas etiquetas, nota e comentário.</li>
+<li><b>Procurar por atributos</b> fica no menu, e no botão direito de uma pasta. Escreva as condições, por exemplo <code>etiquetas=trabalho nota&gt;=4 cliente~acme</code>: <code>=</code> é igual (nas etiquetas, ter a etiqueta), <code>~</code> é conter, <code>&gt;=</code> e <code>&lt;=</code> comparam números. Todas valem juntas.</li>
+<li><b>Salvar consulta…</b> guarda a procura num arquivo <code>.consulta</code> (em <code>~/Consultas</code>). Dois cliques nele procuram de novo.</li>
+</ul>
+<p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura. Mais em <code>man lume-atributo</code>.</p>
 
 <h2>Animações das janelas</h2>
 <p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>

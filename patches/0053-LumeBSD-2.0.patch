@@ -1,0 +1,231 @@
+From 2b377d67e57ca9427c3f77f81233cf5b6fa1029a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 12 Nov 2026 00:25:06 -0300
+Subject: [PATCH] LumeBSD 2.0
+
+A versao, e a Ajuda com as abas de janelas e os atributos dos arquivos.
+---
+ sys/amd64/conf/LUME                           |  2 +-
+ sys/conf/newvers.sh                           |  2 +-
+ sys/sys/copyright.h                           |  2 +-
+ usr.bin/login/motd.template                   |  2 +-
+ usr.bin/lume/lume.c                           |  2 +-
+ usr.sbin/forja/forja.8                        |  2 +-
+ usr.sbin/forja/forja.sh                       |  2 +-
+ usr.sbin/lume-configurar/ajuda/index.html     |  2 +-
+ usr.sbin/lume-configurar/ajuda/tela.html      | 21 ++++++++++++++++++-
+ usr.sbin/lume-configurar/lume-configurar.sh   |  2 +-
+ usr.sbin/lume-configurar/lume-instalar.sh     |  6 +++---
+ .../lume-configurar/tema/metadata-noite.json  |  2 +-
+ usr.sbin/lume-configurar/tema/metadata.json   |  2 +-
+ 13 files changed, 34 insertions(+), 15 deletions(-)
+
+diff --git a/sys/amd64/conf/LUME b/sys/amd64/conf/LUME
+index 52b3ae8f1..18a5848c6 100644
+--- a/sys/amd64/conf/LUME
++++ b/sys/amd64/conf/LUME
+@@ -1,5 +1,5 @@
+ #
+-# LUME -- kernel do LumeBSD 1.5 "Farol" para amd64.
++# LUME -- kernel do LumeBSD 2.0 "Farol" para amd64.
+ # Parte do GENERIC: todos os drivers e módulos, DTrace e ZFS.
+ # Os símbolos de depuração são gerados (o DTrace precisa deles para o CTF),
+ # mas não são instalados (WITHOUT_DEBUG_FILES no src.conf).
+diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
+index f677abb9a..35c7fa9f3 100644
+--- a/sys/conf/newvers.sh
++++ b/sys/conf/newvers.sh
+@@ -50,7 +50,7 @@
+ #
+ 
+ TYPE="LumeBSD"
+-REVISION="1.5"
++REVISION="2.0"
+ BRANCH="FAROL"
+ # Versão do FreeBSD por baixo: o compilador mira nela (x86_64-unknown-freebsd15.1).
+ FREEBSD_REVISION="15.1"
+diff --git a/sys/sys/copyright.h b/sys/sys/copyright.h
+index 1bbe7fbdc..0b901be68 100644
+--- a/sys/sys/copyright.h
++++ b/sys/sys/copyright.h
+@@ -30,7 +30,7 @@
+ /* Add a FreeBSD vendor copyright here - or via CFLAGS */
+ #ifndef COPYRIGHT_Vendor
+ #define	COPYRIGHT_Vendor \
+-	"LumeBSD 1.5 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
++	"LumeBSD 2.0 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
+ #endif
+ 
+ /* FreeBSD */
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index 8d4480466..3e0de54f7 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -1,5 +1,5 @@
+ 
+-   LumeBSD 1.5 "Farol"  -  luz firme sobre fundação BSD
++   LumeBSD 2.0 "Farol"  -  luz firme sobre fundação BSD
+ 
+    Este é o LumeBSD, uma distribuição BSD independente construída
+    a partir do código-fonte do FreeBSD.
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index be6b03ccd..10b9fe042 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -35,7 +35,7 @@
+ #include <unistd.h>
+ 
+ #define	LUME_NAME	"LumeBSD"
+-#define	LUME_VERSION	"1.5"
++#define	LUME_VERSION	"2.0"
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+diff --git a/usr.sbin/forja/forja.8 b/usr.sbin/forja/forja.8
+index 52e68f371..08c79376d 100644
+--- a/usr.sbin/forja/forja.8
++++ b/usr.sbin/forja/forja.8
+@@ -80,7 +80,7 @@ segue com a que já existe.
+ A árvore de ports confere a versão do sistema; como o
+ .Xr uname 1
+ do LumeBSD diz
+-.Dq 1.5-FAROL ,
++.Dq 2.0-FAROL ,
+ a forja passa a ela a versão do FreeBSD por baixo
+ .Pq Va _OSRELEASE ,
+ tirada de
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index 111c041c5..47ba32d45 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -25,7 +25,7 @@ LOGS=/var/log/forja
+ PORTS=${PORTSDIR:-/usr/ports}
+ 
+ # Para a árvore de ports e os programas que ela compila, o sistema é o
+-# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 1.5-FAROL", que o
++# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 2.0-FAROL", que o
+ # configure dos programas não conhece. A versão vem do kern.osreldate
+ # (1501000 -> 15.1-RELEASE); o uname(1) respeita UNAME_s e UNAME_r, e os
+ # ports repassam essas variáveis para cada compilação.
+diff --git a/usr.sbin/lume-configurar/ajuda/index.html b/usr.sbin/lume-configurar/ajuda/index.html
+index df57ff981..dfd4f95e8 100644
+--- a/usr.sbin/lume-configurar/ajuda/index.html
++++ b/usr.sbin/lume-configurar/ajuda/index.html
+@@ -17,7 +17,7 @@
+ <a class="cartao" href="programas.html"><b>Instalar programas</b><span>A loja, os kits por área (Exatas, Sociais aplicadas, Uso geral) e como achar o que você precisa.</span></a>
+ <a class="cartao" href="trocando.html"><b>Vindo do Windows ou do Mac</b><span>O que usar no lugar do MATLAB, do Excel, do AutoCAD, do SPSS e de outros.</span></a>
+ <a class="cartao" href="compatibilidade.html"><b>Windows, Linux e Mac</b><span>Abrir um .exe (de 64 ou 32 bits), usar o Office e o Teams pela web, e o que fazer com um programa do Mac.</span></a>
+-<a class="cartao" href="tela.html"><b>A tela de papel</b><span>O filtro e-ink, as fotos e vídeos com cor, e as animações das janelas.</span></a>
++<a class="cartao" href="tela.html"><b>A tela de papel</b><span>O filtro e-ink, o tema escuro, as abas de janelas, os atributos dos arquivos e as animações.</span></a>
+ <a class="cartao" href="internet.html"><b>Wi-Fi, som, tela e impressora</b><span>Conectar, conferir o hardware e o que fazer quando algo não funciona.</span></a>
+ <a class="cartao" href="atualizacoes.html"><b>Atualizações e máquina do tempo</b><span>Manter o sistema em dia, recuperar um arquivo apagado e voltar no tempo.</span></a>
+ <a class="cartao" href="problemas.html"><b>Quando algo dá errado</b><span>Os passos, do mais simples ao mais forte, para consertar sem perder nada.</span></a>
+diff --git a/usr.sbin/lume-configurar/ajuda/tela.html b/usr.sbin/lume-configurar/ajuda/tela.html
+index 0d681e17f..4189ba16b 100644
+--- a/usr.sbin/lume-configurar/ajuda/tela.html
++++ b/usr.sbin/lume-configurar/ajuda/tela.html
+@@ -11,7 +11,7 @@
+ <nav class="trilha"><a href="index.html">Ajuda do LumeBSD</a></nav>
+ <header>
+ <h1>A tela de papel</h1>
+-<p>O filtro e-ink, as fotos com cor e as animações das janelas.</p>
++<p>O filtro e-ink, as fotos com cor, o tema escuro, as abas, os atributos dos arquivos e as animações das janelas.</p>
+ </header>
+ 
+ <h2>Por que papel e tinta</h2>
+@@ -55,6 +55,25 @@
+ </table>
+ <p>No tema escuro, o filtro e-ink usa uma tinta mais funda e um papel menos claro, sozinho (<code>lume tema tinta noite auto</code>, o padrão). Programas que já estavam abertos podem precisar ser reabertos para trocar de cor.</p>
+ 
++<h2>Abas: janelas empilhadas, como no BeOS</h2>
++<p>Duas ou mais janelas podem ocupar o mesmo lugar, cada uma com a sua aba na barra de título, como as abas de um navegador. Clique numa aba para trocar.</p>
++<table>
++<tr><th>Para</th><th>Faça</th></tr>
++<tr><td>empilhar a janela ativa com a anterior</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>E</kbd></td></tr>
++<tr><td>a próxima aba e a anterior</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>PgDn</kbd> e <kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>PgUp</kbd></td></tr>
++<tr><td>tirar a janela da pilha</td><td><kbd>Ctrl</kbd>+<kbd>Meta</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td></tr>
++</table>
++<p>A janela que aparece ao trocar de aba fica no lugar e no tamanho da anterior. Os atalhos podem ser trocados em <span class="menu">Configurações do Sistema › Atalhos › KWin</span> (procure por "aba").</p>
++
++<h2>Atributos dos arquivos</h2>
++<p>Como no BeOS, cada arquivo pode levar <b>etiquetas</b>, uma <b>nota</b> de 0 a 5 estrelas, um <b>comentário</b> e atributos seus (autor, cliente, projeto…), gravados no próprio arquivo. Eles vão junto quando o arquivo é copiado, movido ou guardado na máquina do tempo.</p>
++<ul>
++<li>No Dolphin, clique com o botão direito num arquivo (ou em vários) › <b>Atributos…</b> para ver e editar. O painel de informações do Dolphin (<kbd>F11</kbd>) mostra as mesmas etiquetas, nota e comentário.</li>
++<li><b>Procurar por atributos</b> fica no menu, e no botão direito de uma pasta. Escreva as condições, por exemplo <code>etiquetas=trabalho nota&gt;=4 cliente~acme</code>: <code>=</code> é igual (nas etiquetas, ter a etiqueta), <code>~</code> é conter, <code>&gt;=</code> e <code>&lt;=</code> comparam números. Todas valem juntas.</li>
++<li><b>Salvar consulta…</b> guarda a procura num arquivo <code>.consulta</code> (em <code>~/Consultas</code>). Dois cliques nele procuram de novo.</li>
++</ul>
++<p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura. Mais em <code>man lume-atributo</code>.</p>
++
+ <h2>Animações das janelas</h2>
+ <p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>
+ <ul>
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index d01965cf6..a811f9873 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -37,7 +37,7 @@ cabecalho()
+ {
+ 	echo
+ 	echo "  ============================================================"
+-	echo "     LumeBSD 1.5 \"Farol\"  -  assistente de configuração"
++	echo "     LumeBSD 2.0 \"Farol\"  -  assistente de configuração"
+ 	echo "  ============================================================"
+ 	echo
+ }
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index f63ae1c73..37d91c496 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -63,7 +63,7 @@ roda()
+     morrer "lume instalar roda a partir do pendrive do LumeBSD"
+ : > "$LOG"
+ 
+-printf "\n  ${NEGRITO}LumeBSD 1.5 \"Farol\" - instalação${FIM}\n\n"
++printf "\n  ${NEGRITO}LumeBSD 2.0 \"Farol\" - instalação${FIM}\n\n"
+ 
+ # --- 1. escolher o disco ------------------------------------------------
+ 
+@@ -275,7 +275,7 @@ case "$(sysctl -n hw.model 2>/dev/null)" in
+ *)	ucode=intel-ucode.bin; sensor=coretemp ;;
+ esac
+ cat > "$ALVO/boot/loader.conf" <<EOF
+-# LumeBSD 1.5 - notebook
++# LumeBSD 2.0 - notebook
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+@@ -307,7 +307,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
+ cat >> "$ALVO/etc/make.conf" <<'EOF'
+ # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
+-# diz "LumeBSD 1.5-FAROL", que o configure dos programas não conhece; a
++# diz "LumeBSD 2.0-FAROL", que o configure dos programas não conhece; a
+ # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
+ .if !defined(_OSRELEASE)
+ _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
+diff --git a/usr.sbin/lume-configurar/tema/metadata-noite.json b/usr.sbin/lume-configurar/tema/metadata-noite.json
+index 17d42cc4b..3a8538c9b 100644
+--- a/usr.sbin/lume-configurar/tema/metadata-noite.json
++++ b/usr.sbin/lume-configurar/tema/metadata-noite.json
+@@ -5,7 +5,7 @@
+         "Id": "org.lumebsd.papel-noite",
+         "License": "BSD-2-Clause",
+         "Name": "Papel noite (LumeBSD)",
+-        "Version": "1.5"
++        "Version": "2.0"
+     },
+     "KPackageStructure": "Plasma/LookAndFeel",
+     "X-Plasma-APIVersion": "2"
+diff --git a/usr.sbin/lume-configurar/tema/metadata.json b/usr.sbin/lume-configurar/tema/metadata.json
+index 820a15fc0..bc97bffaa 100644
+--- a/usr.sbin/lume-configurar/tema/metadata.json
++++ b/usr.sbin/lume-configurar/tema/metadata.json
+@@ -5,7 +5,7 @@
+         "Id": "org.lumebsd.papel",
+         "License": "BSD-2-Clause",
+         "Name": "Papel (LumeBSD)",
+-        "Version": "1.5"
++        "Version": "2.0"
+     },
+     "KPackageStructure": "Plasma/LookAndFeel",
+     "X-Plasma-APIVersion": "2"

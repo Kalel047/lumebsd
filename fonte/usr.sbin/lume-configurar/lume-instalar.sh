@@ -63,7 +63,7 @@ roda()
     morrer "lume instalar roda a partir do pendrive do LumeBSD"
 : > "$LOG"
 
-printf "\n  ${NEGRITO}LumeBSD 1.5 \"Farol\" - instalação${FIM}\n\n"
+printf "\n  ${NEGRITO}LumeBSD 2.0 \"Farol\" - instalação${FIM}\n\n"
 
 # --- 1. escolher o disco ------------------------------------------------
 
@@ -275,7 +275,7 @@ case "$(sysctl -n hw.model 2>/dev/null)" in
 *)	ucode=intel-ucode.bin; sensor=coretemp ;;
 esac
 cat > "$ALVO/boot/loader.conf" <<EOF
-# LumeBSD 1.5 - notebook
+# LumeBSD 2.0 - notebook
 zfs_load="YES"
 aesni_load="YES"
 geom_eli_load="YES"
@@ -307,7 +307,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
 # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
 cat >> "$ALVO/etc/make.conf" <<'EOF'
 # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
-# diz "LumeBSD 1.5-FAROL", que o configure dos programas não conhece; a
+# diz "LumeBSD 2.0-FAROL", que o configure dos programas não conhece; a
 # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
 .if !defined(_OSRELEASE)
 _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate

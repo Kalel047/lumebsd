@@ -35,7 +35,7 @@
 #include <unistd.h>
 
 #define	LUME_NAME	"LumeBSD"
-#define	LUME_VERSION	"1.5"
+#define	LUME_VERSION	"2.0"
 #define	LUME_CODENAME	"Farol"
 #define	LUME_MARCA	"/var/db/lume/configurado"
 #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
