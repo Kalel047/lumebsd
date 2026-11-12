@@ -1,0 +1,49 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 11, 2026
+.Dt LUME-ATRIBUTOS 1
+.Os
+.Sh NAME
+.Nm lume-atributos
+.Nd ver, editar e procurar os atributos dos arquivos, na tela
+.Sh SYNOPSIS
+.Nm
+.Fl -editar Ar arquivo ...
+.Nm
+.Op Fl -pasta Ar pasta
+.Nm
+.Ar consulta Ns .consulta
+.Sh DESCRIPTION
+A parte gráfica de
+.Xr lume-atributo 1 .
+.Fl -editar
+abre a janela de atributos dos arquivos: as etiquetas, a nota (de 0 a 5
+estrelas), o comentário, a origem e os atributos próprios (nome e valor).
+Com vários arquivos, mostra o que é igual em todos e grava só o que mudou.
+No Dolphin fica no botão direito,
+.Dq Atributos… .
+.Pp
+Sem
+.Fl -editar ,
+abre a janela de procura: a pasta, as condições (as mesmas de
+.Cm lume atributo procurar )
+e a lista do que achou, com as etiquetas, a nota e o comentário.
+Dois cliques abrem o arquivo.
+.Dq Salvar consulta…
+grava a procura num arquivo
+.Pa .consulta
+(em
+.Pa ~/Consultas ,
+por padrão), como as consultas do BeOS: dois cliques nele procuram de
+novo.
+.Sh FILES
+.Bl -tag -width indent
+.It Pa ~/Consultas/*.consulta
+as consultas salvas: as linhas
+.Li pasta=
+e
+.Li condicoes= .
+.El
+.Sh SEE ALSO
+.Xr lume-atributo 1

@@ -24,6 +24,13 @@
 .Nm
 .Cm tempo
 .Op Cm linha | versoes | recuperar | foto | mudou | voltar | apagar | ligar | desligar
+.Nm
+.Cm atributo
+.Ar arquivo ...
+.Op Ar nome Ns Op = Ns Ar valor ...
+.Nm
+.Cm atributo procurar
+.Ar condição ...
 .Sh DESCRIPTION
 Sem argumentos,
 .Nm
@@ -219,6 +226,7 @@ resumo da máquina do tempo para a linha
 .El
 .Sh SEE ALSO
 .Xr freebsd-version 1 ,
+.Xr lume-atributo 1 ,
 .Xr lume-atualizacoes 1 ,
 .Xr lume-programas 1 ,
 .Xr rc.conf 5 ,

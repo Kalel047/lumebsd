@@ -5,7 +5,8 @@ uso: montar-app.py STAGE QT6BASE.pkg
                   (o CI: compila contra um base.txz do FreeBSD, sem stage)
 
 Os apps: "Atualizações do LumeBSD" (app/lume-atualizacoes), "Programas do
-LumeBSD" (app/lume-programas) e o ícone de rede (app/lume-rede).
+LumeBSD" (app/lume-programas), o ícone de rede (app/lume-rede) e os
+atributos dos arquivos (app/lume-atributos).
 
 STAGE        saída de "installworld distribution installkernel -DNO_ROOT"
 QT6BASE.pkg  o pacote qt6-base do FreeBSD (só os cabeçalhos e as
@@ -41,6 +42,8 @@ APPS = {
     "lume-programas": ["lume-programas.svg", "lume-programas.desktop",
                        "org.lumebsd.programas.policy"],
     "lume-rede": ["lume-rede.desktop", "org.lumebsd.rede.policy"],
+    "lume-atributos": ["lume-atributos.desktop", "lume-atributos-menu.desktop",
+                       "lume-atributos-pasta.desktop", "lume-consulta.xml"],
 }
 # Bibliotecas além do Qt (do FreeBSD, no stage).
 LIBS = {"lume-rede": ["-lcrypto"]}

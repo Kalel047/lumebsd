@@ -406,7 +406,8 @@ usage(void)
 	    "     lume tempo [linha | versoes | recuperar | foto | mudou | voltar]\n"
 	    "     lume loja [lista | procurar | info | instalar | remover | kit]\n"
 	    "     lume compat [linux ligar | windows | abrir ARQUIVO]\n"
-	    "     lume ajuda [programas | trocando | windows | wifi | problemas]\n");
+	    "     lume ajuda [programas | trocando | windows | wifi | problemas]\n"
+	    "     lume atributo ARQUIVO [NOME[=VALOR]...] | procurar CONDIÇÃO...\n");
 	exit(1);
 }
 
@@ -429,6 +430,14 @@ main(int argc, char *argv[])
 			execv(caminho, argv + 1);
 			err(1, "%s", caminho);
 		}
+	}
+	/* Programas em /usr/bin/lume-<nome>. */
+	if (strcmp(argv[1], "atributo") == 0) {
+		static char atributo[] = "/usr/bin/lume-atributo";
+
+		argv[1] = atributo;
+		execv(argv[1], argv + 1);
+		err(1, "%s", argv[1]);
 	}
 	if (argc != 2)
 		usage();

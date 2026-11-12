@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/allfiles;inode/directory;
+Actions=atributos;
+X-KDE-Priority=TopLevel
+X-KDE-Protocols=file
+
+[Desktop Action atributos]
+Name=Attributes…
+Name[pt_BR]=Atributos…
+Name[pt]=Atributos…
+Icon=tag
+Exec=/usr/bin/lume-atributos --editar %F

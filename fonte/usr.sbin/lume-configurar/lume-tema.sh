@@ -262,6 +262,21 @@ integrar()
 			    logger -t lume "networkmgr removido: o ícone de rede agora é o lume-rede"
 		fi
 	fi
+	# Os atributos dos arquivos (como no BeOS): "Atributos…" no botão
+	# direito do Dolphin, a procura no menu e as consultas salvas
+	# (.consulta), que abrem com dois cliques.
+	if [ -x /usr/bin/lume-atributos ]; then
+		instalar $A/lume-atributos.desktop \
+		    $P/share/applications/lume-atributos.desktop 0644
+		instalar $A/lume-atributos-menu.desktop \
+		    $P/share/kio/servicemenus/lume-atributos-menu.desktop 0755
+		instalar $A/lume-atributos-pasta.desktop \
+		    $P/share/kio/servicemenus/lume-atributos-pasta.desktop 0755
+		instalar $A/lume-consulta.xml $P/share/mime/packages/lume-consulta.xml 0644
+		command -v update-mime-database >/dev/null 2>&1 &&
+		    update-mime-database $P/share/mime >/dev/null 2>&1
+		padrao_mime "application/x-lume-consulta" lume-atributos.desktop
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644
