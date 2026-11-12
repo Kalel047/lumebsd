@@ -13,6 +13,7 @@ Sobre o FreeBSD 15.1. O primeiro update grande: uma cara própria, janelas em ab
 - **Ctrl+Meta+E** empilha a janela ativa com a anterior: as duas ficam no mesmo lugar, com uma aba para cada uma na barra de título. Clicar na aba troca de janela.
 - **Ctrl+Meta+PgDn** e **Ctrl+Meta+PgUp** passam de aba em aba; **Ctrl+Meta+Shift+E** separa a janela da pilha.
 - Ao trocar de aba, a janela aparece no lugar e no tamanho da anterior (maximizada, se ela estava); as outras da pilha ficam guardadas.
+- Trocar o tema (por exemplo `lume tema escuro`) desfaz as pilhas: as janelas voltam a ficar soltas.
 
 ## Atributos nos arquivos
 
