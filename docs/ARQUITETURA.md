@@ -43,9 +43,15 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `libexec/rc/rc.d/lume_*`, `vigia` | serviços de boot: assistente, vídeo, notebook, emblema, checagem de saúde das atualizações (`lume_saude`), pacotes da base nova (`lume_pacotes`), vigia |
 | `app/lume-atualizacoes/`, `app/lume-programas/` (fora da árvore do FreeBSD) | os apps Atualizações e Programas do LumeBSD (Qt 6), os ícones, os atalhos e as políticas do polkit |
 | `app/lume-tinta/`, `app/lume-animacoes/` | os efeitos do KWin: o filtro e-ink (C++) e as animações de abrir e fechar (JavaScript); `ferramentas/montar efeitos` os compila e empacota |
+| `app/lume-rede/` | o ícone de rede (C++/Qt): cabo e Wi-Fi pelo socket de controle do wpa_supplicant |
+| `app/lume-janelas/` | as abas de janelas (o efeito `lume_abas`) e a decoração Papel (`org.lumebsd.papel`), para o KWin |
+| `app/lume-atributos/`, `usr.bin/lume-atributo/` | os atributos dos arquivos: a janela e a procura (Qt) e o `lume atributo` (C) |
+| `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
+| `usr.sbin/lume-configurar/marca/` | a identidade: o farol (ícones, logotipo, splash) |
+| `ferramentas/lume-montar/` | as ferramentas de construção, em Rust (`ferramentas/montar SUBCOMANDO`) |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
-| `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=1.1`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
+| `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=2.0`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
 
 Os arquivos do FreeBSD que os patches *alteram* (Makefiles, `newvers.sh`,
 `os-release`, `motd.template`, `drawer.lua`, `pkg/Makefile`...) estão
@@ -513,15 +519,66 @@ como o Linuxulator, e o dyld do Darling) estão em [MACOS.md](MACOS.md).
 
 ## O motor de renderização
 
-O `lume-motor` (`app/lume-motor`, `/usr/bin/lume-motor`) é o protótipo do
-motor da especificação: DRM/KMS com page flip, curvas resolvidas por pixel
+O `lume-motor` (`app/lume-motor`; a biblioteca `/usr/lib/liblume-motor.so.1`,
+os cabeçalhos em `/usr/include/lume` e a demonstração `/usr/bin/lume-motor`)
+é o protótipo do motor da especificação: DRM/KMS com page flip, curvas resolvidas por pixel
 na GPU (OpenGL ES 3.1), papel num compute shader e a viscosidade da tinta.
 A arquitetura, o que foi medido e o caminho até ele desenhar o desktop
 estão em [MOTOR.md](MOTOR.md). O filtro do KWin (`lume_tinta`) usa o mesmo
-papel e a mesma viscosidade no desktop de hoje: as fibras no shader de cada
+papel (as mesmas contas, de `papel.glsl`, e as mesmas cores, de `papel.h`) e
+a mesma viscosidade no desktop de hoje: as fibras no shader de cada
 janela, e a viscosidade num passo da tela inteira (`paintScreen`), com dois
 históricos e as janelas sem filtro entrando na hora (recorte por
 `glScissor`).
+
+## Abas de janelas
+
+Como no BeOS (onde as abas são do app_server, o servidor de janelas), aqui
+elas são do KWin, em duas peças que se falam por uma interface comum
+(`Lume::ControleAbas`, publicada numa propriedade do `qApp`):
+
+- o efeito `lume_abas` guarda as pilhas: empilhar, separar, a próxima e a
+  anterior (atalhos do kglobalaccel). Só a janela da aba ativa fica
+  visível; as outras ficam minimizadas, e a que aparece toma a geometria
+  (e a maximização) da anterior. Uma janela fechada sai da pilha.
+- a decoração `org.lumebsd.papel` (KDecoration3) desenha a barra de
+  título, com uma aba por janela da pilha; clicar numa aba pede ao efeito
+  a troca. No X11 o KWin entrega os cliques da barra à decoração, por isso
+  as abas são dela e não do efeito.
+
+As duas compilam sem moc pelo `ferramentas/montar efeitos`, para o KWin do
+X11 e o do Wayland.
+
+## Atributos dos arquivos
+
+Os atributos são os atributos estendidos do sistema de arquivos (`extattr`,
+espaço `user`), no ZFS e no UFS2: vão com o arquivo no `cp -p`, no `mv`,
+nos snapshots e no `zfs send`. Os nomes conhecidos são os do KDE
+(KFileMetaData), para o Dolphin mostrar os mesmos valores: `xdg.tags`
+(as etiquetas, separadas por vírgula), `xdg.comment`, `baloo.rating` (de 0
+a 10; o `lume atributo` mostra em estrelas) e `xdg.origin.url`. Os outros
+ficam como `lume.<nome>`.
+
+- `lume atributo` (`usr.bin/lume-atributo`, C) lê, grava e procura. A
+  procura percorre a pasta com o `fts`, sem entrar nas ocultas, e lê os
+  atributos de cada arquivo; não há índice (o Baloo, o indexador do KDE,
+  fica desligado: no FreeBSD ele entra em loop no extrator). Um índice vivo
+  com o kqueue fica para o 2.x.
+- `lume-atributos` (Qt) é a janela de atributos (o botão direito do
+  Dolphin, por um service menu) e a procura, que roda o `lume atributo
+  procurar` e mostra as colunas. Uma consulta salva é um arquivo
+  `.consulta` (tipo `application/x-lume-consulta`, com `pasta=` e
+  `condicoes=`), que abre o `lume-atributos` com dois cliques.
+
+## Ícone de rede
+
+O `lume-rede` (C++/Qt, na bandeja) fala com o wpa_supplicant pelo socket de
+controle, o mesmo protocolo do `wpa_cli`, aberto ao grupo `wheel`
+(`ctrl_interface_group`): conectar não pede a senha do administrador. A
+senha vira a chave (PBKDF2-HMAC-SHA1, como o `wpa_passphrase`) no próprio
+app; redes WPA3 usam o `sae_password`. Preparar a placa (`wlans_*` no
+rc.conf) é do `lume wifi preparar`, pelo pkexec, e o serviço `lume_wifi`
+cria o `wlan0` no boot.
 
 ## Vídeo AMD
 
