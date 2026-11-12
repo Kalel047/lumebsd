@@ -39,5 +39,11 @@ return {
 			requires_color = true,
 			shift = {x = 3, y = 0},
 		},
+		-- Com a tela em modo gráfico, o farol desenhado, com a luz acesa.
+		fb = {
+			image = "/boot/images/lume-logo-rev.png",
+			-- the same 13 rows as the ASCII lighthouse
+			width = 13,
+		},
 	},
 }

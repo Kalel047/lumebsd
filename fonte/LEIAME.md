@@ -10,7 +10,9 @@ Estes só aparecem nos patches (são mudanças pequenas em arquivos do FreeBSD):
 - `libexec/rc/rc.d/Makefile`
 - `libexec/rc/rc.d/os-release`
 - `share/mk/src.sys.env.mk`
+- `stand/images/Makefile`
 - `stand/lua/Makefile`
+- `stand/lua/core.lua`
 - `stand/lua/drawer.lua`
 - `sys/conf/newvers.sh`
 - `sys/sys/copyright.h`

@@ -133,7 +133,10 @@ vigia_enable="YES"
 """),
     escrever("boot/loader.conf", f"""# LumeBSD {SERIE} - pendrive ao vivo
 boot_multicons="YES"
-console="efi,comconsole"
+# Só "efi": o comconsole falha num PC sem porta serial ("console comconsole
+# failed to initialize", repetido na tela). Numa máquina com porta serial, o
+# firmware já a põe no ConOut, e o kernel a usa de segunda (hw.uart.console).
+console="efi"
 # A tela é o console principal: sem isto, numa máquina virtual com porta
 # serial o loader UEFI segue o firmware, que põe a serial na frente (veja
 # também /boot/lua/local.lua, para o BIOS).

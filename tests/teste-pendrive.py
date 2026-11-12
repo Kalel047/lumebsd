@@ -711,9 +711,12 @@ elif fase == "sessao":
     esperar("Password:")
     enviar("farol123")
     esperar(P, 60)
-    # ANTES: comandos antes do login gráfico (variáveis da sessão, logs).
+    # ANTES: comandos antes do login gráfico (variáveis da sessão, logs);
+    # "FOTO nome" fotografa a tela (a do SDDM, por exemplo).
     for c in os.environ.get("ANTES", "").splitlines():
-        if c.strip():
+        if c.startswith("FOTO "):
+            foto(c[5:].strip())
+        elif c.strip():
             comando(c, P, 300)
     time.sleep(30)
     for tecla in "lume2026":

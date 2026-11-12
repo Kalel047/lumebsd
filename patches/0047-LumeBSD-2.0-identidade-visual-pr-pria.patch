@@ -1,0 +1,756 @@
+From 9002f722d134add8573e08987d254744ff838793 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 21:59:39 -0300
+Subject: [PATCH] =?UTF-8?q?LumeBSD=202.0:=20identidade=20visual=20pr=C3=B3?=
+ =?UTF-8?q?pria?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O farol do LumeBSD no lugar dos logos do KDE:
+- marca/: o ícone (o farol num quadro de papel), o simbólico (segue a cor
+  do tema), o logo com o nome em IBM Plex Serif (tinta e claro) e o
+  splash do KDE (sem animação: seis quadrados que se preenchem);
+- o botão do menu (start-here-lume-symbolic); nos temas de ícones Papel e
+  Papel noite, start-here-kde, kde, plasma e distributor-logo viram o
+  farol; o SDDM mostra o logo; Sobre o sistema (kcm-about-distrorc);
+- o carregador de boot em modo gráfico desenha o nome e o farol (PNG);
+- os-release: LOGO=lumebsd, os links do projeto e a versão do LumeBSD
+  (a do FreeBSD vai em BUILD_ID);
+- sem o Discover nas instalações novas (a loja é a do LumeBSD).
+---
+ libexec/rc/rc.d/os-release                    |  11 ++-
+ stand/images/Makefile                         |   2 +-
+ stand/images/lume-brand-rev.png               | Bin 0 -> 7138 bytes
+ stand/images/lume-logo-rev.png                | Bin 0 -> 6398 bytes
+ stand/lua/gfx-lume.lua                        |   9 +++
+ usr.sbin/lume-configurar/Makefile             |  10 ++-
+ usr.sbin/lume-configurar/desktop.txt          |   4 +-
+ usr.sbin/lume-configurar/lume-tema.sh         |  66 +++++++++++++++++-
+ usr.sbin/lume-configurar/marca/Splash.qml     |  44 ++++++++++++
+ .../marca/lumebsd-logo-claro.svg              |  22 ++++++
+ .../lume-configurar/marca/lumebsd-logo.svg    |  22 ++++++
+ .../marca/lumebsd-symbolic.svg                |  12 ++++
+ usr.sbin/lume-configurar/marca/lumebsd.svg    |  21 ++++++
+ .../lume-configurar/tema/kcm-about-distrorc   |   6 ++
+ usr.sbin/lume-configurar/tema/ksplashrc       |   4 +-
+ usr.sbin/lume-configurar/tema/layout-noite.js |   2 +-
+ usr.sbin/lume-configurar/tema/layout.js       |   2 +-
+ .../tema/sddm-breeze.conf.user                |   3 +
+ 18 files changed, 228 insertions(+), 12 deletions(-)
+ create mode 100644 stand/images/lume-brand-rev.png
+ create mode 100644 stand/images/lume-logo-rev.png
+ create mode 100644 usr.sbin/lume-configurar/marca/Splash.qml
+ create mode 100644 usr.sbin/lume-configurar/marca/lumebsd-logo-claro.svg
+ create mode 100644 usr.sbin/lume-configurar/marca/lumebsd-logo.svg
+ create mode 100644 usr.sbin/lume-configurar/marca/lumebsd-symbolic.svg
+ create mode 100644 usr.sbin/lume-configurar/marca/lumebsd.svg
+ create mode 100644 usr.sbin/lume-configurar/tema/kcm-about-distrorc
+
+diff --git a/libexec/rc/rc.d/os-release b/libexec/rc/rc.d/os-release
+index 5f05e152e..3869d8b11 100755
+--- a/libexec/rc/rc.d/os-release
++++ b/libexec/rc/rc.d/os-release
+@@ -21,17 +21,24 @@ osrelease_start()
+ 	local _version _version_id
+ 
+ 	startmsg -n "Updating ${osrelease_file} "
+-	_version=$(freebsd-version -u)
++	# A versão do LumeBSD (a do FreeBSD por baixo vai em BUILD_ID).
++	_base=$(freebsd-version -u)
++	_version=$(cat /usr/share/lume/versao 2>/dev/null || echo "${_base%%-*}")
+ 	_version_id=${_version%%[^0-9.]*}
+ 	t=$(mktemp -t os-release)
+ 	cat > "$t" <<-__EOF__
+ 		NAME=LumeBSD
+-		VERSION="$_version"
++		VERSION="$_version (Farol)"
+ 		VERSION_ID="$_version_id"
+ 		VERSION_CODENAME=farol
++		BUILD_ID="FreeBSD $_base"
+ 		ID=lumebsd
+ 		ID_LIKE=freebsd
+ 		ANSI_COLOR="0;33"
++		LOGO=lumebsd
++		HOME_URL="https://github.com/Kalel047/lumebsd"
++		DOCUMENTATION_URL="https://github.com/Kalel047/lumebsd#readme"
++		BUG_REPORT_URL="https://github.com/Kalel047/lumebsd/issues"
+ 		PRETTY_NAME="LumeBSD $_version (Farol)"
+ __EOF__
+ 	install -C -o root -g wheel -m ${osrelease_perms} "$t" "${osrelease_file}"
+diff --git a/stand/images/Makefile b/stand/images/Makefile
+index 2f45b989e..a39958d33 100644
+--- a/stand/images/Makefile
++++ b/stand/images/Makefile
+@@ -1,7 +1,7 @@
+ .include <bsd.init.mk>
+ 
+ FILES+=	freebsd-brand-rev.png freebsd-brand.png freebsd-install-brand-rev.png \
+-	freebsd-logo-rev.png
++	freebsd-logo-rev.png lume-brand-rev.png lume-logo-rev.png
+ 
+ FILESDIR=  /boot/images
+ 
+diff --git a/stand/images/lume-brand-rev.png b/stand/images/lume-brand-rev.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..e3080018b82ec1fab4cdb5618bd9e7b2e716b584
+GIT binary patch
+literal 7138
+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
+Kt5U0E8~J~Tke)CA
+
+literal 0
+HcmV?d00001
+
+diff --git a/stand/images/lume-logo-rev.png b/stand/images/lume-logo-rev.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..dccbe43e110d96a4b373226940646e3e25fcd6fd
+GIT binary patch
+literal 6398
+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
+N80wkmHt3+^{|oCKE>Qpg
+
+literal 0
+HcmV?d00001
+
+diff --git a/stand/lua/gfx-lume.lua b/stand/lua/gfx-lume.lua
+index 900da6f61..8cb79b6eb 100644
+--- a/stand/lua/gfx-lume.lua
++++ b/stand/lua/gfx-lume.lua
+@@ -18,6 +18,10 @@ return {
+ 			},
+ 			requires_color = true,
+ 		},
++		-- Com a tela em modo gráfico, o nome desenhado (Lume em âmbar).
++		fb = {
++			image = "/boot/images/lume-brand-rev.png",
++		},
+ 	},
+ 	logo = {
+ 		ascii = {
+@@ -39,5 +43,10 @@ return {
+ 			requires_color = true,
+ 			shift = {x = 3, y = 0},
+ 		},
++		-- Com a tela em modo gráfico, o farol desenhado, com a luz acesa.
++		fb = {
++			image = "/boot/images/lume-logo-rev.png",
++			width = 15,
++		},
+ 	},
+ }
+diff --git a/usr.sbin/lume-configurar/Makefile b/usr.sbin/lume-configurar/Makefile
+index 0a63ac334..b357ae206 100644
+--- a/usr.sbin/lume-configurar/Makefile
++++ b/usr.sbin/lume-configurar/Makefile
+@@ -3,12 +3,18 @@ SCRIPTS=	lume-configurar.sh lume-hardware.sh lume-video.sh lume-wifi.sh \
+ 	lume-tempo.sh lume-loja.sh lume-compat.sh lume-ajuda.sh
+ MAN=	lume-configurar.8 lume-tempo.8 lume-loja.8 lume-compat.8
+ 
+-FILESGROUPS=	FILES TEMA CRON LOJA ATALHOS AJUDA
++FILESGROUPS=	FILES TEMA MARCA CRON LOJA ATALHOS AJUDA
+ FILESDIR=	${SHAREDIR}/lume
+ FILES=		desktop.txt
+ 
+ # Tema "Papel" (estética e-ink) para o KDE; aplicado por lume tema.
+ TEMADIR=	${SHAREDIR}/lume/tema
++# A identidade visual: o farol (ícone e simbólico), o logo com o nome (tinta e
++# claro) e o splash do KDE.
++MARCADIR=	${SHAREDIR}/lume/marca
++MARCA=		marca/lumebsd.svg marca/lumebsd-symbolic.svg \
++		marca/lumebsd-logo.svg marca/lumebsd-logo-claro.svg \
++		marca/Splash.qml
+ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
+ 		tema/kdeglobals tema/kwinrc tema/breezerc tema/ksplashrc \
+ 		tema/plasmarc tema/konsolerc tema/kscreenlockerrc \
+@@ -20,7 +26,7 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
+ 		tema/PapelNoite.colors tema/PapelNoite.colorscheme \
+ 		tema/PapelNoite.profile tema/kdeglobals-noite tema/konsolerc-noite \
+ 		tema/gtk-settings-noite.ini tema/metadata-noite.json \
+-		tema/defaults-noite tema/layout-noite.js
++		tema/defaults-noite tema/layout-noite.js tema/kcm-about-distrorc
+ 
+ # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
+ # programas do Windows com dois cliques (lume compat).
+diff --git a/usr.sbin/lume-configurar/desktop.txt b/usr.sbin/lume-configurar/desktop.txt
+index b7560e2c2..1553e8cad 100644
+--- a/usr.sbin/lume-configurar/desktop.txt
++++ b/usr.sbin/lume-configurar/desktop.txt
+@@ -10,12 +10,12 @@ xf86-video-scfb
+ xf86-input-libinput
+ mesa-dri
+ # Desktop KDE Plasma 6
+-# Plasma 6 (o meta-pacote plasma6-plasma, sem o Spectacle e o OCR que ele puxa)
++# Plasma 6 (o meta-pacote plasma6-plasma, sem o Spectacle e o OCR que ele puxa,
++# e sem o Discover: a loja é a do LumeBSD, Programas)
+ plasma6-aurorae
+ plasma6-breeze
+ plasma6-breeze-gtk
+ plasma6-breeze-qt5
+-plasma6-discover
+ plasma6-kactivitymanagerd
+ plasma6-kde-cli-tools
+ plasma6-kde-gtk-config
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index f7172ac80..1ddbeb29e 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -50,7 +50,8 @@ ICONES_NOITE=$P/share/icons/lume-papel-noite
+ MARCA=$P/etc/xdg/.lume-tema-papel
+ 
+ # Arquivos que o tema coloca, para poder tirar depois.
+-CONFS="kdeglobals kwinrc breezerc ksplashrc plasmarc konsolerc kscreenlockerrc"
++CONFS="kdeglobals kwinrc breezerc ksplashrc plasmarc konsolerc kscreenlockerrc kcm-about-distrorc"
++M=/usr/share/lume/marca
+ 
+ instalar()
+ {
+@@ -182,6 +183,7 @@ aplicar()
+ 	    $P/share/sddm/themes/breeze/theme.conf.user 0644
+ 	icones_cinza breeze "$ICONES" Papel
+ 	icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite"
++	marca
+ 	echo "${nome}" > "$MARCA.padrao"
+ 	date > "$MARCA"
+ 	echo "  ✓ Tema $nome aplicado. Vale para quem entrar a partir de agora;"
+@@ -211,6 +213,22 @@ integrar()
+ 		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
+ 		instalar $T/papel-noite.png $LNF_NOITE/contents/previews/preview.png
+ 		[ -d "$ICONES_NOITE" ] || icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite" >/dev/null
++		# A identidade visual (2.0): o farol no lugar dos logos do KDE, o
++		# splash, o SDDM e o Sobre o sistema; o menu de quem já usa, também.
++		instalar $T/ksplashrc $XDG/ksplashrc 0644
++		instalar $T/kcm-about-distrorc $XDG/kcm-about-distrorc 0644
++		instalar $T/sddm-breeze.conf.user $P/share/sddm/themes/breeze/theme.conf.user 0644
++		instalar $T/layout.js $LNF/contents/layouts/org.kde.plasma.desktop-layout.js
++		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
++		marca >/dev/null
++		# (sobrescreve o conteúdo, sem recriar o arquivo: ele continua do usuário)
++		for rc in /home/*/.config/plasma-org.kde.plasma.desktop-appletsrc; do
++			[ -f "$rc" ] && grep -q '^icon=start-here-kde-symbolic$' "$rc" || continue
++			tmp=$(mktemp)
++			sed -e 's/^icon=start-here-kde-symbolic$/icon=start-here-lume-symbolic/' "$rc" > "$tmp" &&
++			    cat "$tmp" > "$rc"
++			rm -f "$tmp"
++		done
+ 	fi
+ 	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
+ 	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
+@@ -399,6 +417,52 @@ animacao()
+ 	kwin_recarregar
+ }
+ 
++# A identidade visual do LumeBSD no KDE: o farol no lugar dos logos do KDE.
++#   - ícones lumebsd e start-here-lume (o botão do menu), no hicolor;
++#   - nos temas de ícones Papel e Papel noite, os logos do KDE e do Plasma
++#     (start-here-kde, kde, plasma, distributor-logo) viram o farol;
++#   - o splash nos dois temas globais (o do Papel noite com as cores dele).
++marca()
++{
++	[ -d $M ] || return 0
++	hi=$P/share/icons/hicolor
++	instalar $M/lumebsd.svg $hi/scalable/apps/lumebsd.svg 0644
++	instalar $M/lumebsd.svg $hi/scalable/apps/start-here-lume.svg 0644
++	instalar $M/lumebsd-symbolic.svg $hi/symbolic/apps/lumebsd-symbolic.svg 0644
++	instalar $M/lumebsd-symbolic.svg $hi/symbolic/apps/start-here-lume-symbolic.svg 0644
++	command -v gtk-update-icon-cache >/dev/null &&
++	    gtk-update-icon-cache -q -f "$hi" 2>/dev/null
++	for tema in "$ICONES" "$ICONES_NOITE"; do
++		[ -d "$tema" ] || continue
++		find "$tema" -type f \( -name 'start-here*.svg' -o -name 'kde.svg' \
++		    -o -name 'kde-symbolic.svg' -o -name 'plasma.svg' \
++		    -o -name 'plasma-symbolic.svg' -o -name 'distributor-logo*.svg' \) |
++		while read -r f; do
++			# Os pequenos (até 22) e os simbólicos: o farol em silhueta.
++			case "$f" in
++			*-symbolic.svg|*/16/*|*/22/*|*/24/*)	cp $M/lumebsd-symbolic.svg "$f" ;;
++			*)	cp $M/lumebsd.svg "$f" ;;
++			esac
++		done
++		mkdir -p "$tema/apps/scalable" "$tema/apps/symbolic"
++		cp $M/lumebsd.svg "$tema/apps/scalable/start-here-lume.svg"
++		cp $M/lumebsd-symbolic.svg "$tema/apps/symbolic/start-here-lume-symbolic.svg"
++		command -v gtk-update-icon-cache >/dev/null &&
++		    gtk-update-icon-cache -q -f "$tema" 2>/dev/null
++	done
++	instalar $M/Splash.qml $LNF/contents/splash/Splash.qml
++	instalar $M/lumebsd-logo.svg $LNF/contents/splash/images/lumebsd-logo.svg
++	if [ -d "$LNF_NOITE" ]; then
++		mkdir -p $LNF_NOITE/contents/splash/images
++		sed -e 's/color: "#efeadf"/color: "#1e1d1b"/' \
++		    -e 's/tinta: "#1c1b19"/tinta: "#dedad0"/' \
++		    -e 's|images/lumebsd-logo.svg|images/lumebsd-logo-claro.svg|' \
++		    $M/Splash.qml > $LNF_NOITE/contents/splash/Splash.qml
++		instalar $M/lumebsd-logo-claro.svg $LNF_NOITE/contents/splash/images/lumebsd-logo-claro.svg
++	fi
++	echo "  marca: o farol do LumeBSD no menu, no splash, no SDDM e em Sobre o sistema"
++}
++
+ # lume tema escuro | claro: o seu usuário no Papel noite ou no Papel, na
+ # hora (sem root; dentro da sessão do KDE). O tema global troca cores,
+ # ícones e papel de parede; o Konsole, o GTK e o filtro e-ink acompanham.
+diff --git a/usr.sbin/lume-configurar/marca/Splash.qml b/usr.sbin/lume-configurar/marca/Splash.qml
+new file mode 100644
+index 000000000..697e626f2
+--- /dev/null
++++ b/usr.sbin/lume-configurar/marca/Splash.qml
+@@ -0,0 +1,44 @@
++/*
++ * SPDX-License-Identifier: BSD-2-Clause
++ *
++ * O splash do LumeBSD (enquanto o KDE carrega): o farol e o nome sobre o
++ * papel, e seis quadrados que se preenchem a cada etapa, sem animação, como
++ * uma tela de e-ink que atualiza. O lume tema instala uma cópia com as cores
++ * do Papel noite no tema escuro.
++ */
++import QtQuick
++
++Rectangle {
++    id: root
++    color: "#efeadf"            // papel
++    property color tinta: "#1c1b19"
++    property string logo: "images/lumebsd-logo.svg"
++    property int stage
++
++    Image {
++        id: marca
++        anchors.centerIn: parent
++        anchors.verticalCenterOffset: -root.height * 0.04
++        source: root.logo
++        sourceSize.height: Math.round(root.height * 0.12)
++        fillMode: Image.PreserveAspectFit
++        smooth: true
++    }
++
++    Row {
++        anchors.top: marca.bottom
++        anchors.topMargin: Math.round(root.height * 0.06)
++        anchors.horizontalCenter: parent.horizontalCenter
++        spacing: Math.round(root.height * 0.012)
++        Repeater {
++            model: 6
++            Rectangle {
++                width: Math.round(root.height * 0.012)
++                height: width
++                color: index < root.stage ? root.tinta : "transparent"
++                border.color: root.tinta
++                border.width: Math.max(1, Math.round(root.height / 900))
++            }
++        }
++    }
++}
+diff --git a/usr.sbin/lume-configurar/marca/lumebsd-logo-claro.svg b/usr.sbin/lume-configurar/marca/lumebsd-logo-claro.svg
+new file mode 100644
+index 000000000..123cc2a61
+--- /dev/null
++++ b/usr.sbin/lume-configurar/marca/lumebsd-logo-claro.svg
+@@ -0,0 +1,22 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 266 64" width="532" height="128">
++  <!-- LumeBSD: o farol e o nome (IBM Plex Serif, em curvas). -->
++  
++  <line x1="26" y1="17.5" x2="7" y2="11" stroke="#efeadf" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="26" y1="17.5" x2="7" y2="19" stroke="#efeadf" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="38" y1="17.5" x2="57" y2="11" stroke="#efeadf" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="38" y1="17.5" x2="57" y2="19" stroke="#efeadf" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <path d="M26.5,14 A5.5,5.5 0 0 1 37.5,14 Z" fill="#efeadf"/>
++  <line x1="32" y1="8.5" x2="32" y2="5" stroke="#efeadf" stroke-width="1.6" stroke-linecap="round"/>
++  <rect x="27.5" y="14" width="9" height="7" fill="none" stroke="#efeadf" stroke-width="1.6"/>
++  <line x1="32" y1="14" x2="32" y2="21" stroke="#efeadf" stroke-width="1"/>
++  <line x1="23.5" y1="22" x2="40.5" y2="22" stroke="#efeadf" stroke-width="2" stroke-linecap="round"/>
++  <path d="M25.88,23 L38.12,23 L42,54 L22,54 Z" fill="none" stroke="#efeadf" stroke-width="1.6" stroke-linejoin="round"/>
++  <path d="M25.25,28 L38.75,28 L39.25,32 L24.75,32 Z" fill="#efeadf"/>
++  <path d="M24.12,37 L39.88,37 L40.38,41 L23.62,41 Z" fill="#efeadf"/>
++  <path d="M23.00,46 L41.00,46 L41.50,50 L22.50,50 Z" fill="#efeadf"/>
++  <rect x="30.5" y="50.5" width="3" height="3.5" fill="none" stroke="#efeadf" stroke-width="1"/>
++  <line x1="13" y1="54.5" x2="51" y2="54.5" stroke="#efeadf" stroke-width="1.6" stroke-linecap="round"/>
++  <path d="M17,59 q3,-2 6,0 t6,0 M35,59 q3,-2 6,0 t6,0" fill="none" stroke="#efeadf" stroke-width="1" stroke-linecap="round"/>
++
++  <path d="M76.2 45.16H79.2V20.919999999999998H76.2V19.08H85.64V20.919999999999998H82.64V45.04H92.88V39.92H95.76V47.0H76.2ZM108.88000000000001 47.48Q105.16000000000001 47.48 103.54 45.54Q101.92 43.6 101.92 39.68V28.96L98.96000000000001 28.44V27.08L105.2 25.88V39.4Q105.2 45.2 110.04 45.2Q110.92 45.2 111.78 44.96Q112.64 44.72 113.34 44.2Q114.04 43.68 114.46000000000001 42.92Q114.88000000000001 42.16 114.88000000000001 41.12V28.96L111.92 28.44V27.08L118.16000000000001 25.88V44.4L121.12 44.92V46.28L114.96000000000001 47.48V43.88H114.80000000000001Q114.56 44.48 114.06 45.12Q113.56 45.76 112.82000000000001 46.28Q112.08000000000001 46.8 111.08000000000001 47.14Q110.08000000000001 47.48 108.88000000000001 47.48ZM124.52000000000001 45.16H127.48V28.96L124.52000000000001 28.44V27.08L130.68 25.88V29.48H130.84Q131.08 28.84 131.56 28.2Q132.04000000000002 27.56 132.78000000000003 27.04Q133.52 26.52 134.48000000000002 26.2Q135.44 25.88 136.64000000000001 25.88Q139.28 25.88 140.84 26.88Q142.4 27.88 143.0 29.96H143.12Q143.44 29.24 143.96 28.52Q144.48000000000002 27.8 145.24 27.2Q146.0 26.599999999999998 147.02 26.24Q148.04000000000002 25.88 149.4 25.88Q153.12 25.88 154.7 27.84Q156.28 29.8 156.28 33.68V45.16H159.24V47.0H150.04000000000002V45.16H153.0V33.92Q153.0 28.16 148.24 28.16Q147.36 28.16 146.5 28.42Q145.64000000000001 28.68 144.98000000000002 29.18Q144.32000000000002 29.68 143.92000000000002 30.46Q143.52 31.240000000000002 143.52 32.28V45.16H146.48000000000002V47.0H137.28V45.16H140.24V33.92Q140.24 28.16 135.52 28.16Q134.60000000000002 28.16 133.76000000000002 28.42Q132.92000000000002 28.68 132.24 29.18Q131.56 29.68 131.16000000000003 30.46Q130.76000000000002 31.240000000000002 130.76000000000002 32.28V45.16H133.72V47.0H124.52000000000001ZM171.8 47.48Q169.60000000000002 47.48 167.86 46.7Q166.12 45.92 164.92000000000002 44.519999999999996Q163.72000000000003 43.12 163.08000000000004 41.12Q162.44000000000003 39.12 162.44000000000003 36.68Q162.44000000000003 34.28 163.14000000000001 32.3Q163.84 30.32 165.06 28.880000000000003Q166.28 27.44 167.96 26.66Q169.64000000000001 25.88 171.64000000000001 25.88Q173.68 25.88 175.28000000000003 26.6Q176.88000000000002 27.32 177.98000000000002 28.619999999999997Q179.08 29.919999999999998 179.68 31.72Q180.28000000000003 33.519999999999996 180.28000000000003 35.64V36.56H166.08V37.6Q166.08 41.0 167.78000000000003 42.96Q169.48000000000002 44.92 172.32000000000002 44.92Q174.8 44.92 176.26000000000002 43.900000000000006Q177.72000000000003 42.88 178.56 41.24L179.88000000000002 42.08Q179.48000000000002 43.12 178.78000000000003 44.099999999999994Q178.08 45.08 177.08 45.82Q176.08 46.56 174.76000000000002 47.019999999999996Q173.44000000000003 47.48 171.8 47.48ZM166.08 34.72H176.84V34.32Q176.84 32.92 176.54000000000002 31.72Q176.24 30.52 175.60000000000002 29.64Q174.96 28.759999999999998 173.98000000000002 28.259999999999998Q173.0 27.759999999999998 171.64000000000001 27.759999999999998Q170.28000000000003 27.759999999999998 169.24 28.24Q168.20000000000002 28.72 167.5 29.6Q166.8 30.48 166.44 31.660000000000004Q166.08 32.84 166.08 34.24ZM184.28 45.16H187.28V20.919999999999998H184.28V19.08H197.64000000000001Q201.16000000000003 19.08 203.14000000000001 20.88Q205.12 22.68 205.12 25.68Q205.12 27.16 204.68 28.32Q204.24 29.48 203.5 30.32Q202.76000000000002 31.16 201.82000000000002 31.68Q200.88000000000002 32.2 199.88000000000002 32.36V32.480000000000004Q200.92000000000002 32.56 202.04000000000002 33.0Q203.16000000000003 33.44 204.08 34.28Q205.0 35.12 205.60000000000002 36.36Q206.20000000000002 37.6 206.20000000000002 39.24Q206.20000000000002 41.0 205.66000000000003 42.44Q205.12 43.88 204.14000000000001 44.900000000000006Q203.16000000000003 45.92 201.8 46.46Q200.44 47.0 198.84 47.0H184.28ZM190.72000000000003 45.04H197.60000000000002Q199.92000000000002 45.04 201.22000000000003 43.68Q202.52 42.32 202.52 40.16V38.4Q202.52 36.28 201.22000000000003 34.92Q199.92000000000002 33.56 197.60000000000002 33.56H190.72000000000003ZM190.72000000000003 31.6H196.96Q199.12 31.6 200.28 30.36Q201.44 29.12 201.44 27.2V25.44Q201.44 23.52 200.28 22.28Q199.12 21.04 196.96 21.04H190.72000000000003ZM220.68000000000004 47.48Q218.16000000000003 47.48 216.58000000000004 46.7Q215.00000000000003 45.92 214.36 44.6H214.16000000000003V47.0H211.28000000000003V38.8H214.16000000000003V40.64Q214.16000000000003 41.64 214.46000000000004 42.5Q214.76000000000002 43.36 215.46000000000004 44.0Q216.16000000000003 44.64 217.3 45.0Q218.44000000000003 45.36 220.08 45.36Q223.56000000000003 45.36 225.10000000000002 43.879999999999995Q226.64000000000001 42.4 226.64000000000001 39.92Q226.64000000000001 37.8 225.46000000000004 36.599999999999994Q224.28000000000003 35.4 221.76000000000002 34.72L219.56000000000003 34.16Q215.84000000000003 33.2 213.8 31.28Q211.76000000000002 29.36 211.76000000000002 26.0Q211.76000000000002 24.32 212.40000000000003 22.939999999999998Q213.04000000000002 21.56 214.20000000000002 20.6Q215.36 19.64 216.98000000000002 19.119999999999997Q218.60000000000002 18.599999999999998 220.56000000000003 18.599999999999998Q222.84000000000003 18.599999999999998 224.3 19.299999999999997Q225.76000000000002 20.0 226.36 21.24H226.60000000000002V19.08H229.48000000000002V26.88H226.60000000000002V25.04Q226.60000000000002 24.04 226.3 23.24Q226.00000000000003 22.439999999999998 225.28000000000003 21.88Q224.56000000000003 21.32 223.40000000000003 21.02Q222.24 20.72 220.56000000000003 20.72Q217.76000000000002 20.72 216.36 22.0Q214.96000000000004 23.28 214.96000000000004 25.36Q214.96000000000004 27.52 216.22000000000003 28.740000000000002Q217.48000000000002 29.96 220.20000000000002 30.68L222.24 31.2Q225.88000000000002 32.16 227.84000000000003 34.08Q229.8 36.0 229.8 39.12Q229.8 40.92 229.20000000000002 42.46Q228.60000000000002 44.0 227.44000000000003 45.120000000000005Q226.28000000000003 46.24 224.58000000000004 46.86Q222.88000000000002 47.48 220.68000000000004 47.48ZM234.60000000000002 45.16H237.60000000000002V20.919999999999998H234.60000000000002V19.08H246.28000000000003Q249.04000000000002 19.08 251.32000000000002 19.939999999999998Q253.60000000000002 20.8 255.22000000000003 22.54Q256.84000000000003 24.28 257.74 26.9Q258.64000000000004 29.52 258.64000000000004 33.04Q258.64000000000004 36.56 257.74 39.18Q256.84000000000003 41.8 255.22000000000003 43.54Q253.60000000000002 45.28 251.32000000000002 46.14Q249.04000000000002 47.0 246.28000000000003 47.0H234.60000000000002ZM241.04000000000002 45.04H245.92000000000004Q247.96000000000004 45.04 249.62000000000003 44.34Q251.28000000000003 43.64 252.42000000000002 42.379999999999995Q253.56000000000003 41.12 254.18000000000004 39.36Q254.80000000000004 37.6 254.80000000000004 35.44V30.64Q254.80000000000004 28.48 254.18000000000004 26.72Q253.56000000000003 24.96 252.42000000000002 23.7Q251.28000000000003 22.439999999999998 249.62000000000003 21.74Q247.96000000000004 21.04 245.92000000000004 21.04H241.04000000000002Z" fill="#efeadf"/>
++</svg>
+diff --git a/usr.sbin/lume-configurar/marca/lumebsd-logo.svg b/usr.sbin/lume-configurar/marca/lumebsd-logo.svg
+new file mode 100644
+index 000000000..fbe636758
+--- /dev/null
++++ b/usr.sbin/lume-configurar/marca/lumebsd-logo.svg
+@@ -0,0 +1,22 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 266 64" width="532" height="128">
++  <!-- LumeBSD: o farol e o nome (IBM Plex Serif, em curvas). -->
++  
++  <line x1="26" y1="17.5" x2="7" y2="11" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="26" y1="17.5" x2="7" y2="19" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="38" y1="17.5" x2="57" y2="11" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="38" y1="17.5" x2="57" y2="19" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <path d="M26.5,14 A5.5,5.5 0 0 1 37.5,14 Z" fill="#1c1b19"/>
++  <line x1="32" y1="8.5" x2="32" y2="5" stroke="#1c1b19" stroke-width="1.6" stroke-linecap="round"/>
++  <rect x="27.5" y="14" width="9" height="7" fill="none" stroke="#1c1b19" stroke-width="1.6"/>
++  <line x1="32" y1="14" x2="32" y2="21" stroke="#1c1b19" stroke-width="1"/>
++  <line x1="23.5" y1="22" x2="40.5" y2="22" stroke="#1c1b19" stroke-width="2" stroke-linecap="round"/>
++  <path d="M25.88,23 L38.12,23 L42,54 L22,54 Z" fill="none" stroke="#1c1b19" stroke-width="1.6" stroke-linejoin="round"/>
++  <path d="M25.25,28 L38.75,28 L39.25,32 L24.75,32 Z" fill="#1c1b19"/>
++  <path d="M24.12,37 L39.88,37 L40.38,41 L23.62,41 Z" fill="#1c1b19"/>
++  <path d="M23.00,46 L41.00,46 L41.50,50 L22.50,50 Z" fill="#1c1b19"/>
++  <rect x="30.5" y="50.5" width="3" height="3.5" fill="none" stroke="#1c1b19" stroke-width="1"/>
++  <line x1="13" y1="54.5" x2="51" y2="54.5" stroke="#1c1b19" stroke-width="1.6" stroke-linecap="round"/>
++  <path d="M17,59 q3,-2 6,0 t6,0 M35,59 q3,-2 6,0 t6,0" fill="none" stroke="#1c1b19" stroke-width="1" stroke-linecap="round"/>
++
++  <path d="M76.2 45.16H79.2V20.919999999999998H76.2V19.08H85.64V20.919999999999998H82.64V45.04H92.88V39.92H95.76V47.0H76.2ZM108.88000000000001 47.48Q105.16000000000001 47.48 103.54 45.54Q101.92 43.6 101.92 39.68V28.96L98.96000000000001 28.44V27.08L105.2 25.88V39.4Q105.2 45.2 110.04 45.2Q110.92 45.2 111.78 44.96Q112.64 44.72 113.34 44.2Q114.04 43.68 114.46000000000001 42.92Q114.88000000000001 42.16 114.88000000000001 41.12V28.96L111.92 28.44V27.08L118.16000000000001 25.88V44.4L121.12 44.92V46.28L114.96000000000001 47.48V43.88H114.80000000000001Q114.56 44.48 114.06 45.12Q113.56 45.76 112.82000000000001 46.28Q112.08000000000001 46.8 111.08000000000001 47.14Q110.08000000000001 47.48 108.88000000000001 47.48ZM124.52000000000001 45.16H127.48V28.96L124.52000000000001 28.44V27.08L130.68 25.88V29.48H130.84Q131.08 28.84 131.56 28.2Q132.04000000000002 27.56 132.78000000000003 27.04Q133.52 26.52 134.48000000000002 26.2Q135.44 25.88 136.64000000000001 25.88Q139.28 25.88 140.84 26.88Q142.4 27.88 143.0 29.96H143.12Q143.44 29.24 143.96 28.52Q144.48000000000002 27.8 145.24 27.2Q146.0 26.599999999999998 147.02 26.24Q148.04000000000002 25.88 149.4 25.88Q153.12 25.88 154.7 27.84Q156.28 29.8 156.28 33.68V45.16H159.24V47.0H150.04000000000002V45.16H153.0V33.92Q153.0 28.16 148.24 28.16Q147.36 28.16 146.5 28.42Q145.64000000000001 28.68 144.98000000000002 29.18Q144.32000000000002 29.68 143.92000000000002 30.46Q143.52 31.240000000000002 143.52 32.28V45.16H146.48000000000002V47.0H137.28V45.16H140.24V33.92Q140.24 28.16 135.52 28.16Q134.60000000000002 28.16 133.76000000000002 28.42Q132.92000000000002 28.68 132.24 29.18Q131.56 29.68 131.16000000000003 30.46Q130.76000000000002 31.240000000000002 130.76000000000002 32.28V45.16H133.72V47.0H124.52000000000001ZM171.8 47.48Q169.60000000000002 47.48 167.86 46.7Q166.12 45.92 164.92000000000002 44.519999999999996Q163.72000000000003 43.12 163.08000000000004 41.12Q162.44000000000003 39.12 162.44000000000003 36.68Q162.44000000000003 34.28 163.14000000000001 32.3Q163.84 30.32 165.06 28.880000000000003Q166.28 27.44 167.96 26.66Q169.64000000000001 25.88 171.64000000000001 25.88Q173.68 25.88 175.28000000000003 26.6Q176.88000000000002 27.32 177.98000000000002 28.619999999999997Q179.08 29.919999999999998 179.68 31.72Q180.28000000000003 33.519999999999996 180.28000000000003 35.64V36.56H166.08V37.6Q166.08 41.0 167.78000000000003 42.96Q169.48000000000002 44.92 172.32000000000002 44.92Q174.8 44.92 176.26000000000002 43.900000000000006Q177.72000000000003 42.88 178.56 41.24L179.88000000000002 42.08Q179.48000000000002 43.12 178.78000000000003 44.099999999999994Q178.08 45.08 177.08 45.82Q176.08 46.56 174.76000000000002 47.019999999999996Q173.44000000000003 47.48 171.8 47.48ZM166.08 34.72H176.84V34.32Q176.84 32.92 176.54000000000002 31.72Q176.24 30.52 175.60000000000002 29.64Q174.96 28.759999999999998 173.98000000000002 28.259999999999998Q173.0 27.759999999999998 171.64000000000001 27.759999999999998Q170.28000000000003 27.759999999999998 169.24 28.24Q168.20000000000002 28.72 167.5 29.6Q166.8 30.48 166.44 31.660000000000004Q166.08 32.84 166.08 34.24ZM184.28 45.16H187.28V20.919999999999998H184.28V19.08H197.64000000000001Q201.16000000000003 19.08 203.14000000000001 20.88Q205.12 22.68 205.12 25.68Q205.12 27.16 204.68 28.32Q204.24 29.48 203.5 30.32Q202.76000000000002 31.16 201.82000000000002 31.68Q200.88000000000002 32.2 199.88000000000002 32.36V32.480000000000004Q200.92000000000002 32.56 202.04000000000002 33.0Q203.16000000000003 33.44 204.08 34.28Q205.0 35.12 205.60000000000002 36.36Q206.20000000000002 37.6 206.20000000000002 39.24Q206.20000000000002 41.0 205.66000000000003 42.44Q205.12 43.88 204.14000000000001 44.900000000000006Q203.16000000000003 45.92 201.8 46.46Q200.44 47.0 198.84 47.0H184.28ZM190.72000000000003 45.04H197.60000000000002Q199.92000000000002 45.04 201.22000000000003 43.68Q202.52 42.32 202.52 40.16V38.4Q202.52 36.28 201.22000000000003 34.92Q199.92000000000002 33.56 197.60000000000002 33.56H190.72000000000003ZM190.72000000000003 31.6H196.96Q199.12 31.6 200.28 30.36Q201.44 29.12 201.44 27.2V25.44Q201.44 23.52 200.28 22.28Q199.12 21.04 196.96 21.04H190.72000000000003ZM220.68000000000004 47.48Q218.16000000000003 47.48 216.58000000000004 46.7Q215.00000000000003 45.92 214.36 44.6H214.16000000000003V47.0H211.28000000000003V38.8H214.16000000000003V40.64Q214.16000000000003 41.64 214.46000000000004 42.5Q214.76000000000002 43.36 215.46000000000004 44.0Q216.16000000000003 44.64 217.3 45.0Q218.44000000000003 45.36 220.08 45.36Q223.56000000000003 45.36 225.10000000000002 43.879999999999995Q226.64000000000001 42.4 226.64000000000001 39.92Q226.64000000000001 37.8 225.46000000000004 36.599999999999994Q224.28000000000003 35.4 221.76000000000002 34.72L219.56000000000003 34.16Q215.84000000000003 33.2 213.8 31.28Q211.76000000000002 29.36 211.76000000000002 26.0Q211.76000000000002 24.32 212.40000000000003 22.939999999999998Q213.04000000000002 21.56 214.20000000000002 20.6Q215.36 19.64 216.98000000000002 19.119999999999997Q218.60000000000002 18.599999999999998 220.56000000000003 18.599999999999998Q222.84000000000003 18.599999999999998 224.3 19.299999999999997Q225.76000000000002 20.0 226.36 21.24H226.60000000000002V19.08H229.48000000000002V26.88H226.60000000000002V25.04Q226.60000000000002 24.04 226.3 23.24Q226.00000000000003 22.439999999999998 225.28000000000003 21.88Q224.56000000000003 21.32 223.40000000000003 21.02Q222.24 20.72 220.56000000000003 20.72Q217.76000000000002 20.72 216.36 22.0Q214.96000000000004 23.28 214.96000000000004 25.36Q214.96000000000004 27.52 216.22000000000003 28.740000000000002Q217.48000000000002 29.96 220.20000000000002 30.68L222.24 31.2Q225.88000000000002 32.16 227.84000000000003 34.08Q229.8 36.0 229.8 39.12Q229.8 40.92 229.20000000000002 42.46Q228.60000000000002 44.0 227.44000000000003 45.120000000000005Q226.28000000000003 46.24 224.58000000000004 46.86Q222.88000000000002 47.48 220.68000000000004 47.48ZM234.60000000000002 45.16H237.60000000000002V20.919999999999998H234.60000000000002V19.08H246.28000000000003Q249.04000000000002 19.08 251.32000000000002 19.939999999999998Q253.60000000000002 20.8 255.22000000000003 22.54Q256.84000000000003 24.28 257.74 26.9Q258.64000000000004 29.52 258.64000000000004 33.04Q258.64000000000004 36.56 257.74 39.18Q256.84000000000003 41.8 255.22000000000003 43.54Q253.60000000000002 45.28 251.32000000000002 46.14Q249.04000000000002 47.0 246.28000000000003 47.0H234.60000000000002ZM241.04000000000002 45.04H245.92000000000004Q247.96000000000004 45.04 249.62000000000003 44.34Q251.28000000000003 43.64 252.42000000000002 42.379999999999995Q253.56000000000003 41.12 254.18000000000004 39.36Q254.80000000000004 37.6 254.80000000000004 35.44V30.64Q254.80000000000004 28.48 254.18000000000004 26.72Q253.56000000000003 24.96 252.42000000000002 23.7Q251.28000000000003 22.439999999999998 249.62000000000003 21.74Q247.96000000000004 21.04 245.92000000000004 21.04H241.04000000000002Z" fill="#1c1b19"/>
++</svg>
+diff --git a/usr.sbin/lume-configurar/marca/lumebsd-symbolic.svg b/usr.sbin/lume-configurar/marca/lumebsd-symbolic.svg
+new file mode 100644
+index 000000000..ccb779698
+--- /dev/null
++++ b/usr.sbin/lume-configurar/marca/lumebsd-symbolic.svg
+@@ -0,0 +1,12 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
++  <!-- LumeBSD: o farol, simbólico (segue a cor do texto do tema). -->
++  <style type="text/css" id="current-color-scheme">.ColorScheme-Text { color:#1c1b19; }</style>
++  <g class="ColorScheme-Text" fill="currentColor">
++    <path d="M6.6,3.4 A1.4,1.4 0 0 1 9.4,3.4 Z"/>
++    <path d="M6.8,3.4 h2.4 v2.5 h-2.4 Z M7.5,4.0 v1.3 h1.0 v-1.3 Z" fill-rule="evenodd"/>
++    <rect x="5.7" y="5.9" width="4.6" height="0.9" rx="0.45"/>
++    <path d="M6.40,7 L9.60,7 L10.80,14 L5.20,14 Z M6.19,8.2 L9.81,8.2 L9.98,9.2 L6.02,9.2 Z M5.82,10.4 L10.18,10.4 L10.35,11.4 L5.65,11.4 Z" fill-rule="evenodd"/>
++    <rect x="2.8" y="14" width="10.4" height="1" rx="0.5"/>
++    <path d="M6.2,4.4 L1.2,3.2 L1.2,4.2 Z M9.8,4.4 L14.8,3.2 L14.8,4.2 Z"/>
++  </g>
++</svg>
+diff --git a/usr.sbin/lume-configurar/marca/lumebsd.svg b/usr.sbin/lume-configurar/marca/lumebsd.svg
+new file mode 100644
+index 000000000..37335e603
+--- /dev/null
++++ b/usr.sbin/lume-configurar/marca/lumebsd.svg
+@@ -0,0 +1,21 @@
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
++  <!-- LumeBSD: o farol. -->
++  <rect x="1" y="1" width="62" height="62" rx="13" fill="#efeadf"/>
++  <rect x="1.5" y="1.5" width="61" height="61" rx="12.5" fill="none" stroke="#1c1b19" stroke-opacity=".18"/>
++  <line x1="26" y1="17.5" x2="7" y2="11" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="26" y1="17.5" x2="7" y2="19" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="38" y1="17.5" x2="57" y2="11" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <line x1="38" y1="17.5" x2="57" y2="19" stroke="#1c1b19" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2.2"/>
++  <path d="M26.5,14 A5.5,5.5 0 0 1 37.5,14 Z" fill="#1c1b19"/>
++  <line x1="32" y1="8.5" x2="32" y2="5" stroke="#1c1b19" stroke-width="1.6" stroke-linecap="round"/>
++  <rect x="27.5" y="14" width="9" height="7" fill="none" stroke="#1c1b19" stroke-width="1.6"/>
++  <line x1="32" y1="14" x2="32" y2="21" stroke="#1c1b19" stroke-width="1"/>
++  <line x1="23.5" y1="22" x2="40.5" y2="22" stroke="#1c1b19" stroke-width="2" stroke-linecap="round"/>
++  <path d="M25.88,23 L38.12,23 L42,54 L22,54 Z" fill="#efeadf" stroke="#1c1b19" stroke-width="1.6" stroke-linejoin="round"/>
++  <path d="M25.25,28 L38.75,28 L39.25,32 L24.75,32 Z" fill="#1c1b19"/>
++  <path d="M24.12,37 L39.88,37 L40.38,41 L23.62,41 Z" fill="#1c1b19"/>
++  <path d="M23.00,46 L41.00,46 L41.50,50 L22.50,50 Z" fill="#1c1b19"/>
++  <rect x="30.5" y="50.5" width="3" height="3.5" fill="#efeadf" stroke="#1c1b19" stroke-width="1"/>
++  <line x1="13" y1="54.5" x2="51" y2="54.5" stroke="#1c1b19" stroke-width="1.6" stroke-linecap="round"/>
++  <path d="M17,59 q3,-2 6,0 t6,0 M35,59 q3,-2 6,0 t6,0" fill="none" stroke="#1c1b19" stroke-width="1" stroke-linecap="round"/>
++</svg>
+diff --git a/usr.sbin/lume-configurar/tema/kcm-about-distrorc b/usr.sbin/lume-configurar/tema/kcm-about-distrorc
+new file mode 100644
+index 000000000..8a0160a90
+--- /dev/null
++++ b/usr.sbin/lume-configurar/tema/kcm-about-distrorc
+@@ -0,0 +1,6 @@
++# "Sobre o sistema" (Configurações do Sistema e Centro de Informações):
++# o farol do LumeBSD e o site do projeto (tema Papel).
++[General]
++LogoPath=/usr/share/lume/marca/lumebsd.svg
++Website=https://github.com/Kalel047/lumebsd
++Variant=Farol
+diff --git a/usr.sbin/lume-configurar/tema/ksplashrc b/usr.sbin/lume-configurar/tema/ksplashrc
+index c252676bf..a51e514c0 100644
+--- a/usr.sbin/lume-configurar/tema/ksplashrc
++++ b/usr.sbin/lume-configurar/tema/ksplashrc
+@@ -1,3 +1,3 @@
+ [KSplash]
+-Engine=none
+-Theme=None
++Engine=KSplashQML
++Theme=org.lumebsd.papel
+diff --git a/usr.sbin/lume-configurar/tema/layout-noite.js b/usr.sbin/lume-configurar/tema/layout-noite.js
+index 2aec3cc26..0cb615b3f 100644
+--- a/usr.sbin/lume-configurar/tema/layout-noite.js
++++ b/usr.sbin/lume-configurar/tema/layout-noite.js
+@@ -10,7 +10,7 @@ panel.floating = false;
+ 
+ var menu = panel.addWidget("org.kde.plasma.kickoff");
+ menu.currentConfigGroup = ["General"];
+-menu.writeConfig("icon", "start-here-kde-symbolic");
++menu.writeConfig("icon", "start-here-lume-symbolic");
+ 
+ panel.addWidget("org.kde.plasma.icontasks");
+ panel.addWidget("org.kde.plasma.marginsseparator");
+diff --git a/usr.sbin/lume-configurar/tema/layout.js b/usr.sbin/lume-configurar/tema/layout.js
+index 2aa1ba7cf..804dd0f06 100644
+--- a/usr.sbin/lume-configurar/tema/layout.js
++++ b/usr.sbin/lume-configurar/tema/layout.js
+@@ -10,7 +10,7 @@ panel.floating = false;
+ 
+ var menu = panel.addWidget("org.kde.plasma.kickoff");
+ menu.currentConfigGroup = ["General"];
+-menu.writeConfig("icon", "start-here-kde-symbolic");
++menu.writeConfig("icon", "start-here-lume-symbolic");
+ 
+ panel.addWidget("org.kde.plasma.icontasks");
+ panel.addWidget("org.kde.plasma.marginsseparator");
+diff --git a/usr.sbin/lume-configurar/tema/sddm-breeze.conf.user b/usr.sbin/lume-configurar/tema/sddm-breeze.conf.user
+index 3bd23a197..c3d927b07 100644
+--- a/usr.sbin/lume-configurar/tema/sddm-breeze.conf.user
++++ b/usr.sbin/lume-configurar/tema/sddm-breeze.conf.user
+@@ -1,3 +1,6 @@
+ [General]
+ background=/usr/local/share/wallpapers/LumePapelNoite/contents/images/3840x2160.png
+ type=image
++# O farol e o nome, claros sobre o papel de parede noturno.
++showlogo=shown
++logo=/usr/share/lume/marca/lumebsd-logo-claro.svg

@@ -50,7 +50,8 @@ ICONES_NOITE=$P/share/icons/lume-papel-noite
 MARCA=$P/etc/xdg/.lume-tema-papel
 
 # Arquivos que o tema coloca, para poder tirar depois.
-CONFS="kdeglobals kwinrc breezerc ksplashrc plasmarc konsolerc kscreenlockerrc"
+CONFS="kdeglobals kwinrc breezerc ksplashrc plasmarc konsolerc kscreenlockerrc kcm-about-distrorc"
+M=/usr/share/lume/marca
 
 instalar()
 {
@@ -182,6 +183,7 @@ aplicar()
 	    $P/share/sddm/themes/breeze/theme.conf.user 0644
 	icones_cinza breeze "$ICONES" Papel
 	icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite"
+	marca
 	echo "${nome}" > "$MARCA.padrao"
 	date > "$MARCA"
 	echo "  ✓ Tema $nome aplicado. Vale para quem entrar a partir de agora;"
@@ -211,6 +213,22 @@ integrar()
 		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
 		instalar $T/papel-noite.png $LNF_NOITE/contents/previews/preview.png
 		[ -d "$ICONES_NOITE" ] || icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite" >/dev/null
+		# A identidade visual (2.0): o farol no lugar dos logos do KDE, o
+		# splash, o SDDM e o Sobre o sistema; o menu de quem já usa, também.
+		instalar $T/ksplashrc $XDG/ksplashrc 0644
+		instalar $T/kcm-about-distrorc $XDG/kcm-about-distrorc 0644
+		instalar $T/sddm-breeze.conf.user $P/share/sddm/themes/breeze/theme.conf.user 0644
+		instalar $T/layout.js $LNF/contents/layouts/org.kde.plasma.desktop-layout.js
+		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
+		marca >/dev/null
+		# (sobrescreve o conteúdo, sem recriar o arquivo: ele continua do usuário)
+		for rc in /home/*/.config/plasma-org.kde.plasma.desktop-appletsrc; do
+			[ -f "$rc" ] && grep -q '^icon=start-here-kde-symbolic$' "$rc" || continue
+			tmp=$(mktemp)
+			sed -e 's/^icon=start-here-kde-symbolic$/icon=start-here-lume-symbolic/' "$rc" > "$tmp" &&
+			    cat "$tmp" > "$rc"
+			rm -f "$tmp"
+		done
 	fi
 	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
 	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
@@ -397,6 +415,52 @@ animacao()
 	kwin_config --group Plugins --key fadeEnabled false
 	kwin_config --group Plugins --key scaleEnabled false
 	kwin_recarregar
+}
+
+# A identidade visual do LumeBSD no KDE: o farol no lugar dos logos do KDE.
+#   - ícones lumebsd e start-here-lume (o botão do menu), no hicolor;
+#   - nos temas de ícones Papel e Papel noite, os logos do KDE e do Plasma
+#     (start-here-kde, kde, plasma, distributor-logo) viram o farol;
+#   - o splash nos dois temas globais (o do Papel noite com as cores dele).
+marca()
+{
+	[ -d $M ] || return 0
+	hi=$P/share/icons/hicolor
+	instalar $M/lumebsd.svg $hi/scalable/apps/lumebsd.svg 0644
+	instalar $M/lumebsd.svg $hi/scalable/apps/start-here-lume.svg 0644
+	instalar $M/lumebsd-symbolic.svg $hi/symbolic/apps/lumebsd-symbolic.svg 0644
+	instalar $M/lumebsd-symbolic.svg $hi/symbolic/apps/start-here-lume-symbolic.svg 0644
+	command -v gtk-update-icon-cache >/dev/null &&
+	    gtk-update-icon-cache -q -f "$hi" 2>/dev/null
+	for tema in "$ICONES" "$ICONES_NOITE"; do
+		[ -d "$tema" ] || continue
+		find "$tema" -type f \( -name 'start-here*.svg' -o -name 'kde.svg' \
+		    -o -name 'kde-symbolic.svg' -o -name 'plasma.svg' \
+		    -o -name 'plasma-symbolic.svg' -o -name 'distributor-logo*.svg' \) |
+		while read -r f; do
+			# Os pequenos (até 22) e os simbólicos: o farol em silhueta.
+			case "$f" in
+			*-symbolic.svg|*/16/*|*/22/*|*/24/*)	cp $M/lumebsd-symbolic.svg "$f" ;;
+			*)	cp $M/lumebsd.svg "$f" ;;
+			esac
+		done
+		mkdir -p "$tema/apps/scalable" "$tema/apps/symbolic"
+		cp $M/lumebsd.svg "$tema/apps/scalable/start-here-lume.svg"
+		cp $M/lumebsd-symbolic.svg "$tema/apps/symbolic/start-here-lume-symbolic.svg"
+		command -v gtk-update-icon-cache >/dev/null &&
+		    gtk-update-icon-cache -q -f "$tema" 2>/dev/null
+	done
+	instalar $M/Splash.qml $LNF/contents/splash/Splash.qml
+	instalar $M/lumebsd-logo.svg $LNF/contents/splash/images/lumebsd-logo.svg
+	if [ -d "$LNF_NOITE" ]; then
+		mkdir -p $LNF_NOITE/contents/splash/images
+		sed -e 's/color: "#efeadf"/color: "#1e1d1b"/' \
+		    -e 's/tinta: "#1c1b19"/tinta: "#dedad0"/' \
+		    -e 's|images/lumebsd-logo.svg|images/lumebsd-logo-claro.svg|' \
+		    $M/Splash.qml > $LNF_NOITE/contents/splash/Splash.qml
+		instalar $M/lumebsd-logo-claro.svg $LNF_NOITE/contents/splash/images/lumebsd-logo-claro.svg
+	fi
+	echo "  marca: o farol do LumeBSD no menu, no splash, no SDDM e em Sobre o sistema"
 }
 
 # lume tema escuro | claro: o seu usuário no Papel noite ou no Papel, na
