@@ -51,6 +51,16 @@ as fibras do papel, de 0 a 100 (padrão 40).
 .It Fl -colorido
 e-ink colorido: pigmentos suaves no lugar da tinta preta.
 .El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa /usr/lib/liblume-motor.so.1
+o motor, como biblioteca; o programa é a demonstração dela.
+.It Pa /usr/include/lume/motor.h , saida.h , papel.h
+a API; as funções públicas começam com
+.Li motor_ .
+Para ligar:
+.Li cc -I/usr/include/lume prog.c -llume-motor -lGLESv2 -lm .
+.El
 .Sh SEE ALSO
 .Xr lume 1
 .Pp

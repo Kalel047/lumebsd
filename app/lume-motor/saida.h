@@ -38,13 +38,13 @@ typedef struct saida {
 	bool modo_ligado;
 } saida;
 
-bool saida_sem_tela(saida *s, int w, int h);
-bool saida_png(saida *s, const char *arquivo);
-bool saida_drm(saida *s, const char *dispositivo);
+bool motor_saida_sem_tela(saida *s, int w, int h);
+bool motor_saida_png(saida *s, const char *arquivo);
+bool motor_saida_drm(saida *s, const char *dispositivo);
 /* Mostra o quadro (na tela: espera o vblank). */
-bool saida_mostrar(saida *s);
-void saida_fechar(saida *s);
-double saida_agora_ms(void);
-const char *saida_erro(void);
+bool motor_saida_mostrar(saida *s);
+void motor_saida_fechar(saida *s);
+double motor_saida_agora_ms(void);
+const char *motor_saida_erro(void);
 
 #endif

@@ -106,8 +106,8 @@ jobs:
           file efeitos/*/lume_*.so efeitos/decoracao/*.so
           # O lume-motor para o FreeBSD
           python3 ferramentas/pacotes.py --sem-dependencias qt mesa-libs freetype2 png
-          python3 ferramentas/montar-motor.py --so-compilar freebsd qt lume-motor
-          file lume-motor
+          python3 ferramentas/montar-motor.py --so-compilar freebsd qt motor-bin
+          file motor-bin/*
           # O lume-macho e o programa de teste do macOS (Mach-O)
           python3 ferramentas/montar-mac.py --so-compilar freebsd mac-bin
           file mac-bin/*
@@ -129,11 +129,17 @@ jobs:
           sudo apt-get install -y -q libegl-dev libgles-dev libgbm-dev libdrm-dev \
               libpng-dev libfreetype-dev libegl-mesa0 libgl1-mesa-dri fonts-ibm-plex
           cd app/lume-motor
-          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror \
-              $(pkg-config --cflags freetype2 libdrm) -o lume-motor \
-              demo.c motor.c cena.c saida.c \
+          # As contas do papel (papel.glsl) embutidas, como no montar-motor.py
+          python3 -c "import sys; sys.path.insert(0, '../../ferramentas'); import sistema; sistema.embutir_papel('.')"
+          # A biblioteca (liblume-motor) e o demonstrador ligado a ela
+          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC -shared \
+              $(pkg-config --cflags freetype2 libdrm) -Wl,-soname,liblume-motor.so.1 \
+              -o liblume-motor.so.1 motor.c cena.c saida.c \
               $(pkg-config --libs freetype2) -lEGL -lGLESv2 -lgbm -ldrm -lpng -lm
-          LIBGL_ALWAYS_SOFTWARE=1 timeout 600 ./lume-motor --png quadros --tamanho 640x360 --hz 30 --segundos 6.2
+          ln -sf liblume-motor.so.1 liblume-motor.so
+          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror \
+              $(pkg-config --cflags freetype2 libdrm) -o lume-motor demo.c -L. -llume-motor -lGLESv2 -lm
+          LIBGL_ALWAYS_SOFTWARE=1 LD_LIBRARY_PATH=. timeout 600 ./lume-motor --png quadros --tamanho 640x360 --hz 30 --segundos 6.2
           ls quadros/*.png
 
       - uses: actions/upload-artifact@v4
