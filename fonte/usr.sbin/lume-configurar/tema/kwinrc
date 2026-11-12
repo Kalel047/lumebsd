@@ -27,8 +27,10 @@ Grao=40
 Viscosidade=35
 
 [org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
+# A decoração "Papel" do LumeBSD: a aba como a do BeOS, com as abas das
+# janelas empilhadas (Ctrl+Meta+E).
+library=org.lumebsd.papel
+theme=Papel
 BorderSize=Tiny
 ButtonsOnLeft=
 ButtonsOnRight=IAX

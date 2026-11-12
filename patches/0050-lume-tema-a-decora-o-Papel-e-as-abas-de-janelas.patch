@@ -1,0 +1,72 @@
+From e359ceae5d82804d6755890589dc8e4715a4ba6c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 22:24:09 -0300
+Subject: [PATCH] =?UTF-8?q?lume=20tema:=20a=20decora=C3=A7=C3=A3o=20Papel?=
+ =?UTF-8?q?=20e=20as=20abas=20de=20janelas?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+A decoração de janelas passa a ser a org.lumebsd.papel (a aba como a do
+BeOS, em papel e tinta), e o efeito lume_abas (empilhar janelas em abas,
+Ctrl+Meta+E) vai junto com o lume_tinta, preso à versão do KWin.
+---
+ usr.sbin/lume-configurar/lume-tema.sh | 20 +++++++++++++++-----
+ usr.sbin/lume-configurar/tema/kwinrc  |  6 ++++--
+ 2 files changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 03bc8caae..29ce42c95 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -323,6 +323,12 @@ efeitos()
+ {
+ 	K=/usr/share/lume/kwin
+ 	[ -d $K ] || return 0
++	# A decoração de janelas "Papel" (a aba como a do BeOS, com as abas das
++	# janelas empilhadas): só usa a KDecoration3, serve aos dois KWin.
++	if [ -f $K/decoracao/org.lumebsd.papel.so ]; then
++		instalar $K/decoracao/org.lumebsd.papel.so \
++		    $P/lib/qt6/plugins/org.kde.kdecoration3/org.lumebsd.papel.so 0555
++	fi
+ 	for v in x11 wayland; do
+ 		case $v in
+ 		x11)	pkg=plasma6-kwin-x11; plug=$P/lib/qt6/plugins/kwin-x11/effects/plugins
+@@ -332,11 +338,15 @@ efeitos()
+ 		esac
+ 		tem=$(pkg query %v $pkg 2>/dev/null | sed 's/_[0-9]*$//; s/,[0-9]*$//')
+ 		[ -n "$tem" ] || continue
+-		if [ -f $K/$v/lume_tinta.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
+-			instalar $K/$v/lume_tinta.so $plug/lume_tinta.so 0555
+-		else
+-			rm -f $plug/lume_tinta.so
+-		fi
++		# O filtro e-ink e as abas de janelas (lume_abas): os dois em C++,
++		# presos à versão do KWin.
++		for so in lume_tinta lume_abas; do
++			if [ -f $K/$v/$so.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
++				instalar $K/$v/$so.so $plug/$so.so 0555
++			else
++				rm -f $plug/$so.so
++			fi
++		done
+ 		for e in $K/efeitos/*/; do
+ 			[ -d "$e" ] || continue
+ 			n=$(basename "$e")
+diff --git a/usr.sbin/lume-configurar/tema/kwinrc b/usr.sbin/lume-configurar/tema/kwinrc
+index 2dee49d11..56255377d 100644
+--- a/usr.sbin/lume-configurar/tema/kwinrc
++++ b/usr.sbin/lume-configurar/tema/kwinrc
+@@ -27,8 +27,10 @@ Grao=40
+ Viscosidade=35
+ 
+ [org.kde.kdecoration2]
+-library=org.kde.breeze
+-theme=Breeze
++# A decoração "Papel" do LumeBSD: a aba como a do BeOS, com as abas das
++# janelas empilhadas (Ctrl+Meta+E).
++library=org.lumebsd.papel
++theme=Papel
+ BorderSize=Tiny
+ ButtonsOnLeft=
+ ButtonsOnRight=IAX

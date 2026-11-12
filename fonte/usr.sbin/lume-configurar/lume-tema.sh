@@ -250,6 +250,18 @@ integrar()
 		instalar $A/org.lumebsd.programas.policy \
 		    $P/share/polkit-1/actions/org.lumebsd.programas.policy 0644
 	fi
+	# O ícone de rede (cabo e Wi-Fi), no lugar do networkmgr: na entrada da
+	# sessão e a permissão para preparar a placa. O networkmgr sai (é Python,
+	# e dois ícones de rede na bandeja confundem).
+	if [ -x /usr/bin/lume-rede ]; then
+		instalar $A/lume-rede.desktop $XDG/autostart/lume-rede.desktop 0644
+		instalar $A/org.lumebsd.rede.policy \
+		    $P/share/polkit-1/actions/org.lumebsd.rede.policy 0644
+		if pkg info -e networkmgr 2>/dev/null; then
+			pkg delete -y networkmgr >/dev/null 2>&1 &&
+			    logger -t lume "networkmgr removido: o ícone de rede agora é o lume-rede"
+		fi
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644
@@ -311,6 +323,12 @@ efeitos()
 {
 	K=/usr/share/lume/kwin
 	[ -d $K ] || return 0
+	# A decoração de janelas "Papel" (a aba como a do BeOS, com as abas das
+	# janelas empilhadas): só usa a KDecoration3, serve aos dois KWin.
+	if [ -f $K/decoracao/org.lumebsd.papel.so ]; then
+		instalar $K/decoracao/org.lumebsd.papel.so \
+		    $P/lib/qt6/plugins/org.kde.kdecoration3/org.lumebsd.papel.so 0555
+	fi
 	for v in x11 wayland; do
 		case $v in
 		x11)	pkg=plasma6-kwin-x11; plug=$P/lib/qt6/plugins/kwin-x11/effects/plugins
@@ -320,11 +338,15 @@ efeitos()
 		esac
 		tem=$(pkg query %v $pkg 2>/dev/null | sed 's/_[0-9]*$//; s/,[0-9]*$//')
 		[ -n "$tem" ] || continue
-		if [ -f $K/$v/lume_tinta.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
-			instalar $K/$v/lume_tinta.so $plug/lume_tinta.so 0555
-		else
-			rm -f $plug/lume_tinta.so
-		fi
+		# O filtro e-ink e as abas de janelas (lume_abas): os dois em C++,
+		# presos à versão do KWin.
+		for so in lume_tinta lume_abas; do
+			if [ -f $K/$v/$so.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
+				instalar $K/$v/$so.so $plug/$so.so 0555
+			else
+				rm -f $plug/$so.so
+			fi
+		done
 		for e in $K/efeitos/*/; do
 			[ -d "$e" ] || continue
 			n=$(basename "$e")

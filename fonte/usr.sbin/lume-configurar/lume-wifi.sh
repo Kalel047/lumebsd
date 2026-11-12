@@ -3,12 +3,65 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 # lume-wifi - conecta a uma rede Wi-Fi pelo terminal e guarda a escolha.
-# No desktop, use o ícone de rede (networkmgr).
+# No desktop, use o ícone de rede na bandeja (lume-rede).
+#
+#   lume wifi            procura as redes, pede a senha e conecta
+#   lume wifi preparar   deixa a placa pronta para o lume-rede: a wlan0 e o
+#                        wpa_supplicant, com o controle aberto ao grupo
+#                        wheel (o serviço lume_wifi faz isso no boot)
 #
 
 [ "$(id -u)" -eq 0 ] || { echo "lume wifi: precisa ser root (su -)" >&2; exit 1; }
 
+conf=/etc/wpa_supplicant.conf
 placa=$(sysctl -n net.wlan.devices 2>/dev/null | awk '{print $1}')
+
+# A configuração que o wpa_supplicant precisa para o lume-rede (e o wpa_cli)
+# falarem com ele sem root: o socket de controle, do grupo wheel, e o
+# update_config, para guardar as redes novas.
+preparar_conf()
+{
+	[ -f "$conf" ] || : > "$conf"
+	chmod 600 "$conf"
+	if ! grep -q '^ctrl_interface=' "$conf"; then
+		t=$(mktemp)
+		printf 'ctrl_interface=/var/run/wpa_supplicant\nctrl_interface_group=wheel\nupdate_config=1\n' > "$t"
+		cat "$conf" >> "$t"
+		cat "$t" > "$conf"
+		rm -f "$t"
+	fi
+}
+
+# Com uma placa Wi-Fi: a wlan0 no rc.conf, em WPA e DHCP, para o netif criar a
+# interface e subir o wpa_supplicant no boot, mesmo sem nenhuma rede guardada.
+preparar()
+{
+	[ -n "$placa" ] || return 0
+	preparar_conf
+	[ -n "$(sysrc -n "wlans_$placa" 2>/dev/null)" ] || sysrc -q "wlans_$placa=wlan0" >/dev/null
+	[ -n "$(sysrc -n ifconfig_wlan0 2>/dev/null)" ] || sysrc -q ifconfig_wlan0="WPA DHCP" >/dev/null
+}
+
+case "${1:-}" in
+--boot)
+	preparar
+	exit 0 ;;
+preparar)
+	if [ -z "$placa" ]; then
+		echo "  Nenhuma placa Wi-Fi com driver. Veja: lume hardware"
+		exit 1
+	fi
+	preparar
+	# Fora do boot: sobe a wlan0 agora, se o wpa_supplicant não está rodando.
+	if [ ! -S /var/run/wpa_supplicant/wlan0 ]; then
+		service netif start wlan0 >/dev/null 2>&1
+	fi
+	echo "  Wi-Fi pronto ($placa, wlan0)."
+	exit 0 ;;
+"") ;;
+*)	echo "uso: lume wifi [preparar]" >&2; exit 2 ;;
+esac
+
 if [ -z "$placa" ]; then
 	echo "  Nenhuma placa Wi-Fi com driver. Veja: lume hardware"
 	exit 1
@@ -39,10 +92,7 @@ ssid=$(echo "$redes" | sed -n "${n}p")
 printf "  Senha de \"%s\" (vazio se aberta): " "$ssid"
 stty -echo 2>/dev/null; read -r senha; stty echo 2>/dev/null; echo
 
-conf=/etc/wpa_supplicant.conf
-touch "$conf"; chmod 600 "$conf"
-grep -q '^ctrl_interface=' "$conf" ||
-    printf 'ctrl_interface=/var/run/wpa_supplicant\nctrl_interface_group=wheel\nupdate_config=1\n' >> "$conf"
+preparar_conf
 if [ -n "$senha" ]; then
 	wpa_passphrase "$ssid" "$senha" | grep -v '#psk=' >> "$conf"
 else

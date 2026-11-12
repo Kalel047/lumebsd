@@ -4,8 +4,8 @@ uso: montar-app.py STAGE QT6BASE.pkg
      montar-app.py --so-compilar RAIZ QT6BASE.pkg PASTA
                   (o CI: compila contra um base.txz do FreeBSD, sem stage)
 
-Os apps: "Atualizações do LumeBSD" (app/lume-atualizacoes) e "Programas do
-LumeBSD" (app/lume-programas).
+Os apps: "Atualizações do LumeBSD" (app/lume-atualizacoes), "Programas do
+LumeBSD" (app/lume-programas) e o ícone de rede (app/lume-rede).
 
 STAGE        saída de "installworld distribution installkernel -DNO_ROOT"
 QT6BASE.pkg  o pacote qt6-base do FreeBSD (só os cabeçalhos e as
@@ -40,7 +40,10 @@ APPS = {
                           "org.lumebsd.atualizar.policy"],
     "lume-programas": ["lume-programas.svg", "lume-programas.desktop",
                        "org.lumebsd.programas.policy"],
+    "lume-rede": ["lume-rede.desktop", "org.lumebsd.rede.policy"],
 }
+# Bibliotecas além do Qt (do FreeBSD, no stage).
+LIBS = {"lume-rede": ["-lcrypto"]}
 
 
 def compilar(stage, qtpkg, saida, nome):
@@ -64,7 +67,7 @@ def compilar(stage, qtpkg, saida, nome):
             cmd += ["-isystem", os.path.join(inc, m)]
         cmd += [os.path.join(TOPO, "app", nome, "main.cpp"), "-o", saida,
                 "-fuse-ld=lld", f"-L{raiz}/usr/local/lib/qt6",
-                "-lQt6Widgets", "-lQt6Gui", "-lQt6Core",
+                "-lQt6Widgets", "-lQt6Gui", "-lQt6Core", *LIBS.get(nome, []),
                 "-Wl,-rpath,/usr/local/lib/qt6:/usr/local/lib",
                 "-Wl,--allow-shlib-undefined"]
         subprocess.run(cmd, check=True)

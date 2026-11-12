@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+# LumeBSD: deixa a placa Wi-Fi pronta antes da rede subir (a wlan0 e o
+# wpa_supplicant, que o ícone de rede, lume-rede, controla sem root).
+#
+
+# PROVIDE: lume_wifi
+# REQUIRE: FILESYSTEMS kld devmatch
+# BEFORE: netif
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="lume_wifi"
+desc="Prepara a placa Wi-Fi para o ícone de rede"
+rcvar="lume_wifi_enable"
+start_cmd="lume_wifi_start"
+stop_cmd=":"
+
+lume_wifi_start()
+{
+	[ -x /usr/sbin/lume-wifi ] && /usr/sbin/lume-wifi --boot
+}
+
+load_rc_config $name
+: ${lume_wifi_enable:="YES"}
+run_rc_command "$1"

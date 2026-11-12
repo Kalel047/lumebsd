@@ -78,7 +78,6 @@ okular
 # Som, rede, navegador e utilidades
 pipewire
 wireplumber
-networkmgr
 firefox
 doas
 noto-basic

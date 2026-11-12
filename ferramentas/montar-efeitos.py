@@ -11,6 +11,11 @@ bibliotecas (a lista PACOTES abaixo; pacotes.py --sem-dependencias).
   contra o KWin do X11 (kwin-x11) e o do Wayland (kwin). Sem moc: os
   metadados do plugin (o que o Q_PLUGIN_METADATA geraria) saem daqui, do
   metadata.json convertido para CBOR, no formato do moc do Qt 6.
+- lume_abas (app/lume-janelas/abas.cpp): as abas de janelas (como no
+  BeOS), também nas duas variantes.
+- org.lumebsd.papel (app/lume-janelas/decoracao.cpp): a decoração de
+  janelas "Papel"; só usa a KDecoration3, então compila uma vez (vai para
+  kwin/decoracao/).
 - lume_refresh e lume_esmaecer (app/lume-animacoes): as animações de abrir e
   fechar janelas, em JavaScript (pacotes KWin/Effect).
 
@@ -33,7 +38,13 @@ LLVM = os.environ.get("LLVM_BIN", "/usr/lib/llvm-19/bin")
 DESTINO = "usr/share/lume/kwin"
 PACOTES = ["qt6-base", "kf6-kcoreaddons", "kf6-kconfig", "kf6-kglobalaccel",
            "plasma6-kwin", "plasma6-kwin-x11", "libepoxy", "libxcb", "xorgproto",
-           "libdrm", "wayland", "libxkbcommon", "libglvnd"]
+           "libdrm", "wayland", "libxkbcommon", "libglvnd", "plasma6-kdecoration",
+           "kf6-kwindowsystem"]
+# Os efeitos em C++: (pasta em app/, arquivo, nome do .so, classe da fábrica, json).
+EFEITOS = [
+    ("lume-tinta", "tinta.cpp", "lume_tinta", "TintaFabrica", "metadata.json"),
+    ("lume-janelas", "abas.cpp", "lume_abas", "AbasFabrica", "abas.json"),
+]
 # Os dois KWin: pasta dos cabeçalhos, biblioteca, pasta dos plugins.
 VARIANTES = {
     "x11": ("kwin-x11", "kwin-x11"),
@@ -98,66 +109,98 @@ def versao_kwin(raiz_local, variante):
     sys.exit(f"montar-efeitos: sem a versão em {conf}")
 
 
-def compilar_tinta(stage, pacotes, saida_dir):
-    """Compila o lume_tinta para as duas variantes; devolve {variante: (so, versão)}."""
-    fonte = os.path.join(TOPO, "app", "lume-tinta")
-    meta = json.load(open(os.path.join(fonte, "metadata.json"), encoding="utf-8"))
+def preparar_raiz(tmp, stage, pacotes):
+    """A raiz de compilação: o FreeBSD do stage e os pacotes em /usr/local."""
+    local = os.path.join(tmp, "local")
+    os.makedirs(local)
+    for nome in PACOTES:
+        # Nem todo pacote tem as duas pastas (xorgproto só tem include/): o
+        # bsdtar reclama da que falta, sem problema.
+        subprocess.run(["bsdtar", "-xf", achar_pacote(pacotes, nome), "-C", local,
+                        "--strip-components", "3", "/usr/local/include", "/usr/local/lib"],
+                       stderr=subprocess.DEVNULL)
+    raiz = os.path.join(tmp, "raiz")
+    os.makedirs(os.path.join(raiz, "usr"))
+    for d in ("lib", "usr/lib", "usr/include"):
+        os.symlink(os.path.join(stage, d), os.path.join(raiz, d))
+    os.symlink(local, os.path.join(raiz, "usr/local"))
+    return local, raiz
+
+
+def base_cmd(raiz, local):
+    inc = os.path.join(local, "include")
+    qt = os.path.join(inc, "qt6")
+    cmd = [os.path.join(LLVM, "clang++"), "--target=x86_64-unknown-freebsd15.1",
+           f"--sysroot={raiz}", "-std=c++20", "-O2", "-fPIC", "-shared",
+           "-Wall", "-Wno-deprecated-declarations", "-DQT_NO_KEYWORDS", "-DQT_NO_DEBUG"]
+    for d in [qt] + [os.path.join(qt, m) for m in ("QtCore", "QtGui", "QtDBus", "QtWidgets")] + \
+             [os.path.join(inc, "KF6", m) for m in ("KConfigCore", "KConfig",
+                                                    "KCoreAddons", "KGlobalAccel",
+                                                    "KWindowSystem")] + \
+             [os.path.join(inc, "KDecoration3"), inc]:
+        cmd += ["-isystem", d]
+    return cmd
+
+
+def compilar(stage, pacotes, saida_dir):
+    """Compila os efeitos (as duas variantes do KWin) e a decoração."""
     feitos = {}
     with tempfile.TemporaryDirectory() as tmp:
-        local = os.path.join(tmp, "local")
-        os.makedirs(local)
-        for nome in PACOTES:
-            # Nem todo pacote tem as duas pastas (xorgproto só tem
-            # include/): o bsdtar reclama da que falta, sem problema.
-            subprocess.run(["bsdtar", "-xf", achar_pacote(pacotes, nome), "-C", local,
-                            "--strip-components", "3", "/usr/local/include", "/usr/local/lib"],
-                           stderr=subprocess.DEVNULL)
-        raiz = os.path.join(tmp, "raiz")
-        os.makedirs(os.path.join(raiz, "usr"))
-        for d in ("lib", "usr/lib", "usr/include"):
-            os.symlink(os.path.join(stage, d), os.path.join(raiz, d))
-        os.symlink(local, os.path.join(raiz, "usr/local"))
+        local, raiz = preparar_raiz(tmp, stage, pacotes)
         inc = os.path.join(local, "include")
-        qt = os.path.join(inc, "qt6")
-        for variante, (pasta, lib) in VARIANTES.items():
-            versao = versao_kwin(local, variante)
-            gerado = os.path.join(tmp, f"gerado-{variante}")
-            os.makedirs(gerado)
-            with open(os.path.join(gerado, "metadados.inc"), "w") as f:
-                f.write(metadados("org.kde.kwin.EffectPluginFactory" + versao,
-                                  "TintaFabrica", meta))
-            so = os.path.join(saida_dir, variante, "lume_tinta.so")
-            os.makedirs(os.path.dirname(so), exist_ok=True)
-            cmd = [os.path.join(LLVM, "clang++"), "--target=x86_64-unknown-freebsd15.1",
-                   f"--sysroot={raiz}", "-std=c++20", "-O2", "-fPIC", "-shared",
-                   "-Wall", "-Wno-deprecated-declarations",
-                   "-DQT_NO_KEYWORDS", "-DQT_NO_DEBUG", f"-DLUME_KWIN_{variante.upper()}",
-                   "-I", gerado, "-isystem", os.path.join(inc, pasta)]
-            for d in [qt] + [os.path.join(qt, m) for m in ("QtCore", "QtGui", "QtDBus")] + \
-                     [os.path.join(inc, "KF6", m) for m in ("KConfigCore", "KConfig",
-                                                            "KCoreAddons", "KGlobalAccel")] + [inc]:
-                cmd += ["-isystem", d]
-            cmd += [os.path.join(fonte, "tinta.cpp"), "-o", so, "-fuse-ld=lld",
-                    f"-L{local}/lib", f"-L{local}/lib/qt6", f"-l{lib}",
-                    "-lKF6GlobalAccel", "-lKF6ConfigCore", "-lQt6Gui", "-lQt6DBus", "-lQt6Core",
-                    "-Wl,-rpath,/usr/local/lib/qt6:/usr/local/lib",
-                    "-Wl,--allow-shlib-undefined", "-Wl,--no-undefined-version"]
-            subprocess.run(cmd, check=True)
-            subprocess.run([os.path.join(LLVM, "llvm-strip"), so], check=True)
-            # A versão do KWin contra a qual compilou: o KWin só carrega um
-            # plugin da mesma versão (está no IID).
-            with open(os.path.join(saida_dir, variante, "versao"), "w") as f:
-                f.write(versao + "\n")
-            feitos[variante] = (so, versao)
-            print(f"efeito: lume_tinta ({variante}, KWin {versao}, "
-                  f"{os.path.getsize(so) // 1024} KiB)")
+        for pasta_app, arquivo, so_nome, classe, json_nome in EFEITOS:
+            fonte = os.path.join(TOPO, "app", pasta_app)
+            meta = json.load(open(os.path.join(fonte, json_nome), encoding="utf-8"))
+            for variante, (pasta, lib) in VARIANTES.items():
+                versao = versao_kwin(local, variante)
+                gerado = os.path.join(tmp, f"gerado-{so_nome}-{variante}")
+                os.makedirs(gerado)
+                with open(os.path.join(gerado, "metadados.inc"), "w") as f:
+                    f.write(metadados("org.kde.kwin.EffectPluginFactory" + versao, classe, meta))
+                so = os.path.join(saida_dir, variante, so_nome + ".so")
+                os.makedirs(os.path.dirname(so), exist_ok=True)
+                cmd = base_cmd(raiz, local) + [f"-DLUME_KWIN_{variante.upper()}", "-I", gerado,
+                                               "-isystem", os.path.join(inc, pasta)]
+                cmd += [os.path.join(fonte, arquivo), "-o", so, "-fuse-ld=lld",
+                        f"-L{local}/lib", f"-L{local}/lib/qt6", f"-l{lib}",
+                        "-lkdecorations3", "-lKF6GlobalAccel", "-lKF6ConfigCore",
+                        "-lQt6Gui", "-lQt6DBus", "-lQt6Core",
+                        "-Wl,-rpath,/usr/local/lib/qt6:/usr/local/lib",
+                        "-Wl,--allow-shlib-undefined", "-Wl,--no-undefined-version"]
+                subprocess.run(cmd, check=True)
+                subprocess.run([os.path.join(LLVM, "llvm-strip"), so], check=True)
+                # A versão do KWin contra a qual compilou: o KWin só carrega um
+                # plugin da mesma versão (está no IID).
+                with open(os.path.join(saida_dir, variante, "versao"), "w") as f:
+                    f.write(versao + "\n")
+                feitos[(so_nome, variante)] = (so, versao)
+                print(f"efeito: {so_nome} ({variante}, KWin {versao}, "
+                      f"{os.path.getsize(so) // 1024} KiB)")
+        # A decoração: um KPluginFactory comum (IID do KPluginFactory).
+        fonte = os.path.join(TOPO, "app", "lume-janelas")
+        meta = json.load(open(os.path.join(fonte, "decoracao.json"), encoding="utf-8"))
+        gerado = os.path.join(tmp, "gerado-decoracao")
+        os.makedirs(gerado)
+        with open(os.path.join(gerado, "metadados.inc"), "w") as f:
+            f.write(metadados("org.kde.KPluginFactory", "PapelFabrica", meta))
+        so = os.path.join(saida_dir, "decoracao", "org.lumebsd.papel.so")
+        os.makedirs(os.path.dirname(so), exist_ok=True)
+        cmd = base_cmd(raiz, local) + ["-I", gerado]
+        cmd += [os.path.join(fonte, "decoracao.cpp"), "-o", so, "-fuse-ld=lld",
+                f"-L{local}/lib", f"-L{local}/lib/qt6", "-lkdecorations3",
+                "-lKF6CoreAddons", "-lQt6Gui", "-lQt6Core",
+                "-Wl,-rpath,/usr/local/lib/qt6:/usr/local/lib",
+                "-Wl,--allow-shlib-undefined"]
+        subprocess.run(cmd, check=True)
+        subprocess.run([os.path.join(LLVM, "llvm-strip"), so], check=True)
+        print(f"decoração: org.lumebsd.papel ({os.path.getsize(so) // 1024} KiB)")
     return feitos
 
 
 def main():
     if len(sys.argv) == 5 and sys.argv[1] == "--so-compilar":
         raiz, pacotes, pasta = (os.path.abspath(a) for a in sys.argv[2:5])
-        compilar_tinta(raiz, pacotes, pasta)
+        compilar(raiz, pacotes, pasta)
         return
     if len(sys.argv) != 3:
         sys.exit(__doc__)
@@ -166,7 +209,7 @@ def main():
     if os.path.isdir(destino):
         shutil.rmtree(destino)
     os.makedirs(destino)
-    compilar_tinta(stage, pacotes, destino)
+    compilar(stage, pacotes, destino)
     # As animações (JS): copiadas como estão.
     anim = os.path.join(TOPO, "app", "lume-animacoes")
     for d in sorted(os.listdir(anim)):

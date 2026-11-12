@@ -1,0 +1,47 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 11, 2026
+.Dt LUME-REDE 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-rede
+.Nd o ícone de rede do LumeBSD: cabo e Wi-Fi
+.Sh SYNOPSIS
+.Nm
+.Op Fl -estado
+.Sh DESCRIPTION
+O ícone de rede na bandeja do KDE.
+Mostra se o cabo e o Wi-Fi estão conectados e com qual endereço; lista as
+redes Wi-Fi por perto, com o sinal e um cadeado nas que pedem senha;
+conecta (pedindo a senha na primeira vez) e esquece redes guardadas.
+.Pp
+O Wi-Fi é do
+.Xr wpa_supplicant 8 :
+.Nm
+fala com ele pelo socket de controle, que o grupo wheel pode usar, sem root.
+A senha vira a chave da rede (como no
+.Xr wpa_passphrase 8 )
+no próprio
+.Nm ;
+só a chave vai para o
+.Pa /etc/wpa_supplicant.conf .
+Redes WPA2, WPA3 e abertas; redes corporativas (802.1X) e WEP ainda não.
+.Pp
+Se a placa ainda não está preparada, o menu oferece
+.Dq Preparar o Wi-Fi ,
+que roda
+.Ic lume wifi preparar
+com a senha de um administrador.
+.Pp
+.Fl -estado
+imprime o estado e as redes por perto e sai.
+.Sh FILES
+.Bl -tag -width indent -compact
+.It Pa /var/run/wpa_supplicant/wlan0
+o socket de controle do wpa_supplicant
+.It Pa /etc/wpa_supplicant.conf
+as redes guardadas
+.El
+.Sh SEE ALSO
+.Xr wpa_supplicant 8 ,
+.Xr wpa_cli 8 ,
+.Xr lume 1
