@@ -1,4 +1,4 @@
-# LumeBSD 1.5 "Farol"
+# LumeBSD 2.0 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -26,7 +26,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.5
+        |[_]|        LumeBSD 2.0
         |===|        "Farol"
         |   |
         |===|
@@ -41,6 +41,10 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 | | |
 |---|---|
+| **Identidade própria** (2.0) | o farol do LumeBSD no boot, na abertura da sessão, no login, no botão do menu e em "Sobre o sistema"; a decoração de janelas **Papel** |
+| **Abas de janelas** (2.0) | como no BeOS: **Ctrl+Meta+E** empilha janelas no mesmo lugar, com uma aba para cada uma na barra de título |
+| **Atributos nos arquivos** (2.0) | etiquetas, nota, comentário e atributos seus gravados no arquivo (`lume atributo`); editar no botão direito do Dolphin, procurar e salvar a consulta num `.consulta` |
+| **Sem Python** (2.0) | o ícone de rede (`lume-rede`, C++) no lugar do networkmgr; as ferramentas de construção em Rust (`lume-montar`); o `lume-motor` virou biblioteca |
 | **Papel e tinta de verdade** (1.5) | o filtro e-ink ganhou o **grão do papel** (fibras paradas na tela) e a **viscosidade da tinta**: quando a tela muda, o conteúdo novo assenta sobre o anterior, sem piscar |
 | **Motor de renderização** (1.5) | o protótipo `lume-motor`: desenha direto na placa de vídeo (DRM/KMS), letras e desenhos calculados pelas equações das curvas em cada pixel, papel num compute shader, no modo de maior taxa do monitor ([docs/MOTOR.md](docs/MOTOR.md)) |
 | **Papel noite** (1.5.1) | o tema escuro: fundo de tinta, letras de papel; `lume tema escuro` e `lume tema claro` trocam na hora; o filtro e-ink acompanha. E o disco instalado dá boot também em BIOS (máquinas virtuais do virt-manager e do GNOME Boxes) |
@@ -66,7 +70,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 ### 1. Gravar
 
-Baixe `LumeBSD-1.5-Farol-pendrive.img.xz` (ou a `LumeBSD-1.5-Farol.iso`) das
+Baixe `LumeBSD-2.0-Farol-pendrive.img.xz` (ou a `LumeBSD-2.0-Farol.iso`) das
 [Releases](https://github.com/Kalel047/lumebsd/releases) (ou do último
 [Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml),
 em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
@@ -74,7 +78,7 @@ em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
 
 - **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
   perguntar, **modo DD**.
-- **Linux/FreeBSD**: `dd if=LumeBSD-1.5-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+- **Linux/FreeBSD**: `dd if=LumeBSD-2.0-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
 
 A `.iso` serve para gravar num DVD, abrir numa máquina virtual (VirtualBox,
 VMware, QEMU, GNOME Boxes) ou num pendrive com o Ventoy; também pode ser
@@ -505,7 +509,7 @@ O script clona o FreeBSD `releng/15.1`, aplica os patches, compila
 userland e kernel `LUME`, instala num diretório de staging sem precisar de
 root, baixa os pacotes essenciais do repositório trimestral do FreeBSD
 (conferindo os hashes), compila os apps contra o `qt6-base`
-do FreeBSD e gera `LumeBSD-1.5-Farol-pendrive.img`, a `LumeBSD-1.5-Farol.iso` e, em `atualizacao/`, o
+do FreeBSD e gera `LumeBSD-2.0-Farol-pendrive.img`, a `LumeBSD-2.0-Farol.iso` e, em `atualizacao/`, o
 pacote de atualização com o índice e as novidades (`docs/novidades.md`).
 Leva várias horas numa máquina de 2 núcleos (o world é a parte longa).
 

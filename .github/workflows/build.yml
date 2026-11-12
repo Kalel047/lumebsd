@@ -14,7 +14,7 @@ on:
       tag:
         description: "Tag da Release"
         type: string
-        default: "v1.5.1"
+        default: "v2.0.0"
   schedule:
     - cron: "23 5 1 * *"
 
@@ -29,8 +29,8 @@ jobs:
       run:
         shell: bash
     env:
-      IMG: LumeBSD-1.5-Farol-pendrive.img
-      ISO: LumeBSD-1.5-Farol.iso
+      IMG: LumeBSD-2.0-Farol-pendrive.img
+      ISO: LumeBSD-2.0-Farol.iso
     steps:
       - uses: actions/checkout@v4
 
@@ -84,10 +84,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: LumeBSD-1.5-Farol
+          name: LumeBSD-2.0-Farol
           path: |
-            LumeBSD-1.5-Farol-pendrive.img.xz
-            LumeBSD-1.5-Farol.iso*
+            LumeBSD-2.0-Farol-pendrive.img.xz
+            LumeBSD-2.0-Farol.iso*
             SHA256SUMS
           compression-level: 0
           retention-days: 14
