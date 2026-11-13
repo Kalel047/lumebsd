@@ -36,7 +36,7 @@
 //
 // Sem moc: nenhuma classe daqui declara sinais ou slots (as conexões são
 // lambdas), e os metadados do plugin vêm de metadata.json, convertidos para
-// CBOR pelo ferramentas/montar-efeitos.py (o que o moc faria). Assim compila
+// CBOR pelo lume-montar (ferramentas/montar efeitos; o que o moc faria). Assim compila
 // com o clang de fora do FreeBSD contra os cabeçalhos dos pacotes.
 
 #include "effect/effecthandler.h"
@@ -58,6 +58,11 @@
 #include <QtPlugin>
 #include <QSet>
 #include <QVector3D>
+
+// O papel do LumeBSD: as contas (papel.glsl, embutido pelo lume-montar
+// em papel_glsl.inc) e as cores (papel.h), as mesmas do lume-motor.
+#include "papel.h"
+#include "papel_glsl.inc"
 
 #include <chrono>
 #include <cmath>
@@ -87,30 +92,10 @@ in vec2 texcoord0;
 
 out vec4 fragColor;
 
-// Ruído de valor: fibras de papel compridas nas duas direções e um grão fino,
-// presos ao pixel da tela (gl_FragCoord), não à janela.
-float hash(vec2 p)
-{
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
+// (aqui entram as contas do papel: papel.glsl, do lume-motor)
+)GLSL";
 
-float ruido(vec2 p)
-{
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
-
-float fibras(vec2 p)
-{
-    return 0.40 * ruido(p * vec2(0.07, 0.55))
-         + 0.30 * ruido(p * vec2(0.55, 0.07))
-         + 0.15 * ruido(p * 0.9)
-         + 0.15 * hash(floor(p));
-}
-
+static const char FRAGMENTO_MAIN[] = R"GLSL(
 void main()
 {
     vec4 tex = texture(sampler, texcoord0);
@@ -126,11 +111,9 @@ void main()
     l = mix(l, l * l * (3.0 - 2.0 * l), 0.35);
     // O grão: nas bordas (meios-tons) a tinta avança ou recua um pouco pelas
     // fibras; no papel, o tom varia de leve. Pretos e brancos chapados ficam.
-    float n = fibras(gl_FragCoord.xy) - 0.5;
-    float borda = 4.0 * l * (1.0 - l);
-    l = clamp(l + grao * 0.16 * n * borda, 0.0, 1.0);
-    vec3 papelFibra = papel * (1.0 + grao * 0.045 * n);
-    vec3 eink = mix(tinta, papelFibra, l);
+    float n = lume_fibras(gl_FragCoord.xy) - 0.5;
+    l = lume_grao(l, n, grao);
+    vec3 eink = mix(tinta, lume_folha(papel, n, grao), l);
     tex.rgb = mix(tex.rgb, eink, intensidade);
 
     tex *= modulation;
@@ -366,19 +349,21 @@ void Tinta::cores()
 {
     if (m_noite) {
         // Papel noite: o papel claro um pouco apagado, a tinta mais funda.
-        m_shader->setUniform("papel", QVector3D(214 / 255.0f, 209 / 255.0f, 198 / 255.0f));
-        m_shader->setUniform("tinta", QVector3D(22 / 255.0f, 21 / 255.0f, 19 / 255.0f));
+        m_shader->setUniform("papel", QVector3D(LUME_PAPEL_NOITE));
+        m_shader->setUniform("tinta", QVector3D(LUME_TINTA_NOITE));
     } else {
         // O papel e a tinta do tema Papel, um pouco mais quentes.
-        m_shader->setUniform("papel", QVector3D(240 / 255.0f, 236 / 255.0f, 226 / 255.0f));
-        m_shader->setUniform("tinta", QVector3D(28 / 255.0f, 27 / 255.0f, 25 / 255.0f));
+        m_shader->setUniform("papel", QVector3D(LUME_PAPEL_DIA));
+        m_shader->setUniform("tinta", QVector3D(LUME_TINTA_DIA));
     }
 }
 
 bool Tinta::carregar()
 {
     m_iniciado = true;
-    m_shader = ShaderManager::instance()->generateCustomShader(ShaderTrait::MapTexture, QByteArray(), QByteArray(FRAGMENTO));
+    m_shader = ShaderManager::instance()->generateCustomShader(
+        ShaderTrait::MapTexture, QByteArray(),
+        QByteArray(FRAGMENTO) + QByteArray(LUME_PAPEL_GLSL) + QByteArray(FRAGMENTO_MAIN));
     if (!m_shader) {
         m_shader.reset();
         return false;
@@ -642,6 +627,6 @@ public:
 } // namespace KWin
 
 // Os metadados do plugin (IID, classe e o metadata.json em CBOR), gerados
-// pelo montar-efeitos.py no lugar do moc.
+// pelo lume-montar no lugar do moc.
 #include "metadados.inc"
 QT_MOC_EXPORT_PLUGIN_V2(KWin::TintaFabrica, TintaFabrica, qt_pluginMetaDataV2_TintaFabrica)

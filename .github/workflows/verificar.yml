@@ -55,19 +55,24 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Ferramentas de construção (Rust)
+        run: |
+          cargo build --release --locked --manifest-path ferramentas/lume-montar/Cargo.toml
+          cargo clippy --release --locked --manifest-path ferramentas/lume-montar/Cargo.toml -- -D warnings
+
       - name: fonte/ igual aos patches
-        run: python3 ferramentas/fonte.py conferir src
+        run: ferramentas/montar fonte conferir src
 
       - name: Papel noite igual ao gerado do Papel
         run: |
           cp -R src/usr.sbin/lume-configurar/tema tema-gerado
-          python3 ferramentas/tema-noite.py tema-gerado
+          ferramentas/montar tema-noite tema-gerado
           diff -r src/usr.sbin/lume-configurar/tema tema-gerado
 
       - name: Scripts (sh -n e shellcheck)
         run: |
           set -e
-          for f in build-lumebsd.sh fonte/usr.sbin/forja/forja.sh \
+          for f in build-lumebsd.sh ferramentas/montar fonte/usr.sbin/forja/forja.sh \
                    fonte/usr.sbin/lume-configurar/*.sh fonte/libexec/rc/rc.d/*; do
             echo "$f"
             sh -n "$f"
@@ -75,7 +80,7 @@ jobs:
           done
 
       - name: Python
-        run: python3 -m py_compile ferramentas/*.py tests/*.py
+        run: python3 -m py_compile tests/*.py
 
       - name: Manuais (mandoc)
         run: |
@@ -93,22 +98,23 @@ jobs:
           mkdir -p freebsd qt
           curl -sSfL https://download.freebsd.org/releases/amd64/15.1-RELEASE/base.txz |
               bsdtar -xf - -C freebsd ./lib ./usr/lib ./usr/include
-          python3 ferramentas/pacotes.py --sem-dependencias qt qt6-base
-          python3 ferramentas/montar-app.py --so-compilar freebsd \
+          ferramentas/montar pacotes --sem-dependencias qt qt6-base
+          ferramentas/montar app --so-compilar freebsd \
               "$(ls qt/qt6-base-[0-9]*.pkg | head -1)" apps
           file apps/*
           # Os efeitos do KWin (o filtro e-ink, para o X11 e o Wayland)
-          python3 ferramentas/pacotes.py --sem-dependencias qt kf6-kcoreaddons \
+          ferramentas/montar pacotes --sem-dependencias qt kf6-kcoreaddons \
               kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 libepoxy \
-              libxcb xorgproto libdrm wayland libxkbcommon libglvnd
-          python3 ferramentas/montar-efeitos.py --so-compilar freebsd qt efeitos
-          file efeitos/*/lume_tinta.so
+              libxcb xorgproto libdrm wayland libxkbcommon libglvnd \
+              plasma6-kdecoration kf6-kwindowsystem
+          ferramentas/montar efeitos --so-compilar freebsd qt efeitos
+          file efeitos/*/lume_*.so efeitos/decoracao/*.so
           # O lume-motor para o FreeBSD
-          python3 ferramentas/pacotes.py --sem-dependencias qt mesa-libs freetype2 png
-          python3 ferramentas/montar-motor.py --so-compilar freebsd qt lume-motor
-          file lume-motor
+          ferramentas/montar pacotes --sem-dependencias qt mesa-libs freetype2 png
+          ferramentas/montar motor --so-compilar freebsd qt motor-bin
+          file motor-bin/*
           # O lume-macho e o programa de teste do macOS (Mach-O)
-          python3 ferramentas/montar-mac.py --so-compilar freebsd mac-bin
+          ferramentas/montar mac --so-compilar freebsd mac-bin
           file mac-bin/*
           for j in app/lume-animacoes/*/contents/code/main.js; do node --check "$j"; done
           for m in app/lume-tinta/metadata.json app/lume-animacoes/*/metadata.json; do
@@ -128,11 +134,17 @@ jobs:
           sudo apt-get install -y -q libegl-dev libgles-dev libgbm-dev libdrm-dev \
               libpng-dev libfreetype-dev libegl-mesa0 libgl1-mesa-dri fonts-ibm-plex
           cd app/lume-motor
-          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror \
-              $(pkg-config --cflags freetype2 libdrm) -o lume-motor \
-              demo.c motor.c cena.c saida.c \
+          # As contas do papel (papel.glsl) embutidas, como no montar motor
+          ../../ferramentas/montar papel-glsl .
+          # A biblioteca (liblume-motor) e o demonstrador ligado a ela
+          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC -shared \
+              $(pkg-config --cflags freetype2 libdrm) -Wl,-soname,liblume-motor.so.1 \
+              -o liblume-motor.so.1 motor.c cena.c saida.c \
               $(pkg-config --libs freetype2) -lEGL -lGLESv2 -lgbm -ldrm -lpng -lm
-          LIBGL_ALWAYS_SOFTWARE=1 timeout 600 ./lume-motor --png quadros --tamanho 640x360 --hz 30 --segundos 6.2
+          ln -sf liblume-motor.so.1 liblume-motor.so
+          cc -std=c11 -D_GNU_SOURCE -O2 -Wall -Wextra -Wno-unused-parameter -Werror \
+              $(pkg-config --cflags freetype2 libdrm) -o lume-motor demo.c -L. -llume-motor -lGLESv2 -lm
+          LIBGL_ALWAYS_SOFTWARE=1 LD_LIBRARY_PATH=. timeout 600 ./lume-motor --png quadros --tamanho 640x360 --hz 30 --segundos 6.2
           ls quadros/*.png
 
       - uses: actions/upload-artifact@v4
@@ -149,7 +161,7 @@ jobs:
         if: matrix.base == 'fixado'
         run: |
           sudo apt-get install -y -q libarchive-tools
-          python3 ferramentas/conferir-catalogo.py fonte/usr.sbin/lume-configurar/loja/catalogo
+          ferramentas/montar catalogo fonte/usr.sbin/lume-configurar/loja/catalogo
 
       - name: Ajuda (HTML e links)
         run: |

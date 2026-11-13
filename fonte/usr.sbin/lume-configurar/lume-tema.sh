@@ -50,7 +50,8 @@ ICONES_NOITE=$P/share/icons/lume-papel-noite
 MARCA=$P/etc/xdg/.lume-tema-papel
 
 # Arquivos que o tema coloca, para poder tirar depois.
-CONFS="kdeglobals kwinrc breezerc ksplashrc plasmarc konsolerc kscreenlockerrc"
+CONFS="kdeglobals kwinrc breezerc ksplashrc plasmarc konsolerc kscreenlockerrc kcm-about-distrorc"
+M=/usr/share/lume/marca
 
 instalar()
 {
@@ -182,6 +183,7 @@ aplicar()
 	    $P/share/sddm/themes/breeze/theme.conf.user 0644
 	icones_cinza breeze "$ICONES" Papel
 	icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite"
+	marca
 	echo "${nome}" > "$MARCA.padrao"
 	date > "$MARCA"
 	echo "  ✓ Tema $nome aplicado. Vale para quem entrar a partir de agora;"
@@ -207,10 +209,45 @@ integrar()
 		instalar $T/PapelNoite.colorscheme $P/share/konsole/PapelNoite.colorscheme
 		instalar $T/PapelNoite.profile $P/share/konsole/PapelNoite.profile
 		instalar $T/metadata-noite.json $LNF_NOITE/metadata.json
+		instalar $T/defaults $LNF/contents/defaults
 		instalar $T/defaults-noite $LNF_NOITE/contents/defaults
 		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
 		instalar $T/papel-noite.png $LNF_NOITE/contents/previews/preview.png
 		[ -d "$ICONES_NOITE" ] || icones_cinza breeze-dark "$ICONES_NOITE" "Papel noite" >/dev/null
+		# A identidade visual (2.0): o farol no lugar dos logos do KDE, o
+		# splash, o SDDM e o Sobre o sistema; o menu de quem já usa, também.
+		instalar $T/ksplashrc $XDG/ksplashrc 0644
+		instalar $T/kcm-about-distrorc $XDG/kcm-about-distrorc 0644
+		instalar $T/sddm-breeze.conf.user $P/share/sddm/themes/breeze/theme.conf.user 0644
+		instalar $T/layout.js $LNF/contents/layouts/org.kde.plasma.desktop-layout.js
+		instalar $T/layout-noite.js $LNF_NOITE/contents/layouts/org.kde.plasma.desktop-layout.js
+		marca >/dev/null
+		# Quem usa o Papel ou o Papel noite: os padrões do tema global que o
+		# Plasma copiou para ~/.config/kdedefaults (os de antes da 2.0 diziam a
+		# decoração Breeze e nenhum splash) passam à decoração Papel e ao splash
+		# do farol. (sobrescreve o conteúdo, sem recriar o arquivo: ele
+		# continua do usuário)
+		for d in /home/*/.config/kdedefaults; do
+			grep -qs '^ColorScheme=Papel' "$d/kdeglobals" || continue
+			noite=; grep -qs '^ColorScheme=PapelNoite' "$d/kdeglobals" && noite=-noite
+			for rc in "$d/kwinrc" "$d/ksplashrc"; do
+				[ -f "$rc" ] || continue
+				tmp=$(mktemp)
+				sed -e 's/^library=org\.kde\.breeze$/library=org.lumebsd.papel/' \
+				    -e 's/^theme=Breeze$/theme=Papel/' \
+				    -e "s/^Theme=None\$/Theme=org.lumebsd.papel$noite/" "$rc" > "$tmp" &&
+				    cat "$tmp" > "$rc"
+				rm -f "$tmp"
+			done
+		done
+		# (sobrescreve o conteúdo, sem recriar o arquivo: ele continua do usuário)
+		for rc in /home/*/.config/plasma-org.kde.plasma.desktop-appletsrc; do
+			[ -f "$rc" ] && grep -q '^icon=start-here-kde\(-plasma\)\{0,1\}-symbolic$' "$rc" || continue
+			tmp=$(mktemp)
+			sed -e 's/^icon=start-here-kde\(-plasma\)\{0,1\}-symbolic$/icon=start-here-lume-symbolic/' "$rc" > "$tmp" &&
+			    cat "$tmp" > "$rc"
+			rm -f "$tmp"
+		done
 	fi
 	# "Versões anteriores" no botão direito do Dolphin (lume tempo).
 	instalar $T/lume-tempo.desktop $P/share/kio/servicemenus/lume-tempo.desktop 0755
@@ -231,6 +268,33 @@ integrar()
 		    $P/share/applications/lume-programas.desktop 0644
 		instalar $A/org.lumebsd.programas.policy \
 		    $P/share/polkit-1/actions/org.lumebsd.programas.policy 0644
+	fi
+	# O ícone de rede (cabo e Wi-Fi), no lugar do networkmgr: na entrada da
+	# sessão e a permissão para preparar a placa. O networkmgr sai (é Python,
+	# e dois ícones de rede na bandeja confundem).
+	if [ -x /usr/bin/lume-rede ]; then
+		instalar $A/lume-rede.desktop $XDG/autostart/lume-rede.desktop 0644
+		instalar $A/org.lumebsd.rede.policy \
+		    $P/share/polkit-1/actions/org.lumebsd.rede.policy 0644
+		if pkg info -e networkmgr 2>/dev/null; then
+			pkg delete -y networkmgr >/dev/null 2>&1 &&
+			    logger -t lume "networkmgr removido: o ícone de rede agora é o lume-rede"
+		fi
+	fi
+	# Os atributos dos arquivos (como no BeOS): "Atributos…" no botão
+	# direito do Dolphin, a procura no menu e as consultas salvas
+	# (.consulta), que abrem com dois cliques.
+	if [ -x /usr/bin/lume-atributos ]; then
+		instalar $A/lume-atributos.desktop \
+		    $P/share/applications/lume-atributos.desktop 0644
+		instalar $A/lume-atributos-menu.desktop \
+		    $P/share/kio/servicemenus/lume-atributos-menu.desktop 0755
+		instalar $A/lume-atributos-pasta.desktop \
+		    $P/share/kio/servicemenus/lume-atributos-pasta.desktop 0755
+		instalar $A/lume-consulta.xml $P/share/mime/packages/lume-consulta.xml 0644
+		command -v update-mime-database >/dev/null 2>&1 &&
+		    update-mime-database $P/share/mime >/dev/null 2>&1
+		padrao_mime "application/x-lume-consulta" lume-atributos.desktop
 	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
@@ -293,6 +357,12 @@ efeitos()
 {
 	K=/usr/share/lume/kwin
 	[ -d $K ] || return 0
+	# A decoração de janelas "Papel" (a aba como a do BeOS, com as abas das
+	# janelas empilhadas): só usa a KDecoration3, serve aos dois KWin.
+	if [ -f $K/decoracao/org.lumebsd.papel.so ]; then
+		instalar $K/decoracao/org.lumebsd.papel.so \
+		    $P/lib/qt6/plugins/org.kde.kdecoration3/org.lumebsd.papel.so 0555
+	fi
 	for v in x11 wayland; do
 		case $v in
 		x11)	pkg=plasma6-kwin-x11; plug=$P/lib/qt6/plugins/kwin-x11/effects/plugins
@@ -302,11 +372,15 @@ efeitos()
 		esac
 		tem=$(pkg query %v $pkg 2>/dev/null | sed 's/_[0-9]*$//; s/,[0-9]*$//')
 		[ -n "$tem" ] || continue
-		if [ -f $K/$v/lume_tinta.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
-			instalar $K/$v/lume_tinta.so $plug/lume_tinta.so 0555
-		else
-			rm -f $plug/lume_tinta.so
-		fi
+		# O filtro e-ink e as abas de janelas (lume_abas): os dois em C++,
+		# presos à versão do KWin.
+		for so in lume_tinta lume_abas; do
+			if [ -f $K/$v/$so.so ] && [ "$(cat $K/$v/versao 2>/dev/null)" = "$tem" ]; then
+				instalar $K/$v/$so.so $plug/$so.so 0555
+			else
+				rm -f $plug/$so.so
+			fi
+		done
 		for e in $K/efeitos/*/; do
 			[ -d "$e" ] || continue
 			n=$(basename "$e")
@@ -397,6 +471,65 @@ animacao()
 	kwin_config --group Plugins --key fadeEnabled false
 	kwin_config --group Plugins --key scaleEnabled false
 	kwin_recarregar
+}
+
+# A identidade visual do LumeBSD no KDE: o farol no lugar dos logos do KDE.
+#   - ícones lumebsd e start-here-lume (o botão do menu), no hicolor;
+#   - nos temas de ícones Papel e Papel noite, os logos do KDE e do Plasma
+#     (start-here-kde, kde, plasma, distributor-logo) viram o farol;
+#   - o splash nos dois temas globais (o do Papel noite com as cores dele).
+marca()
+{
+	[ -d $M ] || return 0
+	hi=$P/share/icons/hicolor
+	instalar $M/lumebsd.svg $hi/scalable/apps/lumebsd.svg 0644
+	instalar $M/lumebsd.svg $hi/scalable/apps/start-here-lume.svg 0644
+	instalar $M/lumebsd-symbolic.svg $hi/symbolic/apps/lumebsd-symbolic.svg 0644
+	instalar $M/lumebsd-symbolic.svg $hi/symbolic/apps/start-here-lume-symbolic.svg 0644
+	command -v gtk-update-icon-cache >/dev/null &&
+	    gtk-update-icon-cache -q -f "$hi" 2>/dev/null
+	for tema in "$ICONES" "$ICONES_NOITE"; do
+		[ -d "$tema" ] || continue
+		# Muitos são links (o start-here-kde-plasma-symbolic, o botão do
+		# menu do Plasma 6, aponta para outro): troca o link pelo arquivo,
+		# sem escrever no alvo.
+		find "$tema" \( -type f -o -type l \) \( -name 'start-here*.svg' \
+		    -o -name 'kde.svg' -o -name 'kde-symbolic.svg' -o -name 'plasma.svg' \
+		    -o -name 'plasma-symbolic.svg' -o -name 'distributor-logo*.svg' \) |
+		while read -r f; do
+			rm -f "$f"
+			# Os pequenos (até 24) e os simbólicos: o farol em silhueta.
+			case "$f" in
+			*-symbolic.svg|*/16/*|*/22/*|*/24/*)	cp $M/lumebsd-symbolic.svg "$f" ;;
+			*)	cp $M/lumebsd.svg "$f" ;;
+			esac
+		done
+		# O start-here-lume nas pastas que o tema lista (places/N).
+		for d in "$tema"/places/*; do
+			[ -d "$d" ] || continue
+			case "$d" in
+			*/16|*/22|*/24)	cp $M/lumebsd-symbolic.svg "$d/start-here-lume-symbolic.svg"
+					cp $M/lumebsd-symbolic.svg "$d/start-here-lume.svg" ;;
+			*@*)	;;
+			*)	cp $M/lumebsd.svg "$d/start-here-lume.svg"
+				cp $M/lumebsd-symbolic.svg "$d/start-here-lume-symbolic.svg" ;;
+			esac
+		done
+		rm -rf "$tema/apps/scalable" "$tema/apps/symbolic"
+		command -v gtk-update-icon-cache >/dev/null &&
+		    gtk-update-icon-cache -q -f "$tema" 2>/dev/null
+	done
+	instalar $M/Splash.qml $LNF/contents/splash/Splash.qml
+	instalar $M/lumebsd-logo.svg $LNF/contents/splash/images/lumebsd-logo.svg
+	if [ -d "$LNF_NOITE" ]; then
+		mkdir -p $LNF_NOITE/contents/splash/images
+		sed -e 's/color: "#efeadf"/color: "#1e1d1b"/' \
+		    -e 's/tinta: "#1c1b19"/tinta: "#dedad0"/' \
+		    -e 's|images/lumebsd-logo.svg|images/lumebsd-logo-claro.svg|' \
+		    $M/Splash.qml > $LNF_NOITE/contents/splash/Splash.qml
+		instalar $M/lumebsd-logo-claro.svg $LNF_NOITE/contents/splash/images/lumebsd-logo-claro.svg
+	fi
+	echo "  marca: o farol do LumeBSD no menu, no splash, no SDDM e em Sobre o sistema"
 }
 
 # lume tema escuro | claro: o seu usuário no Papel noite ou no Papel, na

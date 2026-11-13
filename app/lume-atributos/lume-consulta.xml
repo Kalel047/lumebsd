@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-lume-consulta">
+    <comment>LumeBSD saved query</comment>
+    <comment xml:lang="pt_BR">Consulta do LumeBSD</comment>
+    <comment xml:lang="pt">Consulta do LumeBSD</comment>
+    <sub-class-of type="text/plain"/>
+    <icon name="edit-find"/>
+    <glob pattern="*.consulta"/>
+  </mime-type>
+</mime-info>

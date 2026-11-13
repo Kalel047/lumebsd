@@ -11,11 +11,11 @@ Theme=lume-papel
 name=default
 
 [kwinrc][org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
+library=org.lumebsd.papel
+theme=Papel
 
 [KSplash]
-Theme=None
+Theme=org.lumebsd.papel
 
 [Wallpaper]
 Image=LumePapel

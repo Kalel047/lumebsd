@@ -11,6 +11,6 @@
 
 - [ ] A mudança no sistema está em `src` (lumebsd-15.1) e regerei `patches/` e `fonte/` (veja CONTRIBUTING.md)
 - [ ] Scripts sh passam no `shellcheck -s sh -S error`; manuais no `mandoc -T lint`
-- [ ] Programas novos no catálogo passam no `ferramentas/conferir-catalogo.py`
+- [ ] Programas novos no catálogo passam no `ferramentas/montar catalogo`
 - [ ] Textos para o usuário em português, sem termos técnicos quando dá para evitar
 - [ ] Atualizei o README, a Ajuda ou `docs/ARQUITETURA.md`, se precisou

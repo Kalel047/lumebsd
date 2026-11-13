@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Search by attributes
+Name[pt_BR]=Procurar por atributos
+Name[pt]=Procurar por atributos
+Comment=Find files by tags, rating, comment and your own attributes
+Comment[pt_BR]=Ache arquivos pelas etiquetas, pela nota, pelo comentário e pelos seus atributos
+Comment[pt]=Encontre ficheiros pelas etiquetas, pela nota, pelo comentário e pelos seus atributos
+Icon=tag
+Exec=/usr/bin/lume-atributos %f
+MimeType=application/x-lume-consulta;
+Categories=Utility;FileTools;
+Keywords=tags;attributes;query;etiquetas;atributos;consulta;procurar;

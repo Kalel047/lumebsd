@@ -3,12 +3,18 @@ SCRIPTS=	lume-configurar.sh lume-hardware.sh lume-video.sh lume-wifi.sh \
 	lume-tempo.sh lume-loja.sh lume-compat.sh lume-ajuda.sh
 MAN=	lume-configurar.8 lume-tempo.8 lume-loja.8 lume-compat.8
 
-FILESGROUPS=	FILES TEMA CRON LOJA ATALHOS AJUDA
+FILESGROUPS=	FILES TEMA MARCA CRON LOJA ATALHOS AJUDA
 FILESDIR=	${SHAREDIR}/lume
 FILES=		desktop.txt
 
 # Tema "Papel" (estética e-ink) para o KDE; aplicado por lume tema.
 TEMADIR=	${SHAREDIR}/lume/tema
+# A identidade visual: o farol (ícone e simbólico), o logo com o nome (tinta e
+# claro) e o splash do KDE.
+MARCADIR=	${SHAREDIR}/lume/marca
+MARCA=		marca/lumebsd.svg marca/lumebsd-symbolic.svg \
+		marca/lumebsd-logo.svg marca/lumebsd-logo-claro.svg \
+		marca/Splash.qml
 TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
 		tema/kdeglobals tema/kwinrc tema/breezerc tema/ksplashrc \
 		tema/plasmarc tema/konsolerc tema/kscreenlockerrc \
@@ -20,7 +26,7 @@ TEMA=		tema/Papel.colors tema/Papel.colorscheme tema/Papel.profile \
 		tema/PapelNoite.colors tema/PapelNoite.colorscheme \
 		tema/PapelNoite.profile tema/kdeglobals-noite tema/konsolerc-noite \
 		tema/gtk-settings-noite.ini tema/metadata-noite.json \
-		tema/defaults-noite tema/layout-noite.js
+		tema/defaults-noite tema/layout-noite.js tema/kcm-about-distrorc
 
 # Programas do LumeBSD (lume loja): o catálogo, os kits e o atalho que abre
 # programas do Windows com dois cliques (lume compat).

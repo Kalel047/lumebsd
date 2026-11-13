@@ -36,8 +36,8 @@ DRM/KMS: page flip no vblank, no modo de maior taxa do painel
 
 ### 1. Vetorial analítico, sem atlas de fontes
 
-- A aplicação descreve caminhos (`cena_mover`, `cena_linha`, `cena_quad`,
-  `cena_cubica`) e texto (`cena_texto`). As letras saem do contorno da
+- A aplicação descreve caminhos (`motor_cena_mover`, `motor_cena_linha`,
+  `motor_cena_quad`, `motor_cena_cubica`) e texto (`motor_cena_texto`). As letras saem do contorno da
   fonte, pelo FreeType, como curvas: **não há bitmap de letra nem atlas**.
 - Tudo vira curva quadrática de Bézier **monótona em y** (linhas com o
   controle no meio; quadráticas divididas no extremo; cúbicas aproximadas
@@ -123,14 +123,36 @@ lume-motor
   X11 (a sessão do LumeBSD); o KWin do Wayland 6.7 mudou a API de desenhar
   a tela.
 
+## A biblioteca
+
+Desde a 2.0 o motor é uma biblioteca do sistema, para outros programas
+desenharem com ele:
+
+- `/usr/lib/liblume-motor.so.1` (e o `liblume-motor.so` para ligar);
+- os cabeçalhos em `/usr/include/lume`: `motor.h` (a cena, a fonte, o
+  motor), `saida.h` (a tela pelo DRM/KMS, ou PNG sem tela) e `papel.h` (as
+  cores do papel e da tinta, de dia e à noite);
+- todas as funções públicas começam com `motor_`.
+
+```sh
+cc -I/usr/include/lume -o meu meu.c -llume-motor -lGLESv2 -lm
+```
+
+As contas do papel (as fibras, o grão da tinta) ficam num arquivo só,
+`app/lume-motor/papel.glsl`, embutido na construção nos shaders do motor e no
+filtro e-ink do KWin (lume-tinta): o papel da tela e o do filtro são o mesmo.
+
 ## Arquivos
 
 | Arquivo | O quê |
 |---|---|
 | `app/lume-motor/motor.h` | a API: cena, fonte, motor |
+| `app/lume-motor/saida.h` | a saída: DRM/KMS ou PNG |
+| `app/lume-motor/papel.h` | as cores do papel e da tinta |
+| `app/lume-motor/papel.glsl` | as contas do papel, comuns com o lume-tinta |
 | `app/lume-motor/cena.c` | caminhos, curvas monótonas, texto pelo FreeType |
 | `app/lume-motor/motor.c` | os shaders e o pipeline (GLES 3.1) |
 | `app/lume-motor/saida.c` | DRM/KMS (GBM, EGL, page flip) e sem tela (PNG) |
 | `app/lume-motor/demo.c` | a demonstração (`lume-motor`) |
-| `ferramentas/montar-motor.py` | compila para o FreeBSD e põe no sistema |
+| `ferramentas/montar motor` | compila para o FreeBSD e põe no sistema |
 | `app/lume-tinta/tinta.cpp` | o filtro do KWin, com grão e viscosidade |

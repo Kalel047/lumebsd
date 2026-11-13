@@ -1,5 +1,5 @@
 #
-# LUME -- kernel do LumeBSD 1.5 "Farol" para amd64.
+# LUME -- kernel do LumeBSD 2.0 "Farol" para amd64.
 # Parte do GENERIC: todos os drivers e módulos, DTrace e ZFS.
 # Os símbolos de depuração são gerados (o DTrace precisa deles para o CTF),
 # mas não são instalados (WITHOUT_DEBUG_FILES no src.conf).

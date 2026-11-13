@@ -1,0 +1,19 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "LumeBSD"
+            }
+        ],
+        "Category": "Window Management",
+        "Description": "Window tabs, like BeOS: stack windows into one place, one tab each (Ctrl+Meta+E)",
+        "Description[pt_BR]": "Abas de janelas, como no BeOS: empilha janelas num lugar só, uma aba para cada (Ctrl+Meta+E)",
+        "EnabledByDefault": true,
+        "License": "GPL",
+        "Name": "Window tabs (LumeBSD)",
+        "Name[pt_BR]": "Abas de janelas do LumeBSD"
+    },
+    "org.kde.kwin.effect": {
+        "enabledByDefaultMethod": true
+    }
+}

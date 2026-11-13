@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Network
+Name[pt_BR]=Rede
+Comment=Wired and Wi-Fi networks (LumeBSD)
+Comment[pt_BR]=Cabo e Wi-Fi: as redes por perto, conectar e esquecer (LumeBSD)
+Exec=/usr/bin/lume-rede
+Icon=network-wireless
+Categories=Settings;Network;
+NoDisplay=true
+X-KDE-autostart-after=panel
+X-KDE-autostart-phase=2

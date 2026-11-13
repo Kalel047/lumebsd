@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- O ícone de rede (lume-rede) prepara a placa Wi-Fi pelo pkexec (o
+     "lume wifi preparar"): pede a senha de um administrador (grupo wheel).
+     Conectar e esquecer redes não precisa: o wpa_supplicant aceita o grupo
+     wheel no socket de controle. -->
+<policyconfig>
+  <vendor>LumeBSD</vendor>
+  <vendor_url>https://github.com/Kalel047/lumebsd</vendor_url>
+  <icon_name>network-wireless</icon_name>
+  <action id="org.lumebsd.rede">
+    <description>Prepare the Wi-Fi card</description>
+    <description xml:lang="pt_BR">Preparar a placa Wi-Fi</description>
+    <message>Authentication is required to prepare the Wi-Fi card</message>
+    <message xml:lang="pt_BR">Para preparar o Wi-Fi, digite a sua senha</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/sbin/lume-wifi</annotate>
+  </action>
+</policyconfig>

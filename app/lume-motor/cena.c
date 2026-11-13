@@ -35,20 +35,20 @@ crescer(void *p, uint32_t *cap, uint32_t precisa, size_t tam)
 }
 
 void
-cena_iniciar(motor_cena *c)
+motor_cena_iniciar(motor_cena *c)
 {
 	memset(c, 0, sizeof(*c));
 }
 
 void
-cena_limpar(motor_cena *c)
+motor_cena_limpar(motor_cena *c)
 {
 	c->nquads = c->ncaminhos = 0;
 	c->aberto = false;
 }
 
 void
-cena_liberar(motor_cena *c)
+motor_cena_liberar(motor_cena *c)
 {
 	free(c->quads);
 	free(c->caminhos);
@@ -82,24 +82,24 @@ quad_mono(motor_cena *c, float x0, float y0, float x1, float y1, float x2,
 }
 
 void
-cena_comecar(motor_cena *c)
+motor_cena_comecar(motor_cena *c)
 {
 	c->inicio = c->nquads;
 	c->aberto = false;
 }
 
 void
-cena_mover(motor_cena *c, float x, float y)
+motor_cena_mover(motor_cena *c, float x, float y)
 {
 	if (c->aberto)
-		cena_fechar(c);
+		motor_cena_fechar(c);
 	c->px = c->ix = x;
 	c->py = c->iy = y;
 	c->aberto = true;
 }
 
 void
-cena_linha(motor_cena *c, float x, float y)
+motor_cena_linha(motor_cena *c, float x, float y)
 {
 	quad_mono(c, c->px, c->py, (c->px + x) * 0.5f, (c->py + y) * 0.5f, x, y);
 	c->px = x;
@@ -107,7 +107,7 @@ cena_linha(motor_cena *c, float x, float y)
 }
 
 void
-cena_quad(motor_cena *c, float cx, float cy, float x, float y)
+motor_cena_quad(motor_cena *c, float cx, float cy, float x, float y)
 {
 	quad_mono(c, c->px, c->py, cx, cy, x, y);
 	c->px = x;
@@ -115,7 +115,7 @@ cena_quad(motor_cena *c, float cx, float cy, float x, float y)
 }
 
 void
-cena_cubica(motor_cena *c, float c1x, float c1y, float c2x, float c2y,
+motor_cena_cubica(motor_cena *c, float c1x, float c1y, float c2x, float c2y,
     float x, float y)
 {
 	/* Pedaços pela extensão do polígono de controle (~1 a cada 24 pontos,
@@ -149,19 +149,19 @@ cena_cubica(motor_cena *c, float c1x, float c1y, float c2x, float c2y,
 }
 
 void
-cena_fechar(motor_cena *c)
+motor_cena_fechar(motor_cena *c)
 {
 	if (!c->aberto)
 		return;
 	if (c->px != c->ix || c->py != c->iy)
-		cena_linha(c, c->ix, c->iy);
+		motor_cena_linha(c, c->ix, c->iy);
 	c->aberto = false;
 }
 
 void
-cena_pintar(motor_cena *c, float r, float g, float b, float densidade)
+motor_cena_pintar(motor_cena *c, float r, float g, float b, float densidade)
 {
-	cena_fechar(c);
+	motor_cena_fechar(c);
 	uint32_t n = c->nquads - c->inicio;
 	if (n == 0)
 		return;
@@ -183,41 +183,41 @@ cena_pintar(motor_cena *c, float r, float g, float b, float densidade)
 }
 
 void
-cena_retangulo(motor_cena *c, float x, float y, float w, float h)
+motor_cena_retangulo(motor_cena *c, float x, float y, float w, float h)
 {
-	cena_mover(c, x, y);
-	cena_linha(c, x + w, y);
-	cena_linha(c, x + w, y + h);
-	cena_linha(c, x, y + h);
-	cena_fechar(c);
+	motor_cena_mover(c, x, y);
+	motor_cena_linha(c, x + w, y);
+	motor_cena_linha(c, x + w, y + h);
+	motor_cena_linha(c, x, y + h);
+	motor_cena_fechar(c);
 }
 
 void
-cena_traco(motor_cena *c, float x0, float y0, float x1, float y1,
+motor_cena_traco(motor_cena *c, float x0, float y0, float x1, float y1,
     float largura)
 {
 	float dx = x1 - x0, dy = y1 - y0, l = hypotf(dx, dy);
 	if (l <= 0.0f)
 		return;
 	float nx = -dy / l * largura * 0.5f, ny = dx / l * largura * 0.5f;
-	cena_mover(c, x0 + nx, y0 + ny);
-	cena_linha(c, x1 + nx, y1 + ny);
-	cena_linha(c, x1 - nx, y1 - ny);
-	cena_linha(c, x0 - nx, y0 - ny);
-	cena_fechar(c);
+	motor_cena_mover(c, x0 + nx, y0 + ny);
+	motor_cena_linha(c, x1 + nx, y1 + ny);
+	motor_cena_linha(c, x1 - nx, y1 - ny);
+	motor_cena_linha(c, x0 - nx, y0 - ny);
+	motor_cena_fechar(c);
 }
 
 void
-cena_elipse(motor_cena *c, float cx, float cy, float rx, float ry)
+motor_cena_elipse(motor_cena *c, float cx, float cy, float rx, float ry)
 {
 	/* Quatro cúbicas (k = 0,5523). */
 	const float k = 0.5522847f;
-	cena_mover(c, cx + rx, cy);
-	cena_cubica(c, cx + rx, cy + ry * k, cx + rx * k, cy + ry, cx, cy + ry);
-	cena_cubica(c, cx - rx * k, cy + ry, cx - rx, cy + ry * k, cx - rx, cy);
-	cena_cubica(c, cx - rx, cy - ry * k, cx - rx * k, cy - ry, cx, cy - ry);
-	cena_cubica(c, cx + rx * k, cy - ry, cx + rx, cy - ry * k, cx + rx, cy);
-	cena_fechar(c);
+	motor_cena_mover(c, cx + rx, cy);
+	motor_cena_cubica(c, cx + rx, cy + ry * k, cx + rx * k, cy + ry, cx, cy + ry);
+	motor_cena_cubica(c, cx - rx * k, cy + ry, cx - rx, cy + ry * k, cx - rx, cy);
+	motor_cena_cubica(c, cx - rx, cy - ry * k, cx - rx * k, cy - ry, cx, cy - ry);
+	motor_cena_cubica(c, cx + rx * k, cy - ry, cx + rx, cy - ry * k, cx + rx, cy);
+	motor_cena_fechar(c);
 }
 
 /* --- texto -------------------------------------------------------------- */
@@ -228,7 +228,7 @@ struct motor_fonte {
 };
 
 motor_fonte *
-fonte_abrir(const char *arquivo)
+motor_fonte_abrir(const char *arquivo)
 {
 	motor_fonte *f = calloc(1, sizeof(*f));
 	if (f == NULL || FT_Init_FreeType(&f->ft) != 0) {
@@ -244,7 +244,7 @@ fonte_abrir(const char *arquivo)
 }
 
 void
-fonte_fechar(motor_fonte *f)
+motor_fonte_fechar(motor_fonte *f)
 {
 	if (f == NULL)
 		return;
@@ -289,7 +289,7 @@ static int
 ct_mover(const FT_Vector *p, void *u)
 {
 	contorno *k = u;
-	cena_mover(k->c, PX(p), PY(p));
+	motor_cena_mover(k->c, PX(p), PY(p));
 	return 0;
 }
 
@@ -297,7 +297,7 @@ static int
 ct_linha(const FT_Vector *p, void *u)
 {
 	contorno *k = u;
-	cena_linha(k->c, PX(p), PY(p));
+	motor_cena_linha(k->c, PX(p), PY(p));
 	return 0;
 }
 
@@ -305,7 +305,7 @@ static int
 ct_quad(const FT_Vector *c1, const FT_Vector *p, void *u)
 {
 	contorno *k = u;
-	cena_quad(k->c, PX(c1), PY(c1), PX(p), PY(p));
+	motor_cena_quad(k->c, PX(c1), PY(c1), PX(p), PY(p));
 	return 0;
 }
 
@@ -313,7 +313,7 @@ static int
 ct_cubica(const FT_Vector *c1, const FT_Vector *c2, const FT_Vector *p, void *u)
 {
 	contorno *k = u;
-	cena_cubica(k->c, PX(c1), PY(c1), PX(c2), PY(c2), PX(p), PY(p));
+	motor_cena_cubica(k->c, PX(c1), PY(c1), PX(c2), PY(c2), PX(p), PY(p));
 	return 0;
 }
 
@@ -336,7 +336,7 @@ avanco(motor_fonte *f, uint32_t cp, uint32_t anterior, float escala,
 }
 
 float
-fonte_largura(motor_fonte *f, const char *s, float tamanho)
+motor_fonte_largura(motor_fonte *f, const char *s, float tamanho)
 {
 	float escala = tamanho / (float)f->face->units_per_EM, x = 0.0f;
 	uint32_t ant = 0;
@@ -373,9 +373,9 @@ palavra(motor_cena *c, motor_fonte *f, const char *ini, const char *fim,
 		if (f->face->glyph->format == FT_GLYPH_FORMAT_OUTLINE &&
 		    f->face->glyph->outline.n_points > 0) {
 			contorno k = { c, escala, x, y };
-			cena_comecar(c);
+			motor_cena_comecar(c);
 			FT_Outline_Decompose(&f->face->glyph->outline, &funcs, &k);
-			cena_pintar(c, r, g, b, d);
+			motor_cena_pintar(c, r, g, b, d);
 		}
 		x += a - kern;
 		ant = cp;
@@ -384,12 +384,12 @@ palavra(motor_cena *c, motor_fonte *f, const char *ini, const char *fim,
 }
 
 float
-cena_texto(motor_cena *c, motor_fonte *f, const char *s, float x, float y,
+motor_cena_texto(motor_cena *c, motor_fonte *f, const char *s, float x, float y,
     float tamanho, float largura, float entrelinha, float r, float g, float b,
     float d)
 {
 	float escala = tamanho / (float)f->face->units_per_EM;
-	float espaco = fonte_largura(f, " ", tamanho);
+	float espaco = motor_fonte_largura(f, " ", tamanho);
 	float cx = x;
 	while (*s) {
 		if (*s == '\n') {
@@ -410,7 +410,7 @@ cena_texto(motor_cena *c, motor_fonte *f, const char *s, float x, float y,
 		size_t n = (size_t)(fim - s) < sizeof(buf) - 1 ? (size_t)(fim - s) : sizeof(buf) - 1;
 		memcpy(buf, s, n);
 		buf[n] = '\0';
-		float w = fonte_largura(f, buf, tamanho);
+		float w = motor_fonte_largura(f, buf, tamanho);
 		if (largura > 0.0f && cx > x && cx + w > x + largura) {
 			cx = x;
 			y += entrelinha;

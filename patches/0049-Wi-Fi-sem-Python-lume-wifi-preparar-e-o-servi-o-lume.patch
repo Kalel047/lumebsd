@@ -1,0 +1,193 @@
+From 69ae349cb04b45da4e7da8393370debe966805a3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 22:16:46 -0300
+Subject: [PATCH] =?UTF-8?q?Wi-Fi=20sem=20Python:=20lume=20wifi=20preparar?=
+ =?UTF-8?q?=20e=20o=20servi=C3=A7o=20lume=5Fwifi?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O ícone de rede do LumeBSD (lume-rede, um app em C++) fala com o
+wpa_supplicant pelo socket de controle, sem root. Para isso, a placa
+precisa estar pronta mesmo sem nenhuma rede guardada:
+- lume wifi preparar: a wlan0 no rc.conf (WPA e DHCP) e o
+  wpa_supplicant.conf com o ctrl_interface do grupo wheel e o
+  update_config;
+- lume_wifi: faz o mesmo no boot, antes do netif (depois do devmatch, que
+  carrega o driver);
+- lume tema integrar: o autostart e a política do lume-rede; o
+  networkmgr (Python) sai, também da lista do desktop.
+---
+ libexec/rc/rc.d/Makefile              |  1 +
+ libexec/rc/rc.d/lume_wifi             | 29 +++++++++++++
+ usr.sbin/lume-configurar/desktop.txt  |  1 -
+ usr.sbin/lume-configurar/lume-tema.sh | 12 ++++++
+ usr.sbin/lume-configurar/lume-wifi.sh | 60 ++++++++++++++++++++++++---
+ 5 files changed, 97 insertions(+), 6 deletions(-)
+ create mode 100644 libexec/rc/rc.d/lume_wifi
+
+diff --git a/libexec/rc/rc.d/Makefile b/libexec/rc/rc.d/Makefile
+index 09ef0c6d5..89d571b49 100644
+--- a/libexec/rc/rc.d/Makefile
++++ b/libexec/rc/rc.d/Makefile
+@@ -42,6 +42,7 @@ CONFS=	DAEMON \
+ 	lume_pacotes \
+ 	lume_saude \
+ 	lume_video \
++	lume_wifi \
+ 	motd \
+ 	mountcritlocal \
+ 	mountcritremote \
+diff --git a/libexec/rc/rc.d/lume_wifi b/libexec/rc/rc.d/lume_wifi
+new file mode 100644
+index 000000000..25a99c3ec
+--- /dev/null
++++ b/libexec/rc/rc.d/lume_wifi
+@@ -0,0 +1,29 @@
++#!/bin/sh
++#
++# SPDX-License-Identifier: BSD-2-Clause
++#
++# LumeBSD: deixa a placa Wi-Fi pronta antes da rede subir (a wlan0 e o
++# wpa_supplicant, que o ícone de rede, lume-rede, controla sem root).
++#
++
++# PROVIDE: lume_wifi
++# REQUIRE: FILESYSTEMS kld devmatch
++# BEFORE: netif
++# KEYWORD: nojail
++
++. /etc/rc.subr
++
++name="lume_wifi"
++desc="Prepara a placa Wi-Fi para o ícone de rede"
++rcvar="lume_wifi_enable"
++start_cmd="lume_wifi_start"
++stop_cmd=":"
++
++lume_wifi_start()
++{
++	[ -x /usr/sbin/lume-wifi ] && /usr/sbin/lume-wifi --boot
++}
++
++load_rc_config $name
++: ${lume_wifi_enable:="YES"}
++run_rc_command "$1"
+diff --git a/usr.sbin/lume-configurar/desktop.txt b/usr.sbin/lume-configurar/desktop.txt
+index 1553e8cad..6446d5b6a 100644
+--- a/usr.sbin/lume-configurar/desktop.txt
++++ b/usr.sbin/lume-configurar/desktop.txt
+@@ -78,7 +78,6 @@ okular
+ # Som, rede, navegador e utilidades
+ pipewire
+ wireplumber
+-networkmgr
+ firefox
+ doas
+ noto-basic
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 1ddbeb29e..03bc8caae 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -250,6 +250,18 @@ integrar()
+ 		instalar $A/org.lumebsd.programas.policy \
+ 		    $P/share/polkit-1/actions/org.lumebsd.programas.policy 0644
+ 	fi
++	# O ícone de rede (cabo e Wi-Fi), no lugar do networkmgr: na entrada da
++	# sessão e a permissão para preparar a placa. O networkmgr sai (é Python,
++	# e dois ícones de rede na bandeja confundem).
++	if [ -x /usr/bin/lume-rede ]; then
++		instalar $A/lume-rede.desktop $XDG/autostart/lume-rede.desktop 0644
++		instalar $A/org.lumebsd.rede.policy \
++		    $P/share/polkit-1/actions/org.lumebsd.rede.policy 0644
++		if pkg info -e networkmgr 2>/dev/null; then
++			pkg delete -y networkmgr >/dev/null 2>&1 &&
++			    logger -t lume "networkmgr removido: o ícone de rede agora é o lume-rede"
++		fi
++	fi
+ 	# A Ajuda do LumeBSD, no menu.
+ 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
+ 	    $P/share/applications/lume-ajuda.desktop 0644
+diff --git a/usr.sbin/lume-configurar/lume-wifi.sh b/usr.sbin/lume-configurar/lume-wifi.sh
+index 85053ca9a..b3ee4ac14 100644
+--- a/usr.sbin/lume-configurar/lume-wifi.sh
++++ b/usr.sbin/lume-configurar/lume-wifi.sh
+@@ -3,12 +3,65 @@
+ # SPDX-License-Identifier: BSD-2-Clause
+ #
+ # lume-wifi - conecta a uma rede Wi-Fi pelo terminal e guarda a escolha.
+-# No desktop, use o ícone de rede (networkmgr).
++# No desktop, use o ícone de rede na bandeja (lume-rede).
++#
++#   lume wifi            procura as redes, pede a senha e conecta
++#   lume wifi preparar   deixa a placa pronta para o lume-rede: a wlan0 e o
++#                        wpa_supplicant, com o controle aberto ao grupo
++#                        wheel (o serviço lume_wifi faz isso no boot)
+ #
+ 
+ [ "$(id -u)" -eq 0 ] || { echo "lume wifi: precisa ser root (su -)" >&2; exit 1; }
+ 
++conf=/etc/wpa_supplicant.conf
+ placa=$(sysctl -n net.wlan.devices 2>/dev/null | awk '{print $1}')
++
++# A configuração que o wpa_supplicant precisa para o lume-rede (e o wpa_cli)
++# falarem com ele sem root: o socket de controle, do grupo wheel, e o
++# update_config, para guardar as redes novas.
++preparar_conf()
++{
++	[ -f "$conf" ] || : > "$conf"
++	chmod 600 "$conf"
++	if ! grep -q '^ctrl_interface=' "$conf"; then
++		t=$(mktemp)
++		printf 'ctrl_interface=/var/run/wpa_supplicant\nctrl_interface_group=wheel\nupdate_config=1\n' > "$t"
++		cat "$conf" >> "$t"
++		cat "$t" > "$conf"
++		rm -f "$t"
++	fi
++}
++
++# Com uma placa Wi-Fi: a wlan0 no rc.conf, em WPA e DHCP, para o netif criar a
++# interface e subir o wpa_supplicant no boot, mesmo sem nenhuma rede guardada.
++preparar()
++{
++	[ -n "$placa" ] || return 0
++	preparar_conf
++	[ -n "$(sysrc -n "wlans_$placa" 2>/dev/null)" ] || sysrc -q "wlans_$placa=wlan0" >/dev/null
++	[ -n "$(sysrc -n ifconfig_wlan0 2>/dev/null)" ] || sysrc -q ifconfig_wlan0="WPA DHCP" >/dev/null
++}
++
++case "${1:-}" in
++--boot)
++	preparar
++	exit 0 ;;
++preparar)
++	if [ -z "$placa" ]; then
++		echo "  Nenhuma placa Wi-Fi com driver. Veja: lume hardware"
++		exit 1
++	fi
++	preparar
++	# Fora do boot: sobe a wlan0 agora, se o wpa_supplicant não está rodando.
++	if [ ! -S /var/run/wpa_supplicant/wlan0 ]; then
++		service netif start wlan0 >/dev/null 2>&1
++	fi
++	echo "  Wi-Fi pronto ($placa, wlan0)."
++	exit 0 ;;
++"") ;;
++*)	echo "uso: lume wifi [preparar]" >&2; exit 2 ;;
++esac
++
+ if [ -z "$placa" ]; then
+ 	echo "  Nenhuma placa Wi-Fi com driver. Veja: lume hardware"
+ 	exit 1
+@@ -39,10 +92,7 @@ ssid=$(echo "$redes" | sed -n "${n}p")
+ printf "  Senha de \"%s\" (vazio se aberta): " "$ssid"
+ stty -echo 2>/dev/null; read -r senha; stty echo 2>/dev/null; echo
+ 
+-conf=/etc/wpa_supplicant.conf
+-touch "$conf"; chmod 600 "$conf"
+-grep -q '^ctrl_interface=' "$conf" ||
+-    printf 'ctrl_interface=/var/run/wpa_supplicant\nctrl_interface_group=wheel\nupdate_config=1\n' >> "$conf"
++preparar_conf
+ if [ -n "$senha" ]; then
+ 	wpa_passphrase "$ssid" "$senha" | grep -v '#psk=' >> "$conf"
+ else

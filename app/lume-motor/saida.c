@@ -31,7 +31,7 @@
 static char erro[512];
 
 const char *
-saida_erro(void)
+motor_saida_erro(void)
 {
 	return erro;
 }
@@ -100,7 +100,7 @@ contexto(saida *s, EGLenum plataforma, void *nativo, bool janela)
 /* --- sem tela ----------------------------------------------------------- */
 
 bool
-saida_sem_tela(saida *s, int w, int h)
+motor_saida_sem_tela(saida *s, int w, int h)
 {
 	memset(s, 0, sizeof(*s));
 	s->w = w;
@@ -123,7 +123,7 @@ saida_sem_tela(saida *s, int w, int h)
 }
 
 bool
-saida_png(saida *s, const char *arquivo)
+motor_saida_png(saida *s, const char *arquivo)
 {
 	unsigned char *px = malloc((size_t)s->w * s->h * 4);
 	if (px == NULL)
@@ -200,7 +200,7 @@ taxa(const drmModeModeInfo *m)
 }
 
 bool
-saida_drm(saida *s, const char *dispositivo)
+motor_saida_drm(saida *s, const char *dispositivo)
 {
 	memset(s, 0, sizeof(*s));
 	s->fd = open(dispositivo, O_RDWR | O_CLOEXEC);
@@ -297,7 +297,7 @@ virou(int fd, unsigned int seq, unsigned int seg, unsigned int us, void *dados)
 }
 
 double
-saida_agora_ms(void)
+motor_saida_agora_ms(void)
 {
 	struct timespec t;
 	clock_gettime(CLOCK_MONOTONIC, &t);
@@ -305,7 +305,7 @@ saida_agora_ms(void)
 }
 
 bool
-saida_mostrar(saida *s)
+motor_saida_mostrar(saida *s)
 {
 	if (s->gbm == NULL)
 		return true; /* sem tela: o quadro fica no framebuffer */
@@ -343,7 +343,7 @@ saida_mostrar(saida *s)
 }
 
 void
-saida_fechar(saida *s)
+motor_saida_fechar(saida *s)
 {
 	if (s->crtc_antes) {
 		drmModeCrtc *c = s->crtc_antes;

@@ -25,6 +25,8 @@
 #include <GLES3/gl31.h>
 
 #include "motor.h"
+/* As contas do papel (papel.glsl), embutidas pelo lume-montar (ferramentas/montar motor). */
+#include "papel_glsl.inc"
 
 static char erro[512];
 
@@ -102,20 +104,12 @@ static const char FS_TINTA[] = GLSL
 static const char CS_FIBRAS[] = GLSL
     "layout(local_size_x = 8, local_size_y = 8) in;\n"
     "layout(r32f, binding = 0) writeonly uniform highp image2D fibras;\n"
-    "float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n"
-    "float ruido(vec2 p) {\n"
-    "    vec2 i = floor(p), f = fract(p);\n"
-    "    f = f * f * (3.0 - 2.0 * f);\n"
-    "    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),\n"
-    "               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);\n"
-    "}\n"
+    LUME_PAPEL_GLSL
     "void main() {\n"
     "    ivec2 p = ivec2(gl_GlobalInvocationID.xy);\n"
     "    if (any(greaterThanEqual(p, imageSize(fibras)))) return;\n"
     "    vec2 v = vec2(p);\n"
-    "    float n = 0.40 * ruido(v * vec2(0.07, 0.55)) + 0.30 * ruido(v * vec2(0.55, 0.07))\n"
-    "            + 0.15 * ruido(v * 0.9) + 0.15 * hash(v);\n"
-    "    imageStore(fibras, p, vec4(n, 0.0, 0.0, 1.0));\n"
+    "    imageStore(fibras, p, vec4(lume_fibras(v), 0.0, 0.0, 1.0));\n"
     "}\n";
 
 /* Um triângulo que cobre a tela. */
@@ -134,13 +128,13 @@ static const char FS_PAPEL[] = GLSL
     "uniform float grao;\n"
     "uniform int colorido;\n"
     "out vec4 cor;\n"
+    LUME_PAPEL_GLSL
     "void main() {\n"
     "    ivec2 p = ivec2(gl_FragCoord.xy);\n"
     "    vec4 acc = texelFetch(tintaTex, p, 0);\n"
     "    float n = texelFetch(fibrasTex, p, 0).r - 0.5;\n"
-    "    float a = acc.a;\n"
-    "    a = clamp(a + grao * 0.16 * n * 4.0 * a * (1.0 - a), 0.0, 1.0);\n"
-    "    vec3 folha = papel * (1.0 + grao * 0.045 * n);\n"
+    "    float a = lume_grao(acc.a, n, grao);\n"
+    "    vec3 folha = lume_folha(papel, n, grao);\n"
     "    vec3 t = preta;\n"
     "    if (colorido != 0 && acc.a > 0.002) {\n"
     "        t = acc.rgb / acc.a;\n"

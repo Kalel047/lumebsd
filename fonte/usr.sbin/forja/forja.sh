@@ -25,7 +25,7 @@ LOGS=/var/log/forja
 PORTS=${PORTSDIR:-/usr/ports}
 
 # Para a árvore de ports e os programas que ela compila, o sistema é o
-# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 1.5-FAROL", que o
+# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 2.0-FAROL", que o
 # configure dos programas não conhece. A versão vem do kern.osreldate
 # (1501000 -> 15.1-RELEASE); o uname(1) respeita UNAME_s e UNAME_r, e os
 # ports repassam essas variáveis para cada compilação.

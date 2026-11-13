@@ -1,0 +1,252 @@
+From 04bb061fa4b8b1f0e608b00d403a45ff36d98ef9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 11 Nov 2026 22:09:22 -0300
+Subject: [PATCH] loader: o menu entende boot_serial="NO"; o farol do tamanho
+ do ASCII
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+O menu do loader mostrava "Dual (Serial primary)" com boot_serial="NO",
+porque só conferia se a variável existia (o kernel já lia o valor). O
+farol em PNG ocupa as mesmas 13 linhas do ASCII; o nome fica em texto.
+---
+ stand/images/Makefile           |   2 +-
+ stand/images/lume-brand-rev.png | Bin 7138 -> 0 bytes
+ stand/lua/core.lua              |  19 +++++++++++++------
+ stand/lua/gfx-lume.lua          |   7 ++-----
+ 4 files changed, 16 insertions(+), 12 deletions(-)
+ delete mode 100644 stand/images/lume-brand-rev.png
+
+diff --git a/stand/images/Makefile b/stand/images/Makefile
+index a39958d33..51dd2dcb0 100644
+--- a/stand/images/Makefile
++++ b/stand/images/Makefile
+@@ -1,7 +1,7 @@
+ .include <bsd.init.mk>
+ 
+ FILES+=	freebsd-brand-rev.png freebsd-brand.png freebsd-install-brand-rev.png \
+-	freebsd-logo-rev.png lume-brand-rev.png lume-logo-rev.png
++	freebsd-logo-rev.png lume-logo-rev.png
+ 
+ FILESDIR=  /boot/images
+ 
+diff --git a/stand/images/lume-brand-rev.png b/stand/images/lume-brand-rev.png
+deleted file mode 100644
+index e3080018b82ec1fab4cdb5618bd9e7b2e716b584..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 7138
+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
+Kt5U0E8~J~Tke)CA
+
+diff --git a/stand/lua/core.lua b/stand/lua/core.lua
+index c276f61e5..14e3f4dae 100644
+--- a/stand/lua/core.lua
++++ b/stand/lua/core.lua
+@@ -533,15 +533,22 @@ function core.popFrontTable(tbl)
+ 	return first_value, new_tbl
+ end
+ 
++-- boot_serial="NO" (or boot_multicons="NO") means off, as the kernel reads it
++-- (boot_env_to_howto); only a missing variable was treated as off here.
++local function envOn(name)
++	local v = loader.getenv(name)
++	return v ~= nil and v:lower() ~= "no"
++end
++
+ function core.getConsoleName()
+-	if loader.getenv("boot_multicons") ~= nil then
+-		if loader.getenv("boot_serial") ~= nil then
++	if envOn("boot_multicons") then
++		if envOn("boot_serial") then
+ 			return "Dual (Serial primary)"
+ 		else
+ 			return "Dual (Video primary)"
+ 		end
+ 	else
+-		if loader.getenv("boot_serial") ~= nil then
++		if envOn("boot_serial") then
+ 			return "Serial"
+ 		else
+ 			return "Video"
+@@ -550,15 +557,15 @@ function core.getConsoleName()
+ end
+ 
+ function core.nextConsoleChoice()
+-	if loader.getenv("boot_multicons") ~= nil then
+-		if loader.getenv("boot_serial") ~= nil then
++	if envOn("boot_multicons") then
++		if envOn("boot_serial") then
+ 			loader.unsetenv("boot_serial")
+ 		else
+ 			loader.unsetenv("boot_multicons")
+ 			loader.setenv("boot_serial", "YES")
+ 		end
+ 	else
+-		if loader.getenv("boot_serial") ~= nil then
++		if envOn("boot_serial") then
+ 			loader.unsetenv("boot_serial")
+ 		else
+ 			loader.setenv("boot_multicons", "YES")
+diff --git a/stand/lua/gfx-lume.lua b/stand/lua/gfx-lume.lua
+index 8cb79b6eb..85fe0093b 100644
+--- a/stand/lua/gfx-lume.lua
++++ b/stand/lua/gfx-lume.lua
+@@ -18,10 +18,6 @@ return {
+ 			},
+ 			requires_color = true,
+ 		},
+-		-- Com a tela em modo gráfico, o nome desenhado (Lume em âmbar).
+-		fb = {
+-			image = "/boot/images/lume-brand-rev.png",
+-		},
+ 	},
+ 	logo = {
+ 		ascii = {
+@@ -46,7 +42,8 @@ return {
+ 		-- Com a tela em modo gráfico, o farol desenhado, com a luz acesa.
+ 		fb = {
+ 			image = "/boot/images/lume-logo-rev.png",
+-			width = 15,
++			-- the same 13 rows as the ASCII lighthouse
++			width = 13,
+ 		},
+ 	},
+ }

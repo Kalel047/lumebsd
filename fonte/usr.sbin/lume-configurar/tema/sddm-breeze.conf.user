@@ -1,3 +1,6 @@
 [General]
 background=/usr/local/share/wallpapers/LumePapelNoite/contents/images/3840x2160.png
 type=image
+# O farol e o nome, claros sobre o papel de parede noturno.
+showlogo=shown
+logo=/usr/share/lume/marca/lumebsd-logo-claro.svg

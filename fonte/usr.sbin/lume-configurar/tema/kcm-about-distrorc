@@ -1,0 +1,6 @@
+# "Sobre o sistema" (Configurações do Sistema e Centro de Informações):
+# o farol do LumeBSD e o site do projeto (tema Papel).
+[General]
+LogoPath=/usr/share/lume/marca/lumebsd.svg
+Website=https://github.com/Kalel047/lumebsd
+Variant=Farol

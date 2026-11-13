@@ -1,0 +1,95 @@
+.\"
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\"
+.Dd November 11, 2026
+.Dt LUME-ATRIBUTO 1
+.Os
+.Sh NAME
+.Nm lume-atributo
+.Nd os atributos dos arquivos (etiquetas, nota, comentário e os seus)
+.Sh SYNOPSIS
+.Nm lume atributo
+.Op Fl L
+.Ar arquivo ...
+.Nm lume atributo
+.Op Fl L
+.Ar arquivo ... nome
+.Nm lume atributo
+.Op Fl L
+.Ar arquivo ...
+.Ar nome Ns = Ns Ar valor | nome Ns += Ns Ar etiqueta | nome Ns -= Ns Ar etiqueta ...
+.Nm lume atributo procurar
+.Op Fl d Ar pasta
+.Ar condição ...
+.Sh DESCRIPTION
+Como no BeOS, um arquivo do LumeBSD carrega atributos próprios, gravados
+nele mesmo (os atributos estendidos do ZFS e do UFS2, espaço
+.Dq user ) :
+vão junto quando o arquivo é copiado com
+.Xr cp 1
+.Fl p ,
+movido ou guardado nas fotos da máquina do tempo.
+.Pp
+Os nomes conhecidos são os mesmos do KDE, e o Dolphin mostra e edita os
+mesmos valores (o painel de informações, F11, e as colunas Etiquetas, Nota
+e Comentário):
+.Bl -tag -width comentario
+.It Cm etiquetas
+uma lista separada por vírgulas;
+.Cm etiquetas+=x
+põe uma e
+.Cm etiquetas-=x
+tira.
+.It Cm nota
+de 0 a 5 estrelas (meia estrela com 3,5).
+.It Cm comentario
+um texto livre.
+.It Cm origem
+de onde veio o arquivo (o endereço do download).
+.El
+.Pp
+Qualquer outro nome vale: fica gravado como
+.Li lume. Ns Ar nome
+(por exemplo
+.Cm autor ,
+.Cm cliente ,
+.Cm projeto ) .
+Um nome com ponto é gravado como está.
+.Ar nome Ns =
+sem valor apaga o atributo.
+.Pp
+Sem nome,
+.Nm
+lista os atributos de cada arquivo; com um nome, mostra o valor.
+.Fl L
+segue links simbólicos.
+.Ss Procurar
+.Cm procurar
+percorre a
+.Ar pasta
+(a pasta pessoal, se faltar), sem entrar nas pastas ocultas, e mostra os
+arquivos que cumprem todas as condições:
+.Bl -tag -width "nome>=n, nome<=n, nome>n, nome<n"
+.It Ar nome
+tem o atributo;
+.It Ar nome Ns = Ns Ar valor
+é igual (nas etiquetas: tem a etiqueta);
+.It Ar nome Ns ~ Ns Ar texto
+contém o texto (sem diferença de maiúsculas);
+.It Ar nome Ns >= Ns Ar n , nome Ns <= Ns Ar n , nome Ns > Ns Ar n , nome Ns < Ns Ar n
+compara números (a nota, em estrelas).
+.El
+.Sh EXIT STATUS
+0 quando deu certo; 1 quando um arquivo falhou ou a procura não achou
+nada; 2 num erro de uso.
+.Sh EXAMPLES
+.Bd -literal -offset indent
+lume atributo contrato.pdf etiquetas+=trabalho nota=4 cliente=Acme
+lume atributo contrato.pdf
+lume atributo procurar etiquetas=trabalho 'nota>=4'
+lume atributo procurar -d ~/Imagens 'comentario~praia'
+.Ed
+.Sh SEE ALSO
+.Xr lume 1 ,
+.Xr getextattr 8 ,
+.Xr setextattr 8

@@ -1,4 +1,4 @@
-# LumeBSD 1.5 "Farol"
+# LumeBSD 2.0 "Farol"
 
 [![Verificar](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/verificar.yml)
 [![Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml/badge.svg)](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml)
@@ -26,7 +26,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
    ---  (( ))  ---
      /   _|_   \
         /___\
-        |[_]|        LumeBSD 1.5
+        |[_]|        LumeBSD 2.0
         |===|        "Farol"
         |   |
         |===|
@@ -41,6 +41,10 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 | | |
 |---|---|
+| **Identidade própria** (2.0) | o farol do LumeBSD no boot, na abertura da sessão, no login, no botão do menu e em "Sobre o sistema"; a decoração de janelas **Papel** |
+| **Abas de janelas** (2.0) | como no BeOS: **Ctrl+Meta+E** empilha janelas no mesmo lugar, com uma aba para cada uma na barra de título |
+| **Atributos nos arquivos** (2.0) | etiquetas, nota, comentário e atributos seus gravados no arquivo (`lume atributo`); editar no botão direito do Dolphin, procurar e salvar a consulta num `.consulta` |
+| **Sem Python** (2.0) | o ícone de rede (`lume-rede`, C++) no lugar do networkmgr; as ferramentas de construção em Rust (`lume-montar`); o `lume-motor` virou biblioteca |
 | **Papel e tinta de verdade** (1.5) | o filtro e-ink ganhou o **grão do papel** (fibras paradas na tela) e a **viscosidade da tinta**: quando a tela muda, o conteúdo novo assenta sobre o anterior, sem piscar |
 | **Motor de renderização** (1.5) | o protótipo `lume-motor`: desenha direto na placa de vídeo (DRM/KMS), letras e desenhos calculados pelas equações das curvas em cada pixel, papel num compute shader, no modo de maior taxa do monitor ([docs/MOTOR.md](docs/MOTOR.md)) |
 | **Papel noite** (1.5.1) | o tema escuro: fundo de tinta, letras de papel; `lume tema escuro` e `lume tema claro` trocam na hora; o filtro e-ink acompanha. E o disco instalado dá boot também em BIOS (máquinas virtuais do virt-manager e do GNOME Boxes) |
@@ -66,7 +70,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 
 ### 1. Gravar
 
-Baixe `LumeBSD-1.5-Farol-pendrive.img.xz` (ou a `LumeBSD-1.5-Farol.iso`) das
+Baixe `LumeBSD-2.0-Farol-pendrive.img.xz` (ou a `LumeBSD-2.0-Farol.iso`) das
 [Releases](https://github.com/Kalel047/lumebsd/releases) (ou do último
 [Build completo](https://github.com/Kalel047/lumebsd/actions/workflows/build.yml),
 em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
@@ -74,7 +78,7 @@ em "Artifacts"), confira o SHA256 com o `SHA256SUMS` que vem junto, extraia
 
 - **Windows**: [Rufus](https://rufus.ie), escolha a imagem e, quando ele
   perguntar, **modo DD**.
-- **Linux/FreeBSD**: `dd if=LumeBSD-1.5-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
+- **Linux/FreeBSD**: `dd if=LumeBSD-2.0-Farol-pendrive.img of=/dev/SEU_PENDRIVE bs=1M`
 
 A `.iso` serve para gravar num DVD, abrir numa máquina virtual (VirtualBox,
 VMware, QEMU, GNOME Boxes) ou num pendrive com o Ventoy; também pode ser
@@ -377,7 +381,7 @@ O desktop vem com um visual próprio inspirado nas telas de e-ink
   GTK, os apps do LumeBSD e o filtro e-ink acompanham. `lume tema escuro` e
   `lume tema claro` trocam na hora para quem roda; `lume tema papel noite`
   (root) faz do escuro o padrão. Os arquivos são gerados do Papel por
-  `ferramentas/tema-noite.py`;
+  `ferramentas/montar tema-noite`;
 - Konsole, SDDM (tela de login), tela de bloqueio, GTK e splash seguem o
   mesmo tema.
 
@@ -393,6 +397,14 @@ aplica de novo.
 |---|---|
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
+
+### Novidades da 2.0 na tela
+
+| | |
+|---|---|
+| ![Duas janelas empilhadas, uma aba para cada](docs/capturas/abas-1-empilhadas.png) | ![Uma janela só, com a aba da decoração Papel](docs/capturas/abas-2-uma-janela.png) |
+| ![A janela de atributos](docs/capturas/atributos-1-janela.png) | ![Uma consulta salva, aberta com dois cliques](docs/capturas/atributos-2-consulta.png) |
+| ![Etiquetas, nota e comentário no painel do Dolphin](docs/capturas/atributos-3-dolphin.png) | ![Sobre este sistema](docs/capturas/marca-1-sobre.png) |
 
 <sub>Capturas reais do sistema instalado numa VM (sem aceleração de vídeo).</sub>
 
@@ -470,14 +482,15 @@ patches/               a fonte de verdade: o que muda no FreeBSD, em ordem
 app/                   os apps Atualizações e Programas do LumeBSD (Qt 6), os
                        efeitos do KWin (o filtro e-ink e as animações) e o
                        lume-motor, fora da árvore do FreeBSD;
-                       ferramentas/montar-*.py os compilam
+                       o ferramentas/montar os compila
 mac/                   lume-macho (programas do macOS) e o programa de teste
 fonte/                 os mesmos arquivos em texto puro, para ler e navegar
                        (forja, lume, vigia, lume-configurar, rc.d, tema...)
 conf/                  src.conf (userland) e LUME (kernel)
 build-lumebsd.sh       do FreeBSD fixado até a imagem do pendrive
-ferramentas/           pacotes.py, montar-pendrive.py, fonte.py,
-                       papel-de-parede.py, conferir-catalogo.py (a loja)
+ferramentas/           lume-montar (Rust): o pendrive, a atualização, os
+                       pacotes, os apps, fonte/, o tema e a loja; rode com
+                       ferramentas/montar SUBCOMANDO
 tests/                 testes no QEMU pelo console serial
 docs/ARQUITETURA.md    como tudo funciona por dentro
 docs/                  sessões reais e capturas de tela
@@ -487,7 +500,7 @@ docs/                  sessões reais e capturas de tela
 Para mudar o código: edite a árvore do FreeBSD com os patches aplicados,
 faça commit, gere os patches de novo
 (`git format-patch -N --no-signature <commit fixado>..HEAD -o patches/`) e rode
-`python3 ferramentas/fonte.py gerar src`. O CI recusa `fonte/` diferente dos
+`ferramentas/montar fonte gerar src`. O CI recusa `fonte/` diferente dos
 patches.
 
 ## Construindo
@@ -504,7 +517,7 @@ O script clona o FreeBSD `releng/15.1`, aplica os patches, compila
 userland e kernel `LUME`, instala num diretório de staging sem precisar de
 root, baixa os pacotes essenciais do repositório trimestral do FreeBSD
 (conferindo os hashes), compila os apps contra o `qt6-base`
-do FreeBSD e gera `LumeBSD-1.5-Farol-pendrive.img`, a `LumeBSD-1.5-Farol.iso` e, em `atualizacao/`, o
+do FreeBSD e gera `LumeBSD-2.0-Farol-pendrive.img`, a `LumeBSD-2.0-Farol.iso` e, em `atualizacao/`, o
 pacote de atualização com o índice e as novidades (`docs/novidades.md`).
 Leva várias horas numa máquina de 2 núcleos (o world é a parte longa).
 

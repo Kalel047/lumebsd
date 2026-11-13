@@ -39,36 +39,36 @@ typedef struct {
 	bool aberto;
 } motor_cena;
 
-void cena_iniciar(motor_cena *c);
-void cena_limpar(motor_cena *c);
-void cena_liberar(motor_cena *c);
+void motor_cena_iniciar(motor_cena *c);
+void motor_cena_limpar(motor_cena *c);
+void motor_cena_liberar(motor_cena *c);
 /* Construção de um caminho, como no PostScript/SVG. */
-void cena_comecar(motor_cena *c);
-void cena_mover(motor_cena *c, float x, float y);
-void cena_linha(motor_cena *c, float x, float y);
-void cena_quad(motor_cena *c, float cx, float cy, float x, float y);
-void cena_cubica(motor_cena *c, float c1x, float c1y, float c2x, float c2y,
+void motor_cena_comecar(motor_cena *c);
+void motor_cena_mover(motor_cena *c, float x, float y);
+void motor_cena_linha(motor_cena *c, float x, float y);
+void motor_cena_quad(motor_cena *c, float cx, float cy, float x, float y);
+void motor_cena_cubica(motor_cena *c, float c1x, float c1y, float c2x, float c2y,
     float x, float y);
-void cena_fechar(motor_cena *c);
+void motor_cena_fechar(motor_cena *c);
 /* Termina o caminho com uma tinta (cor e densidade). */
-void cena_pintar(motor_cena *c, float r, float g, float b, float densidade);
+void motor_cena_pintar(motor_cena *c, float r, float g, float b, float densidade);
 /* Atalhos: retângulo, contorno (traço) de um segmento, elipse. */
-void cena_retangulo(motor_cena *c, float x, float y, float w, float h);
-void cena_traco(motor_cena *c, float x0, float y0, float x1, float y1,
+void motor_cena_retangulo(motor_cena *c, float x, float y, float w, float h);
+void motor_cena_traco(motor_cena *c, float x0, float y0, float x1, float y1,
     float largura);
-void cena_elipse(motor_cena *c, float cx, float cy, float rx, float ry);
+void motor_cena_elipse(motor_cena *c, float cx, float cy, float rx, float ry);
 
 /* Texto: as letras viram curvas (sem bitmaps nem atlas de fontes). */
 typedef struct motor_fonte motor_fonte;
-motor_fonte *fonte_abrir(const char *arquivo);
-void fonte_fechar(motor_fonte *f);
+motor_fonte *motor_fonte_abrir(const char *arquivo);
+void motor_fonte_fechar(motor_fonte *f);
 /* Escreve a partir de (x, y) (linha de base), quebrando em "largura"
  * (0: sem quebra). Devolve o y da próxima linha. */
-float cena_texto(motor_cena *c, motor_fonte *f, const char *utf8, float x,
+float motor_cena_texto(motor_cena *c, motor_fonte *f, const char *utf8, float x,
     float y, float tamanho, float largura, float entrelinha, float r,
     float g, float b, float densidade);
 /* A largura de um texto numa linha só. */
-float fonte_largura(motor_fonte *f, const char *utf8, float tamanho);
+float motor_fonte_largura(motor_fonte *f, const char *utf8, float tamanho);
 
 /* O renderizador (precisa de um contexto GLES 3.1 corrente). */
 typedef struct motor motor;

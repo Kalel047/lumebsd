@@ -10,12 +10,12 @@ xf86-video-scfb
 xf86-input-libinput
 mesa-dri
 # Desktop KDE Plasma 6
-# Plasma 6 (o meta-pacote plasma6-plasma, sem o Spectacle e o OCR que ele puxa)
+# Plasma 6 (o meta-pacote plasma6-plasma, sem o Spectacle e o OCR que ele puxa,
+# e sem o Discover: a loja é a do LumeBSD, Programas)
 plasma6-aurorae
 plasma6-breeze
 plasma6-breeze-gtk
 plasma6-breeze-qt5
-plasma6-discover
 plasma6-kactivitymanagerd
 plasma6-kde-cli-tools
 plasma6-kde-gtk-config
@@ -78,7 +78,6 @@ okular
 # Som, rede, navegador e utilidades
 pipewire
 wireplumber
-networkmgr
 firefox
 doas
 noto-basic

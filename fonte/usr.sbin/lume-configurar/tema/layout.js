@@ -10,7 +10,7 @@ panel.floating = false;
 
 var menu = panel.addWidget("org.kde.plasma.kickoff");
 menu.currentConfigGroup = ["General"];
-menu.writeConfig("icon", "start-here-kde-symbolic");
+menu.writeConfig("icon", "start-here-lume-symbolic");
 
 panel.addWidget("org.kde.plasma.icontasks");
 panel.addWidget("org.kde.plasma.marginsseparator");
