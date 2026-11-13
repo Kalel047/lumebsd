@@ -15,10 +15,12 @@ SRC=$TOP/src
 OBJ=$TOP/obj
 STAGE=$TOP/stage
 PACOTES=$TOP/pacotes
-IMG=$TOP/LumeBSD-1.5-Farol-pendrive.img
-ISO=$TOP/LumeBSD-1.5-Farol.iso
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu)}
 VERSAO=$(cat "$TOP/VERSAO")
+# O nome da imagem leva só X.Y da versão (2.0.0 -> LumeBSD-2.0-Farol-...),
+# o mesmo que o workflow "Build completo" procura.
+IMG=$TOP/LumeBSD-${VERSAO%.*}-Farol-pendrive.img
+ISO=$TOP/LumeBSD-${VERSAO%.*}-Farol.iso
 ATUALIZACAO=$TOP/atualizacao
 
 # Commit do releng/15.1 em que os patches foram testados (FREEBSD_COMMIT=...
