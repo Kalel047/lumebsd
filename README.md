@@ -398,6 +398,14 @@ aplica de novo.
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
 
+### Novidades da 2.0 na tela
+
+| | |
+|---|---|
+| ![Duas janelas empilhadas, uma aba para cada](docs/capturas/abas-1-empilhadas.png) | ![Uma janela só, com a aba da decoração Papel](docs/capturas/abas-2-uma-janela.png) |
+| ![A janela de atributos](docs/capturas/atributos-1-janela.png) | ![Uma consulta salva, aberta com dois cliques](docs/capturas/atributos-2-consulta.png) |
+| ![Etiquetas, nota e comentário no painel do Dolphin](docs/capturas/atributos-3-dolphin.png) | ![Sobre este sistema](docs/capturas/marca-1-sobre.png) |
+
 <sub>Capturas reais do sistema instalado numa VM (sem aceleração de vídeo).</sub>
 
 ## Ferramentas do LumeBSD
