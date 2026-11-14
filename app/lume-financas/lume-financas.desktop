@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Finance
+Name[pt_BR]=Finanças do LumeBSD
+Name[pt]=Finanças do LumeBSD
+GenericName=Finance and economics calculator
+GenericName[pt_BR]=Contas de economia e finanças
+Comment=Monthly budget, interest, loans (Price and SAC), NPV and IRR, inflation from the Central Bank of Brazil, and regression
+Comment[pt_BR]=Orçamento do mês, juros, financiamento (Price e SAC), VPL e TIR, inflação do Banco Central e regressão
+Exec=/usr/bin/lume-financas
+Icon=/usr/share/lume/app/lume-financas.svg
+Categories=Office;Finance;Education;Economy;
+Keywords=finanças;economia;juros;financiamento;price;sac;vpl;tir;ipca;inflação;selic;cdi;regressão;estatística;hp12c;excel;orçamento;orcamento;gastos;contas;poupança;meta;50/30/20;
+StartupNotify=true

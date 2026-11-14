@@ -297,6 +297,12 @@ integrar()
 		padrao_mime "application/x-lume-consulta" lume-atributos.desktop
 	fi
 	baloo
+	# As Finanças do LumeBSD (juros, financiamento, projetos, inflação,
+	# regressão e o orçamento do mês), no menu.
+	if [ -x /usr/bin/lume-financas ]; then
+		instalar $A/lume-financas.desktop \
+		    $P/share/applications/lume-financas.desktop 0644
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644

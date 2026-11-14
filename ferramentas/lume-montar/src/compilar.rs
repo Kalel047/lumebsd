@@ -4,7 +4,8 @@
 //! do METALOG.build:
 //!
 //!   app      os apps em Qt (app/NOME/main.cpp, sem moc): Atualizações,
-//!            Programas, o ícone de rede e os atributos dos arquivos
+//!            Programas, o ícone de rede, os atributos dos arquivos e as
+//!            Finanças
 //!   motor    o lume-motor: a biblioteca liblume-motor e a demonstração
 //!   efeitos  os efeitos do KWin (lume_tinta, lume_abas), a decoração Papel
 //!            e as animações em JavaScript
@@ -84,6 +85,7 @@ const APPS: &[(&str, &[&str])] = &[
     ("lume-rede", &["lume-rede.desktop", "org.lumebsd.rede.policy"]),
     ("lume-atributos", &["lume-atributos.desktop", "lume-atributos-menu.desktop",
                          "lume-atributos-pasta.desktop", "lume-consulta.xml"]),
+    ("lume-financas", &["lume-financas.svg", "lume-financas.desktop"]),
 ];
 
 pub const USO_APP: &str = "uso: lume-montar app STAGE QT6BASE.pkg
