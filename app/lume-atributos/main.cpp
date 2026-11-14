@@ -11,7 +11,8 @@
 //   lume-atributos ARQUIVO.consulta      abre a consulta salva e procura
 //
 // Os atributos ficam no próprio arquivo (extattr, espaço "user"), com os
-// nomes do KDE para os conhecidos; a procura é a do lume-atributo(1).
+// nomes do KDE para os conhecidos; a procura é a do lume-atributo(1), ao
+// vivo: a lista se atualiza sozinha quando um arquivo muda.
 //
 // Sem moc: só sinais do próprio Qt ligados a lambdas, para compilar com o
 // clang de fora do FreeBSD contra os cabeçalhos do pacote qt6-base.
@@ -25,6 +26,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QIcon>
@@ -422,16 +424,24 @@ public:
             });
             m.addAction(QIcon::fromTheme("tag"), tr("Atributos…"), [this, sel] {
                 Atributos d(sel, this);
-                if (d.exec() == QDialog::Accepted)
-                    procurar();
+                d.exec();  // a lista ao vivo já se atualiza
             });
             m.exec(m_lista->viewport()->mapToGlobal(p));
         });
         topo->addWidget(m_lista, 1);
         resize(820, 520);
 
-        connect(&m_proc, &QProcess::finished, this, [this](int codigo, QProcess::ExitStatus) {
-            mostrar(codigo);
+        // Ao vivo (lume-atributo procurar -v): uma linha por mudança.
+        connect(&m_proc, &QProcess::readyReadStandardOutput, this, [this] { ler(); });
+        connect(&m_proc, &QProcess::finished, this, [this](int codigo, QProcess::ExitStatus st) {
+            if (codigo == 2) {
+                m_estado->setText(tr("Condição inválida: %1")
+                    .arg(QString::fromLocal8Bit(m_proc.readAllStandardError()).trimmed()
+                         .section(": ", 1)));
+            } else if (st == QProcess::CrashExit || codigo != 0) {
+                m_vivo = false;
+                contar();
+            }
         });
     }
 
@@ -463,8 +473,12 @@ public:
         if (m_proc.state() != QProcess::NotRunning)
             m_proc.kill(), m_proc.waitForFinished(1000);
         m_lista->clear();
+        m_itens.clear();
+        m_resto.clear();
+        m_pronto = false;
+        m_vivo = true;
         m_estado->setText(tr("Procurando…"));
-        m_proc.start(PROCURAR, QStringList{"procurar", "-d", expandir(m_pasta->text())} + conds);
+        m_proc.start(PROCURAR, QStringList{"procurar", "-v", "-d", expandir(m_pasta->text())} + conds);
     }
 
 private:
@@ -483,37 +497,67 @@ private:
         return r;
     }
 
-    void mostrar(int codigo)
+    // As linhas do lume-atributo: "+ arq" entrou, "~ arq" mudou, "- arq"
+    // saiu, "." fim da primeira passada, "*" recomeço.
+    void ler()
     {
-        if (codigo == 2) {
-            m_estado->setText(tr("Condição inválida: %1")
-                .arg(QString::fromLocal8Bit(m_proc.readAllStandardError()).trimmed()
-                     .section(": ", 1)));
-            return;
-        }
-        int n = 0;
+        m_resto += m_proc.readAllStandardOutput();
+        int fim;
+        bool mexeu = false;
         m_lista->setSortingEnabled(false);
-        const QList<QByteArray> linhas = m_proc.readAllStandardOutput().split('\n');
-        for (const QByteArray &l : linhas) {
-            if (l.isEmpty())
-                continue;
-            const QString arq = QFile::decodeName(l);
-            const auto at = lerTodos(arq);
-            QFileInfo fi(arq);
-            auto *it = new QTreeWidgetItem(m_lista);
-            it->setText(0, fi.fileName());
-            it->setIcon(0, QIcon::fromTheme(fi.isDir() ? "folder" : "text-x-generic"));
-            it->setText(1, QString::fromUtf8(at.value(ETIQUETAS)).replace(',', ", "));
-            it->setText(2, estrelas(at.value(NOTA)));
-            it->setText(3, QString::fromUtf8(at.value(COMENTARIO)).simplified());
-            const QString dir = fi.absolutePath(), casa = QDir::homePath();
-            it->setText(4, dir == casa ? "~" : dir.startsWith(casa + "/") ? "~" + dir.mid(casa.size()) : dir);
-            it->setData(0, Qt::UserRole, arq);
-            it->setToolTip(0, arq);
-            n++;
+        while ((fim = m_resto.indexOf('\n')) >= 0) {
+            const QByteArray l = m_resto.left(fim);
+            m_resto.remove(0, fim + 1);
+            if (l == ".") {
+                m_pronto = true;
+            } else if (l.startsWith("*")) {
+                m_lista->clear();
+                m_itens.clear();
+            } else if (l.size() > 2 && (l[0] == '+' || l[0] == '~')) {
+                item(QFile::decodeName(l.mid(2)));
+            } else if (l.size() > 2 && l[0] == '-') {
+                delete m_itens.take(QFile::decodeName(l.mid(2)));
+            }
+            mexeu = true;
         }
         m_lista->setSortingEnabled(true);
-        m_estado->setText(n == 0 ? tr("Nada encontrado.") : tr("%n arquivo(s)", nullptr, n));
+        if (mexeu)
+            contar();
+    }
+
+    void item(const QString &arq)
+    {
+        QTreeWidgetItem *it = m_itens.value(arq);
+        if (!it) {
+            it = new QTreeWidgetItem(m_lista);
+            m_itens.insert(arq, it);
+        }
+        const auto at = lerTodos(arq);
+        QFileInfo fi(arq);
+        it->setText(0, fi.fileName());
+        it->setIcon(0, QIcon::fromTheme(fi.isDir() ? "folder" : "text-x-generic"));
+        it->setText(1, QString::fromUtf8(at.value(ETIQUETAS)).replace(',', ", "));
+        it->setText(2, estrelas(at.value(NOTA)));
+        it->setText(3, QString::fromUtf8(at.value(COMENTARIO)).simplified());
+        const QString dir = fi.absolutePath(), casa = QDir::homePath();
+        it->setText(4, dir == casa ? "~" : dir.startsWith(casa + "/") ? "~" + dir.mid(casa.size()) : dir);
+        it->setData(0, Qt::UserRole, arq);
+        it->setToolTip(0, arq);
+    }
+
+    void contar()
+    {
+        const int n = m_itens.size();
+        if (!m_pronto) {
+            m_estado->setText(tr("Procurando… %n arquivo(s)", nullptr, n));
+            return;
+        }
+        QString s = n == 0 ? tr("Nada encontrado.") : tr("%n arquivo(s)", nullptr, n);
+        if (m_vivo)
+            s += tr(" · ao vivo");
+        m_estado->setText(s);
+        m_estado->setToolTip(m_vivo ? tr("A lista se atualiza sozinha quando um arquivo "
+                                         "ganha, perde ou muda um atributo.") : QString());
     }
 
     void salvar()
@@ -547,6 +591,9 @@ private:
     QTreeWidget *m_lista;
     QProcess m_proc;
     QString m_arquivo;
+    QHash<QString, QTreeWidgetItem *> m_itens;
+    QByteArray m_resto;
+    bool m_pronto = false, m_vivo = false;
 };
 
 } // namespace

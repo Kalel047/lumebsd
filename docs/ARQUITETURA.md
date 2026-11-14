@@ -531,6 +531,13 @@ janela, e a viscosidade num passo da tela inteira (`paintScreen`), com dois
 históricos e as janelas sem filtro entrando na hora (recorte por
 `glScissor`).
 
+No X11, cada `reconfigure` do KWin recomeça o compositor e recria o efeito.
+O `OffscreenEffect` copia cada janela para uma textura no primeiro quadro,
+às vezes antes de a imagem da janela chegar, e só copia de novo quando a
+janela muda: a área de trabalho e as janelas paradas ficavam pretas depois
+de trocar o tema. O `lume_tinta` refaz as texturas de todas as janelas
+algumas vezes nos primeiros segundos de vida (0,4 s, 1,5 s, 4 s e 8 s).
+
 ## Abas de janelas
 
 Como no BeOS (onde as abas são do app_server, o servidor de janelas), aqui
@@ -549,6 +556,14 @@ elas são do KWin, em duas peças que se falam por uma interface comum
 As duas compilam sem moc pelo `ferramentas/montar efeitos`, para o KWin do
 X11 e o do Wayland.
 
+No X11, todo `reconfigure` do KWin (trocar o tema, mudar uma opção) recomeça
+o compositor, e com ele destrói e recria todos os efeitos. O `lume_abas` que
+sai guarda os grupos na propriedade `lume.abas.estado` do `qApp` (o
+`internalId` de cada janela e a que aparece); o que entra os retoma. Se
+nenhum retomar em 3 segundos (o efeito foi desligado), as janelas escondidas
+voltam à tela. O KWin não descarrega a biblioteca de um efeito, então o
+temporizador pode chamar o código dela.
+
 ## Atributos dos arquivos
 
 Os atributos são os atributos estendidos do sistema de arquivos (`extattr`,
@@ -558,18 +573,28 @@ nos snapshots e no `zfs send`. Os nomes conhecidos são os do KDE
 (as etiquetas, separadas por vírgula), `xdg.comment`, `baloo.rating` (de 0
 a 10; o `lume atributo` mostra em estrelas) e `xdg.origin.url`. Os outros
 ficam como `lume.<nome>`. O painel de informações do Dolphin (F11) lê e
-edita as etiquetas, a nota e o comentário direto do arquivo; na lista, a
-coluna da nota também. As colunas de etiquetas e de comentário da lista
-ficam vazias com o Baloo desligado (testado no Dolphin 26.08).
+edita as etiquetas, a nota e o comentário direto do arquivo. Na lista, o
+Dolphin só lê os atributos de cada arquivo (as colunas Etiquetas, Nota e
+Comentário, pelo `KFileMetaData::UserMetaData`, sem índice) quando a
+indexação do Baloo está "ligada" (`Baloo::IndexerConfig::fileIndexingEnabled`).
+O `/usr/local/etc/xdg/baloofilerc` do LumeBSD deixa ligada, mas sem pasta
+nenhuma para indexar (`folders=`, vazio): o indexador não tem o que fazer (no
+FreeBSD ele entra em loop no extrator), e quem quiser o índice inclui as
+pastas nas Configurações do Sistema › Pesquisa.
 
 - `lume atributo` (`usr.bin/lume-atributo`, C) lê, grava e procura. A
   procura percorre a pasta com o `fts`, sem entrar nas ocultas, e lê os
-  atributos de cada arquivo; não há índice (o Baloo, o indexador do KDE,
-  fica desligado: no FreeBSD ele entra em loop no extrator). Um índice vivo
-  com o kqueue fica para o 2.x.
+  atributos de cada arquivo, sem índice.
+- Ao vivo (`procurar -v`, como as consultas do BeOS), ela continua de olho:
+  uma vigia do inotify por pasta (o inotify do kernel do FreeBSD 15, não o
+  kqueue, que pediria um descritor aberto por arquivo). Gravar ou apagar um
+  atributo gera `IN_ATTRIB` para a pasta (`vop_setextattr_post`); criar,
+  apagar e mover geram os outros. Cada aviso reavalia só aquele arquivo (ou
+  percorre a pasta nova) e escreve `+`, `~` ou `-` com o caminho; `*`
+  quando o kernel perdeu avisos (`IN_Q_OVERFLOW`), e aí tudo recomeça.
 - `lume-atributos` (Qt) é a janela de atributos (o botão direito do
   Dolphin, por um service menu) e a procura, que roda o `lume atributo
-  procurar` e mostra as colunas. Uma consulta salva é um arquivo
+  procurar -v` e atualiza a lista a cada linha. Uma consulta salva é um arquivo
   `.consulta` (tipo `application/x-lume-consulta`, com `pasta=` e
   `condicoes=`), que abre o `lume-atributos` com dois cliques.
 

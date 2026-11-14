@@ -17,6 +17,7 @@
 
 #include <sys/param.h>
 #include <sys/extattr.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
 
 #include <ctype.h>
@@ -24,6 +25,7 @@
 #include <errno.h>
 #include <fts.h>
 #include <limits.h>
+#include <search.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +55,7 @@ uso(void)
 	    "uso: lume atributo ARQUIVO...\n"
 	    "     lume atributo ARQUIVO NOME\n"
 	    "     lume atributo ARQUIVO NOME=VALOR | NOME+=ETIQUETA | NOME-=ETIQUETA...\n"
-	    "     lume atributo procurar [-d PASTA] CONDIÇÃO...\n"
+	    "     lume atributo procurar [-v] [-d PASTA] CONDIÇÃO...\n"
 	    "        CONDIÇÃO: NOME | NOME=VALOR | NOME~TEXTO | NOME>=N | NOME<=N\n"
 	    "                  | NOME>N | NOME<N  (todas valem juntas)\n"
 	    "     nomes: etiquetas, nota (0-5), comentario, origem ou um seu\n");
@@ -420,21 +422,284 @@ cumpre(const char *arq, const struct cond *c, int nc, char *valor)
 	return (true);
 }
 
+/*
+ * A procura. Com -v (ao vivo, como as consultas do BeOS), depois da
+ * primeira passada ela continua de olho nas pastas (inotify: uma vigia por
+ * pasta, que também avisa quando um atributo de um arquivo dela muda) e
+ * escreve o que entra e o que sai do resultado, uma linha por mudança:
+ *	+ CAMINHO	entrou (ou já estava, na primeira passada)
+ *	~ CAMINHO	continua no resultado, mas os atributos mudaram
+ *	- CAMINHO	saiu
+ *	.		fim da primeira passada
+ *	*		recomeço (o kernel perdeu eventos): tudo de novo
+ */
+static struct cond *conds;
+static int nconds;
+static char *valor_busca;
+static bool vivo;
+static int ifd = -1;
+static char **vigias;		/* a pasta de cada vigia (wd) */
+static int nvigias;
+static void *achados;		/* os caminhos no resultado (tsearch) */
+static int nachados;
+
+static int
+cmp(const void *a, const void *b)
+{
+	return (strcmp(a, b));
+}
+
+static void
+vigiar(const char *pasta)
+{
+	int wd;
+
+	wd = inotify_add_watch(ifd, pasta, IN_ATTRIB | IN_CREATE | IN_DELETE |
+	    IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF | IN_ONLYDIR |
+	    IN_DONT_FOLLOW);
+	if (wd < 0) {
+		warn("%s", pasta);
+		return;
+	}
+	if (wd >= nvigias) {
+		int n = MAX(wd + 1, nvigias * 2);
+
+		if ((vigias = reallocarray(vigias, n, sizeof(*vigias))) == NULL)
+			err(1, NULL);
+		memset(vigias + nvigias, 0, (n - nvigias) * sizeof(*vigias));
+		nvigias = n;
+	}
+	free(vigias[wd]);
+	if ((vigias[wd] = strdup(pasta)) == NULL)
+		err(1, NULL);
+}
+
+static void
+avisar(char sinal, const char *caminho)
+{
+	if (vivo) {
+		printf("%c %s\n", sinal, caminho);
+		fflush(stdout);
+	} else
+		puts(caminho);
+}
+
+/* O caminho cumpre as condições? Avisa se entrou, mudou ou saiu. */
+static void
+avaliar(const char *caminho, bool mudou)
+{
+	bool cumpriu = cumpre(caminho, conds, nconds, valor_busca);
+	char **k = tfind(caminho, &achados, cmp);
+
+	if (cumpriu && k == NULL) {
+		char *c = strdup(caminho);
+
+		if (c == NULL || tsearch(c, &achados, cmp) == NULL)
+			err(1, NULL);
+		nachados++;
+		avisar('+', caminho);
+	} else if (cumpriu && mudou)
+		avisar('~', caminho);
+	else if (!cumpriu && k != NULL) {
+		char *c = *k;
+
+		tdelete(caminho, &achados, cmp);
+		nachados--;
+		avisar('-', caminho);
+		free(c);
+	}
+}
+
+/* Percorre a pasta: avalia cada arquivo e, ao vivo, vigia cada pasta. */
+static void
+varrer(const char *raiz, bool eh_raiz)
+{
+	char *pastas[2] = { __DECONST(char *, raiz), NULL };
+	FTS *fts;
+	FTSENT *e;
+
+	fts = fts_open(pastas, FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV, NULL);
+	if (fts == NULL)
+		err(1, "%s", raiz);
+	while ((e = fts_read(fts)) != NULL) {
+		switch (e->fts_info) {
+		case FTS_D:
+			/* Pastas ocultas (.cache, .local, .zfs) ficam de fora. */
+			if (e->fts_level > 0 && e->fts_name[0] == '.') {
+				fts_set(fts, e, FTS_SKIP);
+				break;
+			}
+			if (vivo)
+				vigiar(e->fts_path);
+			if (e->fts_level > 0 || !eh_raiz)
+				avaliar(e->fts_path, false);
+			break;
+		case FTS_F:
+			if (e->fts_name[0] != '.')
+				avaliar(e->fts_path, false);
+			break;
+		default:
+			break;
+		}
+	}
+	fts_close(fts);
+}
+
+/* Some o caminho e o que estiver dentro dele (apagado ou movido). */
+static const char *sumiu;
+static char **sumidos;
+static int nsumidos;
+
+static void
+juntar(const void *no, VISIT v, int nivel __unused)
+{
+	const char *c = *(char *const *)no;
+	size_t n = strlen(sumiu);
+
+	if ((v == postorder || v == leaf) && strncmp(c, sumiu, n) == 0 &&
+	    (c[n] == '\0' || c[n] == '/')) {
+		if ((sumidos = reallocarray(sumidos, nsumidos + 1,
+		    sizeof(*sumidos))) == NULL)
+			err(1, NULL);
+		sumidos[nsumidos++] = __DECONST(char *, c);
+	}
+}
+
+static void
+sumir(const char *caminho)
+{
+	size_t n = strlen(caminho);
+
+	sumiu = caminho;
+	nsumidos = 0;
+	twalk(achados, juntar);
+	for (int i = 0; i < nsumidos; i++) {
+		avisar('-', sumidos[i]);
+		tdelete(sumidos[i], &achados, cmp);
+		nachados--;
+		free(sumidos[i]);
+	}
+	/* As vigias das pastas de dentro (o kernel tira as de apagadas). */
+	for (int wd = 0; wd < nvigias; wd++) {
+		if (vigias[wd] != NULL && strncmp(vigias[wd], caminho, n) == 0 &&
+		    (vigias[wd][n] == '\0' || vigias[wd][n] == '/')) {
+			inotify_rm_watch(ifd, wd);
+			free(vigias[wd]);
+			vigias[wd] = NULL;
+		}
+	}
+}
+
+static void
+esquecer(const void *no, VISIT v, int nivel __unused)
+{
+	if (v == postorder || v == leaf) {
+		if ((sumidos = reallocarray(sumidos, nsumidos + 1,
+		    sizeof(*sumidos))) == NULL)
+			err(1, NULL);
+		sumidos[nsumidos++] = *(char *const *)no;
+	}
+}
+
+/* Recomeça do zero: o kernel avisou que perdeu eventos. */
+static void
+recomecar(const char *raiz)
+{
+	nsumidos = 0;
+	twalk(achados, esquecer);
+	for (int i = 0; i < nsumidos; i++) {
+		tdelete(sumidos[i], &achados, cmp);
+		free(sumidos[i]);
+	}
+	nachados = 0;
+	for (int wd = 0; wd < nvigias; wd++) {
+		free(vigias[wd]);
+		vigias[wd] = NULL;
+	}
+	close(ifd);
+	if ((ifd = inotify_init1(IN_CLOEXEC)) < 0)
+		err(1, "inotify");
+	avisar('*', "");
+	varrer(raiz, true);
+	printf(".\n");
+	fflush(stdout);
+}
+
+static void
+acompanhar(const char *raiz)
+{
+	/* Alinhado: os eventos começam em múltiplos do tamanho do int. */
+	char buf[64 * 1024] __aligned(_Alignof(struct inotify_event));
+	char caminho[PATH_MAX];
+	ssize_t n;
+
+	for (;;) {
+		n = read(ifd, buf, sizeof(buf));
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			err(1, "inotify");
+		}
+		for (char *p = buf; p < buf + n;) {
+			struct inotify_event *ev = (struct inotify_event *)(void *)p;
+			const char *pasta;
+			struct stat st;
+
+			p += sizeof(*ev) + ev->len;
+			if (ev->mask & IN_Q_OVERFLOW) {
+				recomecar(raiz);
+				break;
+			}
+			if (ev->wd < 0 || ev->wd >= nvigias ||
+			    (pasta = vigias[ev->wd]) == NULL)
+				continue;
+			if (ev->mask & IN_IGNORED) {
+				free(vigias[ev->wd]);
+				vigias[ev->wd] = NULL;
+				continue;
+			}
+			if (ev->len == 0 || ev->name[0] == '\0') {
+				/* A própria pasta: a de cima já avisou. */
+				if ((ev->mask & IN_DELETE_SELF) &&
+				    strcmp(pasta, raiz) == 0)
+					exit(0);
+				continue;
+			}
+			if (ev->name[0] == '.')
+				continue;
+			if (snprintf(caminho, sizeof(caminho), "%s/%s", pasta,
+			    ev->name) >= (int)sizeof(caminho))
+				continue;
+			if (ev->mask & (IN_DELETE | IN_MOVED_FROM)) {
+				sumir(caminho);
+				continue;
+			}
+			if (lstat(caminho, &st) < 0)
+				continue;
+			if (S_ISDIR(st.st_mode) &&
+			    (ev->mask & (IN_CREATE | IN_MOVED_TO)))
+				varrer(caminho, false);
+			else
+				avaliar(caminho, (ev->mask & IN_ATTRIB) != 0);
+		}
+	}
+}
+
 static int
 procurar(int argc, char *argv[])
 {
-	char *pastas[2] = { NULL, NULL };
-	struct cond *c;
-	char *valor;
-	FTS *fts;
-	FTSENT *e;
-	int ch, achados = 0;
+	char raiz[PATH_MAX];
+	const char *pasta = NULL;
+	int ch;
 
 	optind = 1;
-	while ((ch = getopt(argc, argv, "d:")) != -1) {
+	while ((ch = getopt(argc, argv, "d:v")) != -1) {
 		switch (ch) {
 		case 'd':
-			pastas[0] = optarg;
+			pasta = optarg;
+			break;
+		case 'v':
+			vivo = true;
 			break;
 		default:
 			uso();
@@ -444,44 +709,27 @@ procurar(int argc, char *argv[])
 	argv += optind;
 	if (argc == 0)
 		uso();
-	if (pastas[0] == NULL && (pastas[0] = getenv("HOME")) == NULL)
-		pastas[0] = __DECONST(char *, ".");
-	if ((c = calloc(argc, sizeof(*c))) == NULL ||
-	    (valor = malloc(VALOR_MAX)) == NULL)
+	if (pasta == NULL && (pasta = getenv("HOME")) == NULL)
+		pasta = ".";
+	/* Ao vivo, os caminhos completos (as vigias guardam a pasta). */
+	if (vivo && realpath(pasta, raiz) != NULL)
+		pasta = raiz;
+	nconds = argc;
+	if ((conds = calloc(argc, sizeof(*conds))) == NULL ||
+	    (valor_busca = malloc(VALOR_MAX)) == NULL)
 		err(1, NULL);
 	for (int i = 0; i < argc; i++)
-		ler_cond(argv[i], &c[i]);
+		ler_cond(argv[i], &conds[i]);
 
-	fts = fts_open(pastas, FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV, NULL);
-	if (fts == NULL)
-		err(1, "%s", pastas[0]);
-	while ((e = fts_read(fts)) != NULL) {
-		switch (e->fts_info) {
-		case FTS_D:
-			/* Pastas ocultas (.cache, .local, .zfs) ficam de fora. */
-			if (e->fts_level > 0 && e->fts_name[0] == '.')
-				fts_set(fts, e, FTS_SKIP);
-			else if (e->fts_level > 0 &&
-			    cumpre(e->fts_accpath, c, argc, valor)) {
-				puts(e->fts_path);
-				achados++;
-			}
-			break;
-		case FTS_F:
-			if (e->fts_name[0] != '.' &&
-			    cumpre(e->fts_accpath, c, argc, valor)) {
-				puts(e->fts_path);
-				achados++;
-			}
-			break;
-		default:
-			break;
-		}
-	}
-	fts_close(fts);
-	free(valor);
-	free(c);
-	return (achados > 0 ? 0 : 1);
+	if (vivo && (ifd = inotify_init1(IN_CLOEXEC)) < 0)
+		err(1, "inotify");
+	varrer(pasta, true);
+	if (!vivo)
+		return (nachados > 0 ? 0 : 1);
+	printf(".\n");
+	fflush(stdout);
+	acompanhar(pasta);
+	return (0);
 }
 
 int
