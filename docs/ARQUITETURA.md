@@ -531,6 +531,13 @@ janela, e a viscosidade num passo da tela inteira (`paintScreen`), com dois
 históricos e as janelas sem filtro entrando na hora (recorte por
 `glScissor`).
 
+No X11, cada `reconfigure` do KWin recomeça o compositor e recria o efeito.
+O `OffscreenEffect` copia cada janela para uma textura no primeiro quadro,
+às vezes antes de a imagem da janela chegar, e só copia de novo quando a
+janela muda: a área de trabalho e as janelas paradas ficavam pretas depois
+de trocar o tema. O `lume_tinta` refaz as texturas de todas as janelas
+algumas vezes nos primeiros segundos de vida (0,4 s, 1,5 s, 4 s e 8 s).
+
 ## Abas de janelas
 
 Como no BeOS (onde as abas são do app_server, o servidor de janelas), aqui

@@ -5,6 +5,8 @@ Sobre o FreeBSD 15.1. Termina o que a 2.0 deixou pela metade nas abas e nos atri
 - **Consultas ao vivo**, como no BeOS: a janela de procura por atributos se atualiza sozinha. Um arquivo que ganha a etiqueta aparece na hora, um que a perde (ou é apagado, ou sai da pasta) some, e as colunas acompanham as mudanças. Vale também para as consultas salvas (`.consulta`). No terminal: `lume atributo procurar -v etiquetas=trabalho`.
 - **Etiquetas e comentário nas colunas do Dolphin**: na lista em Detalhes, as colunas Etiquetas, Nota e Comentário mostram os atributos de cada arquivo (botão direito no cabeçalho da lista para ligar). Antes, só a nota aparecia.
 - **As pilhas de janelas sobrevivem à troca de tema**: `lume tema escuro`, `lume tema claro` ou mudar uma opção do KWin não desfazem mais as abas.
+- **Os atributos vão junto na cópia**: `cp -p`, `cp -Rp` e `mv` entre discos levam as etiquetas, a nota e o comentário (sem `-p`, a cópia sai sem eles, como as outras propriedades do arquivo).
+- **A tela não fica mais preta depois de trocar o tema**: com o filtro e-ink, a área de trabalho e as janelas paradas podiam ficar pretas depois de `lume tema escuro` ou `lume tema claro`, até que se mexesse nelas.
 
 # LumeBSD 2.0 "Farol"
 

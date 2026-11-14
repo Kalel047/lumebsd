@@ -57,6 +57,7 @@
 #include <QPointer>
 #include <QtPlugin>
 #include <QSet>
+#include <QTimer>
 #include <QVector3D>
 
 // O papel do LumeBSD: as contas (papel.glsl, embutido pelo lume-montar
@@ -193,6 +194,7 @@ private:
     bool deveTingir(EffectWindow *w) const;
     void atualizar(EffectWindow *w);
     void atualizarTodas();
+    void refazerTexturas();
     void observar(EffectWindow *w);
     void cores();
 #ifdef LUME_KWIN_X11
@@ -286,6 +288,38 @@ Tinta::Tinta()
         observar(w);
     }
     atualizarTodas();
+
+    // O KWin do X11 recria os efeitos a cada "reconfigure" (trocar o tema),
+    // com o compositor recomeçando. O OffscreenEffect copia cada janela para
+    // uma textura no primeiro quadro, quando a imagem dela ainda não chegou,
+    // e só copia de novo quando a janela muda: a área de trabalho e as
+    // janelas paradas ficavam pretas (2.0). Nos primeiros segundos, as
+    // texturas são refeitas algumas vezes.
+    for (int ms : {400, 1500, 4000, 8000}) {
+        QTimer::singleShot(ms, this, [this] {
+            refazerTexturas();
+        });
+    }
+}
+
+void Tinta::refazerTexturas()
+{
+    if (!m_valido || !m_shader) {
+        return;
+    }
+    const auto tingidas = m_tingidas;
+    for (EffectWindow *w : tingidas) {
+        if (w->isDeleted()) {
+            continue;
+        }
+        // Tirar e pôr de novo: a textura nova começa "suja" e é copiada no
+        // próximo quadro.
+        unredirect(w);
+        redirect(w);
+        setShader(w, m_shader.get());
+        w->addRepaintFull();
+    }
+    effects->addRepaintFull();
 }
 
 void Tinta::observar(EffectWindow *w)

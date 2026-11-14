@@ -719,8 +719,12 @@ elif fase == "sessao":
         elif c.strip():
             comando(c, P, 300)
     time.sleep(30)
+    # Devagar: o SDDM perde teclas mandadas em rajada (a senha saía com 7
+    # letras e a sessão não abria).
     for tecla in "lume2026":
         monitor(f"sendkey {tecla}")
+        time.sleep(0.3)
+    time.sleep(1)
     monitor("sendkey ret")
     time.sleep(220)
     for c in os.environ.get("AJUSTES", "").splitlines():
