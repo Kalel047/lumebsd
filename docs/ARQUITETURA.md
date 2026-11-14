@@ -46,7 +46,7 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-rede/` | o ícone de rede (C++/Qt): cabo e Wi-Fi pelo socket de controle do wpa_supplicant |
 | `app/lume-janelas/` | as abas de janelas (o efeito `lume_abas`) e a decoração Papel (`org.lumebsd.papel`), para o KWin |
 | `app/lume-atributos/`, `usr.bin/lume-atributo/` | os atributos dos arquivos: a janela e a procura (Qt) e o `lume atributo` (C) |
-| `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central) e regressão; também na linha de comando |
+| `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
 | `usr.sbin/lume-configurar/marca/` | a identidade: o farol (ícones, logotipo, splash) |
 | `ferramentas/lume-montar/` | as ferramentas de construção, em Rust (`ferramentas/montar SUBCOMANDO`) |

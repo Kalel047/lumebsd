@@ -46,5 +46,24 @@ confere "regressão: constante" "const               2,0000" "$F" --regressao "$
 confere "regressão: x1" "x1                  3,0000" "$F" --regressao "$T/d.csv" y x1 x2
 confere "regressão: linha incompleta" "1 linha incompleta ficou de fora" "$F" --regressao "$T/d.csv" y x1 x2
 
+# Quanto guardar por mês para uma meta (conferido no Python).
+confere "meta: 10 mil em 12 meses a 10% a.a." "guardar R\$ 797,41 por mês" "$F" --meta 10000 12 10
+confere "meta: já tendo 5 mil" "guardar R\$ 865,35 por mês" "$F" --meta 30000 24 13,65 5000
+
+# O orçamento guardado do mês (num HOME de teste).
+mkdir -p "$T/casa/.local/share/lume-financas/orcamento"
+cat > "$T/casa/.local/share/lume-financas/orcamento/2026-11.json" <<'J'
+{"mes":"2026-11","itens":[
+{"grupo":"renda","categoria":"Salário","previsto":5000,"realizado":5000},
+{"grupo":"essencial","categoria":"Moradia","previsto":1500,"realizado":1500},
+{"grupo":"essencial","categoria":"Mercado","previsto":800,"realizado":900},
+{"grupo":"estilo","categoria":"Lazer","previsto":700,"realizado":500},
+{"grupo":"futuro","categoria":"Investimentos","previsto":1000,"realizado":1000}
+]}
+J
+confere "orçamento: sobra realizada" "Sobram R\$ 1.100,00 (22,0% da renda)." env HOME="$T/casa" "$F" --orcamento 2026-11
+confere "orçamento: dentro do 50/30/20" "Dentro da regra 50/30/20" env HOME="$T/casa" "$F" --orcamento 2026-11
+confere "orçamento: mês sem nada" "não há orçamento de out/2026" env HOME="$T/casa" "$F" --orcamento 2026-10
+
 [ $falhas -eq 0 ] && echo "tudo certo" || echo "$falhas falha(s)"
 exit $falhas

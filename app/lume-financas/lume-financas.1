@@ -26,10 +26,17 @@
 .Fl -regressao
 .Ar arquivo.csv y x1 Op Ar x2 ...
 .Op Fl -log
+.Nm
+.Fl -orcamento
+.Op Ar aaaa-mm
+.Nm
+.Fl -meta
+.Ar valor meses taxa
+.Op Ar ja-tem
 .Sh DESCRIPTION
 Um app para estudantes, professores e profissionais de economia, finanças e
 contabilidade, e para quem quer entender um financiamento.
-Cinco capítulos:
+Seis capítulos:
 .Bl -tag -width indent
 .It Juros e taxas
 o valor do dinheiro no tempo (n, i, VP, PMT e VF, na convenção da HP 12C,
@@ -53,6 +60,13 @@ dados colados da planilha ou lidos de um CSV; a estatística descritiva, as
 correlações e a regressão por mínimos quadrados ordinários, com erros-padrão,
 t, p-valores, R², F e Durbin-Watson; em logaritmos, os coeficientes são
 elasticidades.
+.It Orçamento
+o mês planejado e o realizado, por categoria, em quatro grupos (renda,
+essenciais, estilo de vida e futuro), guardado mês a mês; um mês novo começa
+com o planejado do último guardado.
+Mostra a sobra, quanto da renda vai para o futuro, a divisão comparada à
+regra 50/30/20, a reserva de emergência (seis meses de essenciais) e quanto
+guardar por mês para chegar a uma meta.
 .El
 .Pp
 Os números são lidos como se escreve no Brasil
@@ -77,7 +91,17 @@ corrige um valor por um índice
 .Fl -indicadores
 imprime os indicadores do dia;
 .Fl -regressao
-estima a regressão das colunas pelo nome.
+estima a regressão das colunas pelo nome;
+.Fl -orcamento
+resume o orçamento guardado de um mês (o atual, sem argumento);
+.Fl -meta
+diz quanto guardar por mês para juntar
+.Ar valor
+em
+.Ar meses ,
+rendendo
+.Ar taxa
+ao ano.
 .Sh ENVIRONMENT
 .Bl -tag -width indent
 .It Ev LUME_FINANCAS_SGS
@@ -89,11 +113,14 @@ no lugar da internet (os testes)
 .Bl -tag -width indent -compact
 .It Pa ~/.cache/lume-financas
 as séries do Banco Central já buscadas, para usar sem internet
+.It Pa ~/.local/share/lume-financas/orcamento/AAAA-MM.json
+o orçamento de cada mês
 .El
 .Sh EXAMPLES
 .Dl lume-financas --price 250000 0,8355 360
 .Dl lume-financas --projeto 10 -1000 500 400 300 100
 .Dl lume-financas --corrigir ipca 1000 01/2020 12/2020
+.Dl lume-financas --meta 10000 12 10
 .Sh SEE ALSO
 .Xr fetch 1 ,
 .Xr lume 1 ,

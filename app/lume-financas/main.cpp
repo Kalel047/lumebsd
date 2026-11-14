@@ -2,7 +2,8 @@
 //
 // lume-financas - "Finanças do LumeBSD": as contas de economia e finanças
 // de quem estuda, ensina e trabalha com elas, e de quem só quer saber
-// quanto vai pagar no financiamento. Um livro de cinco capítulos:
+// quanto vai pagar no financiamento ou organizar o mês. Um livro de seis
+// capítulos:
 //
 //   1 Juros e taxas          o valor do dinheiro no tempo (n, i, VP, PMT,
 //                            VF, como na HP 12C), taxas equivalentes,
@@ -18,6 +19,10 @@
 //                            estatística descritiva, as correlações e a
 //                            regressão por MQO, com erros-padrão, t, p,
 //                            R², F e Durbin-Watson; em log, as elasticidades
+//   6 Orçamento              o mês planejado e o que aconteceu, guardado
+//                            mês a mês em ~/.local/share/lume-financas,
+//                            a regra 50/30/20, a reserva de emergência e
+//                            quanto guardar por mês para chegar a uma meta
 //
 // A linha de comando faz as mesmas contas sem janela (e é como os testes
 // conferem os números):
@@ -30,6 +35,8 @@
 //   lume-financas --corrigir INDICE VALOR MM/AAAA MM/AAAA
 //   lume-financas --indicadores
 //   lume-financas --regressao ARQUIVO.csv Y X1 [X2 ...] [--log]
+//   lume-financas --orcamento [AAAA-MM]       (o orçamento guardado do mês)
+//   lume-financas --meta VALOR MESES TAXA%-AO-ANO [JÁ-TEM]
 //
 // Os dados do Banco Central vêm da API do SGS pelo fetch(1) (ou o curl,
 // fora do FreeBSD) e ficam guardados em ~/.cache/lume-financas, para o app
@@ -1110,6 +1117,188 @@ corrigir(const QVector<Ponto> &serie, const Indice &ind, QDate ini, QDate fim)
 	return c;
 }
 
+// --- O orçamento do mês ------------------------------------------------------
+
+// Cada linha é uma categoria num de quatro grupos. Os três de saída seguem a
+// regra 50/30/20: essenciais até 50% da renda, estilo de vida até 30%, e
+// pelo menos 20% para o futuro (guardar, investir, pagar dívidas).
+enum Grupo { G_RENDA, G_ESSENCIAL, G_ESTILO, G_FUTURO };
+static const char *const GRUPOS[] = {"Renda", "Essenciais", "Estilo de vida", "Futuro"};
+static const char *const GRUPOS_ID[] = {"renda", "essencial", "estilo", "futuro"};
+static const double METAS[] = {0, 0.50, 0.30, 0.20};
+
+struct ItemOrc {
+	int grupo;
+	QString categoria;
+	double previsto = NAO, realizado = NAO;
+};
+
+static QVector<ItemOrc>
+orcamentoModelo()
+{
+	const struct {
+		int g;
+		const char *c;
+	} m[] = {
+		{G_RENDA, "Salário"},
+		{G_RENDA, "Outras rendas"},
+		{G_ESSENCIAL, "Moradia (aluguel ou prestação)"},
+		{G_ESSENCIAL, "Contas da casa (luz, água, gás, internet)"},
+		{G_ESSENCIAL, "Mercado"},
+		{G_ESSENCIAL, "Transporte"},
+		{G_ESSENCIAL, "Saúde"},
+		{G_ESSENCIAL, "Educação"},
+		{G_ESTILO, "Restaurantes e delivery"},
+		{G_ESTILO, "Lazer"},
+		{G_ESTILO, "Assinaturas"},
+		{G_ESTILO, "Compras"},
+		{G_FUTURO, "Reserva de emergência"},
+		{G_FUTURO, "Investimentos"},
+		{G_FUTURO, "Dívidas e parcelas"},
+	};
+	QVector<ItemOrc> r;
+	for (const auto &x : m)
+		r.push_back({x.g, QString::fromUtf8(x.c)});
+	return r;
+}
+
+static QString
+pastaOrcamento()
+{
+	return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/orcamento");
+}
+
+static QString
+arquivoOrcamento(const QDate &mes)
+{
+	return pastaOrcamento() + "/" + mes.toString(QStringLiteral("yyyy-MM")) + ".json";
+}
+
+static bool
+lerOrcamento(const QDate &mes, QVector<ItemOrc> *itens)
+{
+	QFile f(arquivoOrcamento(mes));
+	if (!f.open(QIODevice::ReadOnly))
+		return false;
+	const QJsonDocument d = QJsonDocument::fromJson(f.readAll());
+	if (!d.isObject())
+		return false;
+	itens->clear();
+	for (const QJsonValue &v : d.object().value(QStringLiteral("itens")).toArray()) {
+		const QJsonObject o = v.toObject();
+		ItemOrc i;
+		i.grupo = G_ESSENCIAL;
+		for (int g = 0; g < 4; g++)
+			if (o.value(QStringLiteral("grupo")).toString() == QLatin1String(GRUPOS_ID[g]))
+				i.grupo = g;
+		i.categoria = o.value(QStringLiteral("categoria")).toString();
+		const QJsonValue p = o.value(QStringLiteral("previsto")), r = o.value(QStringLiteral("realizado"));
+		i.previsto = p.isDouble() ? p.toDouble() : NAO;
+		i.realizado = r.isDouble() ? r.toDouble() : NAO;
+		itens->push_back(i);
+	}
+	return true;
+}
+
+static bool
+gravarOrcamento(const QDate &mes, const QVector<ItemOrc> &itens)
+{
+	QDir().mkpath(pastaOrcamento());
+	QJsonArray a;
+	for (const ItemOrc &i : itens) {
+		QJsonObject o;
+		o[QStringLiteral("grupo")] = QLatin1String(GRUPOS_ID[i.grupo]);
+		o[QStringLiteral("categoria")] = i.categoria;
+		if (std::isfinite(i.previsto))
+			o[QStringLiteral("previsto")] = i.previsto;
+		if (std::isfinite(i.realizado))
+			o[QStringLiteral("realizado")] = i.realizado;
+		a.append(o);
+	}
+	QJsonObject d;
+	d[QStringLiteral("mes")] = mes.toString(QStringLiteral("yyyy-MM"));
+	d[QStringLiteral("itens")] = a;
+	QFile f(arquivoOrcamento(mes));
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+		return false;
+	f.write(QJsonDocument(d).toJson());
+	return true;
+}
+
+// O último mês antes deste que tem orçamento guardado (até 2 anos atrás).
+static QDate
+mesAnteriorGuardado(const QDate &mes)
+{
+	for (int k = 1; k <= 24; k++) {
+		const QDate d = mes.addMonths(-k);
+		if (QFile::exists(arquivoOrcamento(d)))
+			return d;
+	}
+	return QDate();
+}
+
+struct Totais {
+	double grupo[4] = {0, 0, 0, 0};
+	bool algum = false;
+	double renda() const { return grupo[G_RENDA]; }
+	double saidas() const { return grupo[G_ESSENCIAL] + grupo[G_ESTILO] + grupo[G_FUTURO]; }
+	double sobra() const { return renda() - saidas(); }
+	// O que ficou para o futuro: o guardado de propósito mais o que sobrou.
+	double poupanca() const { return renda() > 0 ? (grupo[G_FUTURO] + sobra()) / renda() : NAO; }
+};
+
+static Totais
+somar(const QVector<ItemOrc> &itens, bool realizado)
+{
+	Totais t;
+	for (const ItemOrc &i : itens) {
+		const double v = realizado ? i.realizado : i.previsto;
+		if (std::isfinite(v)) {
+			t.grupo[i.grupo] += v;
+			t.algum = true;
+		}
+	}
+	return t;
+}
+
+// A frase do mês, para quem não quer ler números.
+static QString
+leituraDoMes(const Totais &t)
+{
+	if (!t.algum || t.renda() <= 0)
+		return QStringLiteral("Preencha a renda e os gastos do mês.");
+	QString s;
+	if (t.sobra() >= 0)
+		s = QStringLiteral("Sobram %1 (%2 da renda).").arg(moeda(t.sobra()), pct(t.sobra() / t.renda(), 1));
+	else
+		s = QStringLiteral("As saídas passam a renda em %1: falta dinheiro no mês.").arg(moeda(-t.sobra()));
+	const double e = t.grupo[G_ESSENCIAL] / t.renda(), v = t.grupo[G_ESTILO] / t.renda(), p = t.poupanca();
+	if (e > METAS[G_ESSENCIAL] + 0.005)
+		s += QStringLiteral(" Os essenciais levam %1 da renda, acima dos 50% da regra 50/30/20: "
+		    "a moradia e as contas da casa são o primeiro lugar para olhar.").arg(pct(e, 0));
+	else if (v > METAS[G_ESTILO] + 0.005)
+		s += QStringLiteral(" O estilo de vida leva %1 da renda, acima dos 30% da regra 50/30/20.").arg(pct(v, 0));
+	else if (p < METAS[G_FUTURO] - 0.005)
+		s += QStringLiteral(" Ficam para o futuro %1 da renda; a regra 50/30/20 sugere pelo menos 20%.").arg(pct(p, 0));
+	else
+		s += QStringLiteral(" Dentro da regra 50/30/20: até 50% em essenciais, até 30% em estilo de vida e "
+		    "pelo menos 20% para o futuro.");
+	return s;
+}
+
+// Quanto guardar por mês para juntar `alvo` em `meses`, rendendo `anual`.
+static double
+parcelaDaMeta(double alvo, double meses, double anual, double jaTem = 0)
+{
+	contas::Tvm t;
+	t.n = meses;
+	t.i = contas::equivalente(anual, 1, 1.0 / 12);
+	t.vp = -jaTem;
+	t.vf = alvo;
+	QString erro;
+	return contas::resolverTvm(t, contas::PMT, &erro) ? -t.pmt : NAO;
+}
+
 // --- A linha de comando -----------------------------------------------------
 
 static void
@@ -1127,7 +1316,9 @@ uso()
 	      "                   [--taxa TAXA% DE PARA]\n"
 	      "                   [--corrigir INDICE VALOR MM/AAAA MM/AAAA]\n"
 	      "                   [--indicadores]\n"
-	      "                   [--regressao ARQUIVO.csv Y X1 [X2 ...] [--log]]\n", stderr);
+	      "                   [--regressao ARQUIVO.csv Y X1 [X2 ...] [--log]]\n"
+	      "                   [--orcamento [AAAA-MM]]\n"
+	      "                   [--meta VALOR MESES TAXA%-AO-ANO [JA-TEM]]\n", stderr);
 	return 2;
 }
 
@@ -1298,6 +1489,40 @@ linhaDeComando(QCoreApplication &app, const QStringList &a)
 		fputs(contas::relatorio(reg, r[1], logs, am.descartadas).toUtf8().constData(), stdout);
 		return 0;
 	}
+	if (cmd == "--meta") {
+		double alvo, meses, anual, ja = 0;
+		if (a.size() < 5 || a.size() > 6 || !numero(a[2], &alvo) || !numero(a[3], &meses) ||
+		    !numero(a[4], &anual) || (a.size() == 6 && !numero(a[5], &ja)) || meses <= 0)
+			return uso();
+		const double p = parcelaDaMeta(alvo, meses, anual / 100, ja);
+		dizer(QStringLiteral("Para juntar %1 em %2 meses a %3 ao ano: guardar %4 por mês")
+		    .arg(moeda(alvo), num(meses, 0), pct(anual / 100), moeda(p)));
+		dizer(QStringLiteral("  você põe %1; os juros, %2").arg(moeda(p * meses + ja), moeda(alvo - p * meses - ja)));
+		return 0;
+	}
+	if (cmd == "--orcamento") {
+		QDate mes = QDate::currentDate();
+		if (a.size() == 3)
+			mes = QDate::fromString(a[2], QStringLiteral("yyyy-MM"));
+		if (a.size() > 3 || !mes.isValid())
+			return uso();
+		mes = QDate(mes.year(), mes.month(), 1);
+		QVector<ItemOrc> itens;
+		if (!lerOrcamento(mes, &itens)) {
+			fprintf(stderr, "lume-financas: não há orçamento de %s\n", mesAno(mes).toUtf8().constData());
+			return 1;
+		}
+		const Totais p = somar(itens, false), r = somar(itens, true);
+		dizer(QStringLiteral("Orçamento de %1").arg(mesAno(mes)));
+		dizer(QStringLiteral("                    planejado          realizado"));
+		for (int g = 0; g < 4; g++)
+			dizer(QStringLiteral("  %1%2%3").arg(QString::fromUtf8(GRUPOS[g]).leftJustified(16),
+			    moeda(p.grupo[g]).rightJustified(17), moeda(r.grupo[g]).rightJustified(19)));
+		dizer(QStringLiteral("  %1%2%3").arg(QStringLiteral("Sobra").leftJustified(16),
+		    moeda(p.sobra()).rightJustified(17), moeda(r.sobra()).rightJustified(19)));
+		dizer(leituraDoMes(r.algum ? r : p));
+		return 0;
+	}
 	return -1;
 }
 
@@ -1305,7 +1530,7 @@ linhaDeComando(QCoreApplication &app, const QStringList &a)
 
 // A mesma folha dos outros apps do LumeBSD (os Programas): serifa nos
 // títulos, mono nos rótulos e nos números, fios finos em vez de sombras.
-static const char *ESTILO = R"QSS(
+static const char *FOLHA = R"QSS(
 * { font-family: "IBM Plex Sans", "Noto Sans", sans-serif; color: #1c1b19; }
 QWidget#raiz, QWidget#pagina, QScrollArea, QScrollArea > QWidget > QWidget, QStackedWidget { background: #efeadf; }
 QLabel { background: transparent; }
@@ -1406,7 +1631,7 @@ estiloNoite()
 		{"#8a857a", "#7c776d"}, // barra de rolagem
 		{"#d6d0c1", "#3a3833"}, // grade das tabelas
 	};
-	QString e = QString::fromUtf8(ESTILO);
+	QString e = QString::fromUtf8(FOLHA);
 	// Em duas passadas, para uma troca não desfazer a outra (papel <-> tinta).
 	for (int i = 0; i < int(sizeof PARES / sizeof PARES[0]); i++)
 		e.replace(QLatin1String(PARES[i][0]), QStringLiteral("@%1@").arg(i), Qt::CaseInsensitive);
@@ -1676,23 +1901,32 @@ Grafico::paintEvent(QPaintEvent *)
 	for (const Serie &s : series_) {
 		const QColor c = s.cinza ? cinza : tinta;
 		if (s.tipo == Serie::Linha) {
+			// Um ponto sem valor quebra a linha em pedaços.
+			p.setPen(QPen(c, 1.6, s.tracejada ? Qt::DashLine : Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
 			QPolygonF l;
-			for (const QPointF &pt : s.pontos)
+			for (const QPointF &pt : s.pontos) {
 				if (std::isfinite(pt.y()))
 					l << QPointF(px(pt.x()), py(pt.y()));
-			p.setPen(QPen(c, 1.6, s.tracejada ? Qt::DashLine : Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+				else {
+					p.drawPolyline(l);
+					l.clear();
+				}
+			}
 			p.drawPolyline(l);
 		} else if (s.tipo == Serie::Pontos) {
 			p.setPen(QPen(c, 1.2));
 			p.setBrush(Qt::NoBrush);
 			for (const QPointF &pt : s.pontos)
-				p.drawEllipse(QPointF(px(pt.x()), py(pt.y())), 3, 3);
+				if (std::isfinite(pt.y()))
+					p.drawEllipse(QPointF(px(pt.x()), py(pt.y())), 3, 3);
 		} else {
 			const double total = std::max(1.0, area.width() / std::max(1.0, x1 - x0)) * 0.72;
 			const double larg = total / std::max(1, nbarras);
 			p.setPen(Qt::NoPen);
 			p.setBrush(c);
 			for (const QPointF &pt : s.pontos) {
+				if (!std::isfinite(pt.y()))
+					continue;
 				const double x = px(pt.x()) - total / 2 + ibarra * larg;
 				const double ya = py(pt.y()), yz = py(0);
 				p.drawRect(QRectF(x, std::min(ya, yz), std::max(1.0, larg - 1), std::fabs(yz - ya)));
@@ -3012,6 +3246,401 @@ private:
 	Grafico *grafico_;
 };
 
+// --- 6. Orçamento ---
+
+static const char *const MESES_LONGOS[] = {"janeiro", "fevereiro", "março", "abril", "maio", "junho",
+					   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"};
+
+class PaginaOrcamento : public Pagina {
+public:
+	PaginaOrcamento()
+	    : Pagina("6", "Orçamento",
+		  "O mês planejado e o que aconteceu de verdade. Fica guardado no seu computador, mês a mês.")
+	{
+		auto *nav = new QHBoxLayout;
+		nav->setSpacing(12);
+		auto *antes = botao("‹ mês anterior"), *depois = botao("próximo mês ›"), *hoje = botao("este mês", "link");
+		titulo_ = rotulo(QString(), "parte");
+		titulo_->setWordWrap(false);
+		nav->addWidget(antes);
+		nav->addWidget(titulo_);
+		nav->addWidget(depois);
+		nav->addWidget(hoje);
+		nav->addStretch(1);
+		v->addLayout(nav);
+		origem_ = rotulo(QString(), "detalhe");
+		v->addWidget(origem_);
+
+		tabela_ = new QTableWidget(0, 5);
+		tabela_->setHorizontalHeaderLabels({"grupo", "categoria", "planejado (R$)", "realizado (R$)", "diferença"});
+		tabela_->horizontalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+		tabela_->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+		tabela_->setColumnWidth(0, 150);
+		for (int c = 2; c <= 4; c++)
+			tabela_->setColumnWidth(c, 135);
+		tabela_->verticalHeader()->setVisible(false);
+		tabela_->verticalHeader()->setDefaultSectionSize(28);
+		tabela_->setMinimumHeight(470);
+		v->addWidget(tabela_);
+		auto *b = new QHBoxLayout;
+		auto *mais = botao("+ categoria"), *menos = botao("Tirar a categoria"),
+		     *copiar = botao("Copiar o planejado do mês anterior"), *csv = botao("Salvar em CSV");
+		for (QPushButton *x : {mais, menos, copiar, csv})
+			b->addWidget(x);
+		b->addStretch(1);
+		v->addLayout(b);
+		v->addWidget(rotulo("Escreva em “realizado” o que entrou e saiu de verdade ao longo do mês. "
+		    "Tudo é guardado na hora.", "detalhe"));
+
+		parte("O mês");
+		auto *ver = new QHBoxLayout;
+		ver->addWidget(rotulo("MOSTRAR"));
+		mostrar_ = new QComboBox;
+		mostrar_->addItems({"o que aconteceu (realizado)", "o planejado"});
+		ver->addWidget(mostrar_);
+		ver->addStretch(1);
+		v->addLayout(ver);
+		quadro_ = new Quadro(4);
+		quadro_->item("renda", "Renda");
+		quadro_->item("saidas", "Saídas");
+		quadro_->item("sobra", "Sobra");
+		quadro_->item("poupanca", "Para o futuro");
+		quadro_->item("essencial", "Essenciais · até 50%");
+		quadro_->item("estilo", "Estilo de vida · até 30%");
+		quadro_->item("futuro", "Futuro · ao menos 20%");
+		quadro_->item("reserva", "Reserva de emergência");
+		v->addWidget(quadro_);
+		aviso_ = rotulo(QString(), "aviso");
+		v->addWidget(aviso_);
+		grafico_ = new Grafico(QStringLiteral("Preencha a renda e os gastos para ver o mês."));
+		grafico_->formatoX = [](double x) {
+			const int k = int(std::lround(x)) + 1;
+			return k >= 1 && k <= 3 ? QString::fromUtf8(GRUPOS[k]) : QString();
+		};
+		v->addWidget(grafico_);
+
+		parte("Uma meta", "Quanto guardar por mês para juntar um valor: uma viagem, a reserva, a entrada do apartamento.");
+		auto *g = new QGridLayout;
+		g->setHorizontalSpacing(16);
+		g->setVerticalSpacing(8);
+		alvo_ = campo("10.000");
+		meses_ = campo("12");
+		rende_ = campo("10");
+		jaTem_ = campo("", "0");
+		auto *cdi = botao("usar o CDI de hoje", "link"), *reserva = botao("usar a reserva de emergência", "link");
+		g->addWidget(rotulo("juntar (R$)"), 0, 0);
+		g->addWidget(alvo_, 0, 1);
+		g->addWidget(reserva, 0, 2, Qt::AlignLeft);
+		g->addWidget(rotulo("em quantos meses"), 1, 0);
+		g->addWidget(meses_, 1, 1);
+		g->addWidget(rotulo("rendendo (% ao ano)"), 2, 0);
+		g->addWidget(rende_, 2, 1);
+		g->addWidget(cdi, 2, 2, Qt::AlignLeft);
+		g->addWidget(rotulo("já tenho (R$)"), 3, 0);
+		g->addWidget(jaTem_, 3, 1);
+		g->setColumnMinimumWidth(0, 170);
+		g->setColumnStretch(3, 1);
+		v->addLayout(g);
+		meta_ = rotulo(QString(), "aviso");
+		v->addWidget(meta_);
+		v->addStretch(1);
+
+		salvar_ = new QTimer(this);
+		salvar_->setSingleShot(true);
+		salvar_->setInterval(400);
+		connect(salvar_, &QTimer::timeout, this, [this] {
+			if (!gravarOrcamento(mes_, itens()))
+				origem_->setText(QStringLiteral("Não deu para guardar em %1.").arg(arquivoOrcamento(mes_)));
+			else
+				origem_->setText(QStringLiteral("Guardado em %1.").arg(QDir::toNativeSeparators(arquivoOrcamento(mes_))));
+		});
+		connect(antes, &QPushButton::clicked, this, [this] { abrir(mes_.addMonths(-1)); });
+		connect(depois, &QPushButton::clicked, this, [this] { abrir(mes_.addMonths(1)); });
+		connect(hoje, &QPushButton::clicked, this, [this] {
+			const QDate d = QDate::currentDate();
+			abrir(QDate(d.year(), d.month(), 1));
+		});
+		connect(mais, &QPushButton::clicked, this, [this] {
+			int g = G_ESTILO;
+			const int l = tabela_->currentRow();
+			if (l >= 0)
+				g = grupoDa(l);
+			linha(tabela_->rowCount(), {g, QStringLiteral("Nova categoria")});
+			tabela_->setCurrentCell(tabela_->rowCount() - 1, 1);
+			tabela_->editItem(tabela_->item(tabela_->rowCount() - 1, 1));
+			mudou();
+		});
+		connect(menos, &QPushButton::clicked, this, [this] {
+			const int l = tabela_->currentRow();
+			if (l < 0)
+				return;
+			tabela_->removeRow(l);
+			mudou();
+		});
+		connect(copiar, &QPushButton::clicked, this, [this] {
+			const QDate d = mesAnteriorGuardado(mes_);
+			QVector<ItemOrc> antes;
+			if (!d.isValid() || !lerOrcamento(d, &antes)) {
+				origem_->setText("Não há orçamento guardado nos meses anteriores.");
+				return;
+			}
+			QVector<ItemOrc> agora = itens();
+			// Mantém o realizado deste mês das categorias com o mesmo nome.
+			for (ItemOrc &i : antes) {
+				i.realizado = NAO;
+				for (const ItemOrc &a : agora)
+					if (a.categoria == i.categoria && a.grupo == i.grupo)
+						i.realizado = a.realizado;
+			}
+			carregar(antes);
+			mudou();
+			origem_->setText(QStringLiteral("O planejado veio de %1.").arg(mesAno(d)));
+		});
+		connect(csv, &QPushButton::clicked, this, [this] {
+			QString c = "grupo;categoria;planejado;realizado\n";
+			for (const ItemOrc &i : itens())
+				c += QStringLiteral("%1;%2;%3;%4\n").arg(QString::fromUtf8(GRUPOS[i.grupo]), i.categoria,
+				    csvNum(i.previsto), csvNum(i.realizado));
+			salvarCsv(this, "orcamento-" + mes_.toString("yyyy-MM") + ".csv", c);
+		});
+		connect(tabela_, &QTableWidget::itemChanged, this, [this](QTableWidgetItem *i) {
+			if (i->column() == 2 || i->column() == 3) {
+				bool ok;
+				const double x = lerNumero(i->text(), &ok);
+				const QSignalBlocker b(tabela_);
+				if (ok)
+					i->setText(num(x));
+				else if (!i->text().trimmed().isEmpty())
+					i->setText(QString());
+			}
+			mudou();
+		});
+		connect(mostrar_, &QComboBox::currentIndexChanged, this, [this] { resumir(); });
+		for (QLineEdit *e : {alvo_, meses_, rende_, jaTem_})
+			connect(e, &QLineEdit::textChanged, this, [this] { calcularMeta(); });
+		connect(cdi, &QPushButton::clicked, this, [this] {
+			meta_->setText("Buscando o CDI no Banco Central…");
+			QPointer<PaginaOrcamento> eu(this);
+			buscarSgs(4389, true, this, [eu](const QVector<Ponto> &p, const QString &aviso) {
+				if (!eu)
+					return;
+				if (p.isEmpty()) {
+					eu->meta_->setText(aviso);
+					return;
+				}
+				eu->rende_->setText(num(p.last().valor));
+				eu->calcularMeta();
+			});
+		});
+		connect(reserva, &QPushButton::clicked, this, [this] {
+			const double r = reservaIdeal();
+			if (std::isfinite(r) && r > 0)
+				alvo_->setText(num(r));
+		});
+
+		const QDate d = QDate::currentDate();
+		abrir(QDate(d.year(), d.month(), 1));
+		calcularMeta();
+	}
+
+private:
+	int grupoDa(int l) const
+	{
+		auto *c = qobject_cast<QComboBox *>(tabela_->cellWidget(l, 0));
+		return c ? c->currentIndex() : G_ESSENCIAL;
+	}
+
+	void linha(int l, const ItemOrc &i)
+	{
+		const QSignalBlocker b(tabela_);
+		tabela_->insertRow(l);
+		auto *g = new QComboBox;
+		for (const char *n : GRUPOS)
+			g->addItem(QString::fromUtf8(n));
+		g->setCurrentIndex(i.grupo);
+		g->setStyleSheet(QStringLiteral("QComboBox { border: none; background: transparent; }"));
+		connect(g, &QComboBox::currentIndexChanged, this, [this] { mudou(); });
+		tabela_->setCellWidget(l, 0, g);
+		auto *c = new QTableWidgetItem(i.categoria);
+		tabela_->setItem(l, 1, c);
+		tabela_->setItem(l, 2, celula(std::isfinite(i.previsto) ? num(i.previsto) : QString(), true));
+		tabela_->setItem(l, 3, celula(std::isfinite(i.realizado) ? num(i.realizado) : QString(), true));
+		tabela_->setItem(l, 4, celula(QString()));
+	}
+
+	void carregar(QVector<ItemOrc> v)
+	{
+		std::stable_sort(v.begin(), v.end(), [](const ItemOrc &a, const ItemOrc &b) { return a.grupo < b.grupo; });
+		const QSignalBlocker b(tabela_);
+		tabela_->setRowCount(0);
+		for (const ItemOrc &i : v)
+			linha(tabela_->rowCount(), i);
+		resumir();
+	}
+
+	QVector<ItemOrc> itens() const
+	{
+		QVector<ItemOrc> r;
+		for (int l = 0; l < tabela_->rowCount(); l++) {
+			ItemOrc i;
+			i.grupo = grupoDa(l);
+			i.categoria = tabela_->item(l, 1) ? tabela_->item(l, 1)->text().trimmed() : QString();
+			bool ok;
+			if (tabela_->item(l, 2)) {
+				const double x = lerNumero(tabela_->item(l, 2)->text(), &ok);
+				i.previsto = ok ? x : NAO;
+			}
+			if (tabela_->item(l, 3)) {
+				const double x = lerNumero(tabela_->item(l, 3)->text(), &ok);
+				i.realizado = ok ? x : NAO;
+			}
+			r << i;
+		}
+		return r;
+	}
+
+	void abrir(const QDate &mes)
+	{
+		if (salvar_->isActive()) {	// o mês que sai fica guardado
+			salvar_->stop();
+			gravarOrcamento(mes_, itens());
+		}
+		mes_ = mes;
+		titulo_->setText(QStringLiteral("%1 de %2").arg(QString::fromUtf8(MESES_LONGOS[mes.month() - 1])).arg(mes.year()));
+		QVector<ItemOrc> v;
+		if (lerOrcamento(mes, &v)) {
+			origem_->setText(QStringLiteral("Guardado em %1.").arg(QDir::toNativeSeparators(arquivoOrcamento(mes))));
+		} else {
+			// Um mês novo começa com o planejado do último mês guardado.
+			const QDate d = mesAnteriorGuardado(mes);
+			if (d.isValid() && lerOrcamento(d, &v)) {
+				for (ItemOrc &i : v)
+					i.realizado = NAO;
+				origem_->setText(QStringLiteral("Mês novo: o planejado veio de %1. Só é guardado quando você mudar algo.")
+				    .arg(mesAno(d)));
+			} else {
+				v = orcamentoModelo();
+				origem_->setText("Um orçamento novo, com as categorias mais comuns: mude, tire e acrescente "
+				    "à vontade.");
+			}
+		}
+		carregar(v);
+	}
+
+	void mudou()
+	{
+		salvar_->start();
+		resumir();
+	}
+
+	double reservaIdeal() const
+	{
+		const QVector<ItemOrc> v = itens();
+		const Totais r = somar(v, true), p = somar(v, false);
+		const double e = std::max(r.grupo[G_ESSENCIAL], p.grupo[G_ESSENCIAL]);
+		return e > 0 ? 6 * e : NAO;
+	}
+
+	void resumir()
+	{
+		const QVector<ItemOrc> v = itens();
+		// As diferenças: na renda, entrou a mais é bom; nas saídas, gastou a menos.
+		{
+			const QSignalBlocker b(tabela_);
+			for (int l = 0; l < v.size(); l++) {
+				QString t;
+				const ItemOrc &i = v[l];
+				if (std::isfinite(i.previsto) && std::isfinite(i.realizado)) {
+					const double d = i.grupo == G_RENDA ? i.realizado - i.previsto : i.previsto - i.realizado;
+					t = (d > 0.005 ? QStringLiteral("+") : QString()) + num(d);
+				}
+				if (QTableWidgetItem *c = tabela_->item(l, 4))
+					c->setText(t);
+			}
+		}
+		const Totais r = somar(v, true), p = somar(v, false);
+		// Sem nada realizado ainda, mostra o planejado.
+		const bool real = mostrar_->currentIndex() == 0 && r.algum;
+		const Totais &t = real ? r : p;
+		const Totais &o = real ? p : r;
+		auto de = [&](const Totais &x, double y) { return x.algum ? (real ? "planejado: " : "realizado: ") + moeda(y) : QString(); };
+		quadro_->valor("renda", moeda(t.renda()), de(o, o.renda()));
+		quadro_->valor("saidas", moeda(t.saidas()), de(o, o.saidas()));
+		quadro_->valor("sobra", moeda(t.sobra()), de(o, o.sobra()));
+		quadro_->valor("poupanca", pct(t.poupanca(), 1), "guardado mais o que sobrou");
+		const char *chaves[] = {nullptr, "essencial", "estilo", "futuro"};
+		for (int g = G_ESSENCIAL; g <= G_FUTURO; g++)
+			quadro_->valor(chaves[g], t.renda() > 0 ? pct(t.grupo[g] / t.renda(), 1) : QStringLiteral("—"),
+			    moeda(t.grupo[g]));
+		const double res = reservaIdeal();
+		quadro_->valor("reserva", moeda(res), "6 meses de essenciais");
+		aviso_->setText((real ? QString() : r.algum ? QString() : QStringLiteral("Ainda sem nada realizado: "
+		    "mostrando o planejado. ")) + leituraDoMes(t));
+
+		Serie sp{"planejado", {}, Serie::Barras, false, true}, sr{"realizado", {}, Serie::Barras, false, false},
+		      sm{"50/30/20", {}, Serie::Linha, true, false};
+		for (int g = G_ESSENCIAL; g <= G_FUTURO; g++) {
+			sp.pontos << QPointF(g - 1, p.grupo[g]);
+			sr.pontos << QPointF(g - 1, r.algum ? r.grupo[g] : NAO);
+		}
+		QVector<Serie> s{sp};
+		if (r.algum)
+			s << sr;
+		const double renda = (r.algum ? r : p).renda();
+		if (renda > 0) {
+			// A meta como um traço sobre cada grupo.
+			for (int g = G_ESSENCIAL; g <= G_FUTURO; g++) {
+				sm.pontos << QPointF(g - 1 - 0.36, renda * METAS[g]) << QPointF(g - 1 + 0.36, renda * METAS[g])
+					  << QPointF(g - 1 + 0.36, NAO);
+			}
+			s << sm;
+		}
+		if (p.algum || r.algum)
+			grafico_->definir("", "R$ no mês", s, {}, true, true);
+		else
+			grafico_->limpar();
+		calcularMeta();
+	}
+
+	void calcularMeta()
+	{
+		bool a, b, c, d = true;
+		const double alvo = valorDe(alvo_, &a), meses = valorDe(meses_, &b), rende = valorDe(rende_, &c);
+		const double ja = jaTem_->text().trimmed().isEmpty() ? 0 : valorDe(jaTem_, &d);
+		if (!a || !b || !c || !d || meses < 1 || alvo <= 0) {
+			meta_->setText("Preencha quanto juntar, em quantos meses e quanto rende.");
+			return;
+		}
+		const double p = parcelaDaMeta(alvo, meses, rende / 100, ja);
+		if (!std::isfinite(p)) {
+			meta_->setText("Com esses valores a conta não fecha.");
+			return;
+		}
+		if (p <= 0) {
+			meta_->setText(QStringLiteral("O que você já tem, rendendo %1 ao ano, chega lá sozinho em %2 meses.")
+			    .arg(pct(rende / 100), num(meses, 0)));
+			return;
+		}
+		QString s = QStringLiteral("Guarde %1 por mês. Você põe %2, e os juros fazem %3.")
+		    .arg(moeda(p), moeda(p * meses + ja), moeda(alvo - p * meses - ja));
+		const Totais r = somar(itens(), true), pl = somar(itens(), false);
+		const Totais &t = r.algum ? r : pl;
+		if (t.renda() > 0)
+			s += QStringLiteral(" É %1 da renda do mês%2.").arg(pct(p / t.renda(), 1),
+			    t.sobra() >= p ? QStringLiteral(", e cabe na sobra") : QStringLiteral(", mais do que sobra hoje"));
+		meta_->setText(s);
+	}
+
+	QDate mes_;
+	QLabel *titulo_, *origem_, *aviso_, *meta_;
+	QTableWidget *tabela_;
+	QComboBox *mostrar_;
+	Quadro *quadro_;
+	Grafico *grafico_;
+	QLineEdit *alvo_, *meses_, *rende_, *jaTem_;
+	QTimer *salvar_;
+};
+
 // --- A janela ---------------------------------------------------------------
 
 class Janela : public QWidget {
@@ -3049,6 +3678,7 @@ public:
 			{"3   Projetos", new PaginaProjetos},
 			{"4   Inflação e índices", inflacao},
 			{"5   Estatística e regressão", new PaginaEstatistica},
+			{"6   Orçamento", new PaginaOrcamento},
 		};
 		for (const auto &c : capitulos) {
 			indice->addItem(c.first);
@@ -3126,13 +3756,13 @@ main(int argc, char *argv[])
 	pal.setColor(QPalette::HighlightedText, papel);
 	pal.setColor(QPalette::PlaceholderText, noite ? QColor(0x7c, 0x77, 0x6d) : QColor(0x8a, 0x85, 0x7a));
 	app.setPalette(pal);
-	app.setStyleSheet(noite ? estiloNoite() : QString::fromUtf8(ESTILO));
+	app.setStyleSheet(noite ? estiloNoite() : QString::fromUtf8(FOLHA));
 
 	Janela j;
 	const QStringList a = app.arguments();
 	const int c = a.indexOf("--capitulo");
 	if (c >= 0 && c + 1 < a.size())
-		j.irPara(std::clamp(a[c + 1].toInt() - 1, 0, 4));
+		j.irPara(std::clamp(a[c + 1].toInt() - 1, 0, 5));
 	j.show();
 	return app.exec();
 }
