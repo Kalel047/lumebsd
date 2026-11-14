@@ -303,6 +303,11 @@ integrar()
 		instalar $A/lume-financas.desktop \
 		    $P/share/applications/lume-financas.desktop 0644
 	fi
+	# Os Mercados do LumeBSD (o terminal de mercados), no menu.
+	if [ -x /usr/bin/lume-mercados ]; then
+		instalar $A/lume-mercados.desktop \
+		    $P/share/applications/lume-mercados.desktop 0644
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644

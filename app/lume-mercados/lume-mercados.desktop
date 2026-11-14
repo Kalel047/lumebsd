@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Markets
+Name[pt_BR]=Mercados do LumeBSD
+Name[pt]=Mercados do LumeBSD
+GenericName=Market terminal
+GenericName[pt_BR]=Terminal de mercados
+Comment=Quotes, charts, company filings, economy, correlations, supply-chain relations, aircraft and ships, with public data
+Comment[pt_BR]=Cotações, gráficos, balanços, economia, correlações, relações entre empresas, aviões e navios, com dados públicos
+Exec=/usr/bin/lume-mercados
+Icon=/usr/share/lume/app/lume-mercados.svg
+Categories=Office;Finance;Education;Economy;
+Keywords=mercados;bolsa;ações;cotação;gráfico;terminal;bloomberg;dólar;câmbio;ibovespa;balanço;cvm;selic;focus;correlação;hedge;cadeia;fornecedores;aviões;voos;navios;notícias;carteira;tesouro;
+StartupNotify=true

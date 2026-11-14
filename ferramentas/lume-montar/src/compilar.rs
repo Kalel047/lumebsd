@@ -4,8 +4,8 @@
 //! do METALOG.build:
 //!
 //!   app      os apps em Qt (app/NOME/main.cpp, sem moc): Atualizações,
-//!            Programas, o ícone de rede, os atributos dos arquivos e as
-//!            Finanças
+//!            Programas, o ícone de rede, os atributos dos arquivos, as
+//!            Finanças e os Mercados
 //!   motor    o lume-motor: a biblioteca liblume-motor e a demonstração
 //!   efeitos  os efeitos do KWin (lume_tinta, lume_abas), a decoração Papel
 //!            e as animações em JavaScript
@@ -86,6 +86,8 @@ const APPS: &[(&str, &[&str])] = &[
     ("lume-atributos", &["lume-atributos.desktop", "lume-atributos-menu.desktop",
                          "lume-atributos-pasta.desktop", "lume-consulta.xml"]),
     ("lume-financas", &["lume-financas.svg", "lume-financas.desktop"]),
+    ("lume-mercados", &["lume-mercados.svg", "lume-mercados.desktop", "lume-mercados-mapa.txt",
+                        "lume-mercados-relacoes.tsv"]),
 ];
 
 pub const USO_APP: &str = "uso: lume-montar app STAGE QT6BASE.pkg
@@ -98,6 +100,7 @@ manual NOME.1), com o ícone, os atalhos do menu e a política do polkit em
 fn libs_app(nome: &str) -> &'static [&'static str] {
     match nome {
         "lume-rede" => &["-lcrypto"],
+        "lume-mercados" => &["-lQt6Network"],
         _ => &[],
     }
 }
@@ -115,7 +118,7 @@ fn compilar_app(base: &Path, qtpkg: &Path, saida: &Path, nome: &str) {
                      "-std=c++17", "-O2", "-fPIC", "-Wall", "-isystem", s(&inc),
                      // Sem a pasta temporária dentro do binário (os Q_ASSERT).
                      format!("-ffile-prefix-map={}=/", s(&raiz))];
-    for m in ["QtCore", "QtGui", "QtWidgets"] {
+    for m in ["QtCore", "QtGui", "QtWidgets", "QtNetwork"] {
         cmd.extend(v!["-isystem", s(&inc.join(m))]);
     }
     cmd.extend(v![s(&topo().join("app").join(nome).join("main.cpp")), "-o", s(saida),

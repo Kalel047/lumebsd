@@ -1,0 +1,126 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 14, 2026
+.Dt LUME-MERCADOS 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-mercados
+.Nd Mercados do LumeBSD: um terminal de mercados com dados públicos
+.Sh SYNOPSIS
+.Nm
+.Op Ar ativo ...
+.Op Ar funcao
+.Nm
+.Fl -cotacao
+.Ar ativo ...
+.Nm
+.Fl -correlacao
+.Ar a b
+.Op Ar periodo
+.Nm
+.Fl -relacoes
+.Ar ativo
+.Nm
+.Fl -titulo
+.Ar face cupom vezes anos taxa
+.Nm
+.Fl -chave
+.Ar url
+.Sh DESCRIPTION
+Um terminal de mercados para quem estuda, ensina e trabalha com economia e
+finanças.
+Na linha de cima escreve-se o ativo e a função, e Enter:
+.Dq PETR4 G ,
+.Dq VALE3 REL ,
+.Dq MUNDO .
+Só o ativo abre o gráfico.
+As funções:
+.Bl -tag -width TESOURO
+.It Cm MUNDO
+bolsas, moedas, matérias-primas, juros e cripto do mundo.
+.It Cm G
+o gráfico de um ativo, com médias móveis e volume; com dois ou mais ativos,
+todos partem de 100.
+.It Cm DES
+a ficha do ativo, os dividendos e o cadastro da companhia na CVM.
+.It Cm BAL
+os balanços das companhias da B3, ano a ano, das demonstrações entregues à
+CVM, com margens e retorno sobre o patrimônio.
+.It Cm ECO
+os indicadores do Banco Central (SGS) e as expectativas do boletim Focus.
+.It Cm CAMBIO
+quinze moedas, umas nas outras, e um conversor.
+.It Cm CORR
+a matriz de correlações de vários ativos e, de um par, a regressão, o beta e
+o R².
+.It Cm OPOSTO
+o que mais anda ao contrário de um ativo, entre cinquenta (índices, moedas,
+matérias-primas, ações e fundos inversos), com a proporção de proteção.
+.It Cm REL
+de quem a empresa compra, para quem vende, com quem concorre e de que grupo
+é, num desenho que se percorre, e o impacto estimado de um movimento dela em
+cada uma das outras (o beta de um ano de retornos diários).
+.It Cm VOO
+os aviões no ar, no mapa, pelo sinal ADS-B; procura por voo ou matrícula.
+.It Cm NAVIOS
+os navios, no mapa, pelo sinal AIS (por enquanto, o mar Báltico).
+.It Cm NOT
+as manchetes sobre um ativo ou um assunto; dois cliques abrem a notícia.
+.It Cm CART
+a carteira: quantidade e preço médio, valor, resultado e peso de cada ativo;
+sem quantidade, o ativo é só acompanhado.
+.It Cm TESOURO
+as taxas e os preços do Tesouro Direto e a curva de juros.
+.It Cm TIT
+a calculadora de títulos: preço, taxa, duração, convexidade e DV01.
+.El
+.Pp
+Os ativos: ações da B3 pelo código
+.Pq PETR4 ,
+dos Estados Unidos pelo de lá
+.Pq AAPL ,
+moedas aos pares
+.Pq USDBRL ,
+e os apelidos IBOV, SPX, NASDAQ, DOLAR, EURO, OURO, BRENT, SOJA, CAFE, BTC,
+VIX e US10.
+Outras bolsas levam o sufixo do Yahoo Finance
+.Pq 7203.T , AIR.PA .
+.Pp
+As cotações têm atraso (em geral 15 minutos nas bolsas).
+Cada tela diz a fonte dos seus números.
+Nada aqui é recomendação de investimento.
+.Sh ENVIRONMENT
+.Bl -tag -width indent
+.It Ev LUME_MERCADOS_DADOS
+uma pasta de onde ler, no lugar da internet, o que cada endereço devolveria;
+o nome de cada arquivo é o que
+.Fl -chave
+diz (os testes)
+.It Ev LUME_MERCADOS_PASTA
+onde estão o mapa e as relações, no lugar de
+.Pa /usr/share/lume/app
+.El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa ~/.cache/lume-mercados
+o que veio da internet, para abrir sem rede com os últimos dados; some
+depois de oito dias
+.It Pa ~/.local/share/lume-mercados/carteira.json
+a carteira
+.It Pa ~/.local/share/lume-mercados/relacoes.tsv
+as relações entre empresas que a pessoa acrescenta
+.It Pa /usr/share/lume/app/lume-mercados-relacoes.tsv
+as relações que vêm com o sistema
+.It Pa /usr/share/lume/app/lume-mercados-mapa.txt
+as costas e as fronteiras do mapa (Natural Earth, domínio público)
+.El
+.Sh EXAMPLES
+.Dl lume-mercados PETR4 VALE3 IBOV G
+.Dl lume-mercados --cotacao PETR4 DOLAR OURO
+.Dl lume-mercados --correlacao PETR4 BRENT 2y
+.Dl lume-mercados --titulo 1000 10 2 10 12
+.Sh SEE ALSO
+.Xr lume-financas 1
+.Pp
+Fontes dos dados: Yahoo Finance (cotações), CVM, Banco Central do Brasil,
+Tesouro Nacional, adsb.lol e OpenSky Network (aviões), Fintraffic (navios) e
+Google Notícias.
