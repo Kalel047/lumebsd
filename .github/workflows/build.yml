@@ -14,7 +14,7 @@ on:
       tag:
         description: "Tag da Release"
         type: string
-        default: "v2.0.0"
+        default: "v2.1.0"
   schedule:
     - cron: "23 5 1 * *"
 
@@ -28,11 +28,17 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      IMG: LumeBSD-2.0-Farol-pendrive.img
-      ISO: LumeBSD-2.0-Farol.iso
     steps:
       - uses: actions/checkout@v4
+
+      # Os nomes da imagem saem do arquivo VERSAO (2.1.0 -> LumeBSD-2.1-...),
+      # os mesmos que o build-lumebsd.sh grava.
+      - name: Nomes
+        run: |
+          V=$(cut -d. -f1,2 VERSAO)
+          { echo "NOME=LumeBSD-$V-Farol"
+            echo "IMG=LumeBSD-$V-Farol-pendrive.img"
+            echo "ISO=LumeBSD-$V-Farol.iso"; } >> "$GITHUB_ENV"
 
       - name: Liberar espaço em disco
         run: |
@@ -84,10 +90,10 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: LumeBSD-2.0-Farol
+          name: ${{ env.NOME }}
           path: |
-            LumeBSD-2.0-Farol-pendrive.img.xz
-            LumeBSD-2.0-Farol.iso*
+            ${{ env.IMG }}.xz
+            ${{ env.ISO }}*
             SHA256SUMS
           compression-level: 0
           retention-days: 14

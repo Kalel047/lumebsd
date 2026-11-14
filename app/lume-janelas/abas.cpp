@@ -31,6 +31,9 @@
 #include <QAction>
 #include <QHash>
 #include <QPointer>
+#include <QSet>
+#include <QTimer>
+#include <QUuid>
 #include <QtPlugin>
 
 #include <algorithm>
@@ -67,6 +70,7 @@ private:
     void tirar(Window *w, bool afastar);
     void redesenhar(Grupo *g) const;
     void acompanhar(Window *w);
+    void retomar();
     Window *janelaDe(const KDecoration3::Decoration *d) const;
     QAction *atalho(const char *nome, const QString &texto, QKeySequence tecla,
                     std::function<void()> f);
@@ -108,6 +112,82 @@ Abas::Abas()
     if (Window *w = workspace()->activeWindow()) {
         m_ativa = w;
     }
+    retomar();
+}
+
+// O KWin do X11 recria todos os efeitos a cada "reconfigure" (o compositor
+// recomeça: trocar o tema, mudar uma opção do KWin). Os grupos não podem
+// sumir com isso: o controlador que sai guarda os grupos numa propriedade do
+// aplicativo (o KWin continua o mesmo processo), e o que entra os retoma.
+// Se ninguém retomar (o efeito foi desligado), as janelas escondidas voltam
+// à tela pouco depois. (O KWin não descarrega a biblioteca de um efeito,
+// então o temporizador pode chamar o código daqui.)
+static const char *const ESTADO = "lume.abas.estado";
+
+static void soltarSobras()
+{
+    const QVariant v = qApp->property(ESTADO);
+    if (!v.isValid()) {
+        return;
+    }
+    qApp->setProperty(ESTADO, QVariant());
+    const QVariantList grupos = v.toList();
+    for (const QVariant &gv : grupos) {
+        const QVariantMap g = gv.toMap();
+        const QString atual = g.value(QStringLiteral("atual")).toString();
+        const QStringList ids = g.value(QStringLiteral("membros")).toStringList();
+        for (const QString &id : ids) {
+            Window *w = workspace()->findWindow(QUuid(id));
+            if (!w || w->isDeleted()) {
+                continue;
+            }
+            if (id != atual && w->isMinimized()) {
+                w->setMinimized(false);
+            }
+            if (auto *d = w->decoration()) {
+                d->update();
+            }
+        }
+    }
+}
+
+void Abas::retomar()
+{
+    const QVariant v = qApp->property(ESTADO);
+    if (!v.isValid()) {
+        return;
+    }
+    qApp->setProperty(ESTADO, QVariant());
+    const QVariantList grupos = v.toList();
+    for (const QVariant &gv : grupos) {
+        const QVariantMap gm = gv.toMap();
+        auto g = std::make_shared<Grupo>();
+        const QStringList ids = gm.value(QStringLiteral("membros")).toStringList();
+        for (const QString &id : ids) {
+            Window *w = workspace()->findWindow(QUuid(id));
+            if (candidata(w) && !m_grupo.contains(w)) {
+                g->membros << w;
+            }
+        }
+        if (g->membros.size() < 2) {
+            // Sobrou uma janela só: ela volta a ser solta (e aparece).
+            for (Window *w : std::as_const(g->membros)) {
+                if (w->isMinimized()) {
+                    w->setMinimized(false);
+                }
+            }
+            continue;
+        }
+        g->atual = workspace()->findWindow(QUuid(gm.value(QStringLiteral("atual")).toString()));
+        if (!g->membros.contains(g->atual)) {
+            g->atual = g->membros.first();
+        }
+        for (Window *w : std::as_const(g->membros)) {
+            m_grupo.insert(w, g);
+            acompanhar(w);
+        }
+        redesenhar(g.get());
+    }
 }
 
 Abas::~Abas()
@@ -115,12 +195,34 @@ Abas::~Abas()
     if (Lume::controle() == static_cast<Lume::ControleAbas *>(this)) {
         qApp->setProperty(Lume::PROPRIEDADE, QVariant());
     }
-    // Sem o controlador, as janelas de um grupo voltam a ser janelas soltas.
-    const auto grupos = m_grupo;
-    for (auto it = grupos.begin(); it != grupos.end(); ++it) {
-        if (it.key()->isMinimized() && it.value()->atual != it.key()) {
-            it.key()->setMinimized(false);
+    QVariantList grupos;
+    QSet<Grupo *> vistos;
+    for (auto it = m_grupo.begin(); it != m_grupo.end(); ++it) {
+        Grupo *g = it.value().get();
+        if (vistos.contains(g)) {
+            continue;
         }
+        vistos.insert(g);
+        QStringList ids;
+        for (Window *w : std::as_const(g->membros)) {
+            if (!w->isDeleted()) {
+                ids << w->internalId().toString();
+            }
+        }
+        QVariantMap gm;
+        gm.insert(QStringLiteral("membros"), ids);
+        gm.insert(QStringLiteral("atual"), g->atual ? g->atual->internalId().toString() : QString());
+        grupos << gm;
+    }
+    if (grupos.isEmpty()) {
+        return;
+    }
+    qApp->setProperty(ESTADO, grupos);
+    QTimer::singleShot(3000, qApp, [] {
+        soltarSobras();
+    });
+    // Enquanto isso, a decoração desenha cada janela sozinha.
+    for (auto it = m_grupo.begin(); it != m_grupo.end(); ++it) {
         if (auto *d = it.key()->decoration()) {
             d->update();
         }

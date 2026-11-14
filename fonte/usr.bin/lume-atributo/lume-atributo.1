@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: BSD-2-Clause
 .\"
-.Dd November 11, 2026
+.Dd November 13, 2026
 .Dt LUME-ATRIBUTO 1
 .Os
 .Sh NAME
@@ -19,6 +19,7 @@
 .Ar arquivo ...
 .Ar nome Ns = Ns Ar valor | nome Ns += Ns Ar etiqueta | nome Ns -= Ns Ar etiqueta ...
 .Nm lume atributo procurar
+.Op Fl v
 .Op Fl d Ar pasta
 .Ar condição ...
 .Sh DESCRIPTION
@@ -79,17 +80,49 @@ contém o texto (sem diferença de maiúsculas);
 .It Ar nome Ns >= Ns Ar n , nome Ns <= Ns Ar n , nome Ns > Ns Ar n , nome Ns < Ns Ar n
 compara números (a nota, em estrelas).
 .El
+.Pp
+Com
+.Fl v ,
+a procura fica ao vivo, como as consultas do BeOS: depois da primeira
+passada, continua de olho nas pastas (com o
+.Xr inotify 2 ,
+uma vigia por pasta) e mostra cada mudança no resultado, até ser
+interrompida:
+.Bl -tag -width "+ caminho"
+.It Li + Ar caminho
+entrou no resultado (na primeira passada, todos os achados);
+.It Li ~ Ar caminho
+continua, mas os atributos mudaram;
+.It Li - Ar caminho
+saiu (perdeu a condição, foi apagado ou movido para fora);
+.It Li \&.
+fim da primeira passada;
+.It Li *
+o sistema perdeu avisos: a lista recomeça do zero.
+.El
+.Pp
+A janela de procura
+.Pq Xr lume-atributos 1
+usa este modo: a lista se atualiza sozinha.
 .Sh EXIT STATUS
 0 quando deu certo; 1 quando um arquivo falhou ou a procura não achou
 nada; 2 num erro de uso.
+Com
+.Fl v ,
+a procura só termina sozinha se a
+.Ar pasta
+for apagada (0).
 .Sh EXAMPLES
 .Bd -literal -offset indent
 lume atributo contrato.pdf etiquetas+=trabalho nota=4 cliente=Acme
 lume atributo contrato.pdf
 lume atributo procurar etiquetas=trabalho 'nota>=4'
 lume atributo procurar -d ~/Imagens 'comentario~praia'
+lume atributo procurar -v etiquetas=urgente
 .Ed
 .Sh SEE ALSO
 .Xr lume 1 ,
+.Xr lume-atributos 1 ,
+.Xr inotify 2 ,
 .Xr getextattr 8 ,
 .Xr setextattr 8

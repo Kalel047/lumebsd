@@ -1,3 +1,13 @@
+# LumeBSD 2.1 "Farol"
+
+Sobre o FreeBSD 15.1. Termina o que a 2.0 deixou pela metade nas abas e nos atributos.
+
+- **Consultas ao vivo**, como no BeOS: a janela de procura por atributos se atualiza sozinha. Um arquivo que ganha a etiqueta aparece na hora, um que a perde (ou é apagado, ou sai da pasta) some, e as colunas acompanham as mudanças. Vale também para as consultas salvas (`.consulta`). No terminal: `lume atributo procurar -v etiquetas=trabalho`.
+- **Etiquetas e comentário nas colunas do Dolphin**: na lista em Detalhes, as colunas Etiquetas, Nota e Comentário mostram os atributos de cada arquivo (botão direito no cabeçalho da lista para ligar). Antes, só a nota aparecia.
+- **As pilhas de janelas sobrevivem à troca de tema**: `lume tema escuro`, `lume tema claro` ou mudar uma opção do KWin não desfazem mais as abas.
+- **Os atributos vão junto na cópia**: `cp -p`, `cp -Rp` e `mv` entre discos levam as etiquetas, a nota e o comentário (sem `-p`, a cópia sai sem eles, como as outras propriedades do arquivo).
+- **A tela não fica mais preta depois de trocar o tema**: com o filtro e-ink, a área de trabalho e as janelas paradas podiam ficar pretas depois de `lume tema escuro` ou `lume tema claro`, até que se mexesse nelas.
+
 # LumeBSD 2.0 "Farol"
 
 Sobre o FreeBSD 15.1. O primeiro update grande: uma cara própria, janelas em abas como no BeOS, atributos nos arquivos, o Wi-Fi sem Python e as ferramentas de construção em Rust.
@@ -13,7 +23,6 @@ Sobre o FreeBSD 15.1. O primeiro update grande: uma cara própria, janelas em ab
 - **Ctrl+Meta+E** empilha a janela ativa com a anterior: as duas ficam no mesmo lugar, com uma aba para cada uma na barra de título. Clicar na aba troca de janela.
 - **Ctrl+Meta+PgDn** e **Ctrl+Meta+PgUp** passam de aba em aba; **Ctrl+Meta+Shift+E** separa a janela da pilha.
 - Ao trocar de aba, a janela aparece no lugar e no tamanho da anterior (maximizada, se ela estava); as outras da pilha ficam guardadas.
-- Trocar o tema (por exemplo `lume tema escuro`) desfaz as pilhas: as janelas voltam a ficar soltas.
 
 ## Atributos nos arquivos
 

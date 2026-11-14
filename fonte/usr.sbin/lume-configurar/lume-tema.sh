@@ -296,8 +296,9 @@ integrar()
 		    update-mime-database $P/share/mime >/dev/null 2>&1
 		padrao_mime "application/x-lume-consulta" lume-atributos.desktop
 	fi
-	# As Finanças do LumeBSD (juros, financiamento, projetos, inflação e
-	# regressão), no menu.
+	baloo
+	# As Finanças do LumeBSD (juros, financiamento, projetos, inflação,
+	# regressão e o orçamento do mês), no menu.
 	if [ -x /usr/bin/lume-financas ]; then
 		instalar $A/lume-financas.desktop \
 		    $P/share/applications/lume-financas.desktop 0644
@@ -326,6 +327,23 @@ integrar()
 	command -v update-desktop-database >/dev/null 2>&1 &&
 	    update-desktop-database -q $P/share/applications 2>/dev/null
 	return 0
+}
+
+# As colunas Etiquetas e Comentário do Dolphin (2.1): ele só lê os
+# atributos de cada arquivo (xdg.tags, xdg.comment) com a indexação do Baloo
+# "ligada". Fica ligada, mas sem pasta nenhuma para indexar (no FreeBSD o
+# indexador cai em loop no extrator e gasta disco e CPU): a lista lê os
+# atributos direto do arquivo. Quem quiser o índice inclui as pastas nas
+# Configurações do Sistema > Pesquisa. Só troca o arquivo que o LumeBSD
+# gravou antes (o da 2.0: Indexing-Enabled=false e mais nada).
+baloo()
+{
+	b=$XDG/baloofilerc
+	if [ -f $b ] && [ "$(cat $b)" != "$(printf '[Basic Settings]\nIndexing-Enabled=false')" ]; then
+		return 0
+	fi
+	mkdir -p $XDG
+	printf '[Basic Settings]\nIndexing-Enabled=true\n\n[General]\nfolders=\nonly basic indexing=true\n' > $b
 }
 
 # Os atalhos de teclado do KDE (Alt+Tab, Alt+F4, Ctrl+Meta+T...). O KWin
