@@ -400,6 +400,13 @@ aplica de novo.
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
 
+### O Páginas (2.2) na tela
+
+| | |
+|---|---|
+| ![A galeria de modelos do Páginas](docs/capturas/paginas-1-galeria.png) | ![O trabalho acadêmico nas normas da ABNT](docs/capturas/paginas-2-abnt.png) |
+| ![Um .docx do Word aberto no Páginas](docs/capturas/paginas-3-word.png) | ![O relatório, com o tema escuro](docs/capturas/paginas-5-escuro.png) |
+
 ### Novidades da 2.0 na tela
 
 | | |

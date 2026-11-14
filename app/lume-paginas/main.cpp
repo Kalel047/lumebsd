@@ -3683,7 +3683,7 @@ private:
 		h->addWidget(coluna, 1);
 		inspetor_ = new QStackedWidget;
 		inspetor_->setObjectName("inspetor");
-		inspetor_->setFixedWidth(290);
+		inspetor_->setFixedWidth(300);
 		h->addWidget(inspetor_);
 		pilha_->addWidget(raiz);
 
@@ -3907,7 +3907,8 @@ private:
 		b->setToolTip(dica);
 		b->setCheckable(true);
 		b->setObjectName("alterna");
-		b->setMinimumSize(36, 30);
+		b->setMinimumSize(30, 30);
+		b->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 		connect(b, &QToolButton::clicked, this, [f] { f(); });
 		h->addWidget(b);
 		return b;
@@ -3963,7 +3964,7 @@ private:
 		auto *cor = new QToolButton;
 		cor->setText("Cor");
 		cor->setObjectName("alterna");
-		cor->setMinimumHeight(30);
+		cor->setMinimumSize(44, 30);
 		connect(cor, &QToolButton::clicked, this, [this] {
 			const QColor c = QColorDialog::getColor(edit_->textColor(), this, "Cor do texto");
 			if (c.isValid()) {
@@ -3993,12 +3994,12 @@ private:
 		secao(v, "Alinhamento");
 		auto *ah = new QHBoxLayout;
 		ah->setSpacing(4);
-		alin_[0] = alterna("Esquerda", "Alinhar à esquerda (Ctrl+L)", ah, [this] { alinhar(Qt::AlignLeft | Qt::AlignAbsolute); });
+		alin_[0] = alterna("Esq.", "Alinhar à esquerda (Ctrl+L)", ah, [this] { alinhar(Qt::AlignLeft | Qt::AlignAbsolute); });
 		alin_[1] = alterna("Centro", "Centralizar (Ctrl+E)", ah, [this] { alinhar(Qt::AlignHCenter); });
-		alin_[2] = alterna("Direita", "Alinhar à direita (Ctrl+R)", ah, [this] { alinhar(Qt::AlignRight | Qt::AlignAbsolute); });
+		alin_[2] = alterna("Dir.", "Alinhar à direita (Ctrl+R)", ah, [this] { alinhar(Qt::AlignRight | Qt::AlignAbsolute); });
 		alin_[3] = alterna("Justif.", "Justificar (Ctrl+J)", ah, [this] { alinhar(Qt::AlignJustify); });
 		for (QToolButton *b : alin_)
-			b->setMinimumWidth(52);
+			b->setMinimumWidth(40);
 		v->addLayout(ah);
 
 		secao(v, "Espaçamento");
@@ -4059,7 +4060,15 @@ private:
 		lh->addWidget(mais);
 		v->addLayout(lh);
 		v->addStretch();
+		for (QComboBox *c : {static_cast<QComboBox *>(fonte_), estilo_, tamanho_, entrelinha_, lista_}) {
+			c->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+			c->setMinimumContentsLength(4);
+			c->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+		}
+		for (QAbstractSpinBox *s : std::initializer_list<QAbstractSpinBox *>{depois_, recuo_, recuoEsq_})
+			s->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
 		auto *rf = new QScrollArea;
+		rf->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 		rf->setWidget(fw);
 		rf->setWidgetResizable(true);
 		rf->setFrameStyle(QFrame::NoFrame);
@@ -4117,7 +4126,13 @@ private:
 		abnt->setToolTip("Margens de 3 cm (em cima e à esquerda) e 2 cm, Times New Roman 12, números de página.");
 		dv->addWidget(abnt);
 		dv->addStretch();
+		for (QComboBox *c : {static_cast<QComboBox *>(fonteCorpo_), papel_, orientacao_, esquema_}) {
+			c->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+			c->setMinimumContentsLength(4);
+			c->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+		}
 		auto *rd = new QScrollArea;
+		rd->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 		rd->setWidget(dw);
 		rd->setWidgetResizable(true);
 		rd->setFrameStyle(QFrame::NoFrame);
@@ -4951,7 +4966,8 @@ int main(int argc, char **argv)
 			j.modelo(a[4]);
 		else if (a.size() >= 4 && a[3] != "--galeria")
 			j.abrir(a[3]);
-		j.resize(1366, 860);
+		const QStringList t = qEnvironmentVariable("LUME_FOTO_TAMANHO", "1366x860").split('x');
+		j.resize(t.value(0).toInt(), t.value(1).toInt());
 		j.show();
 		QTimer::singleShot(600, &app, [&] {
 			j.grab().save(a[2]);
