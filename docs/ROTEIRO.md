@@ -29,10 +29,20 @@ usa Python. Ele chega à máquina como dependência de pacotes de terceiros (o
 KWin, o plasma-workspace, o glib, o LibreOffice) e do networkmgr; tirá-lo de
 vez pediria recompilar o KDE, e ele voltaria com os kits de ciências.
 
+## 2.2: o editor de texto
+
+O **Páginas** (`app/lume-paginas`, C++/Qt sem moc): a folha na tela, com a
+paginação do próprio `QTextDocument`; o painel Formatar e Folha; os modelos
+(ABNT, plano de aula, relatório, carta, currículo); leitores e gravadores
+próprios de `.odt` e `.docx` (o zip pelo zlib da base, o XML pelo
+`QXmlStreamReader`), testados contra o LibreOffice nos dois sentidos; PDF
+com os números de página.
+
 ## 2.x
 
-- **Office com a estética do iWork**, começando pelo editor de texto (estilo
-  Pages, salvando em `.odt` e `.docx`); depois a planilha e as apresentações.
+
+- **Office com a estética do iWork**: o editor de texto saiu na 2.2 (o
+  Páginas, `app/lume-paginas`); depois a planilha e as apresentações.
 - **MediaKit de baixa latência**: um servidor de mídia nosso sobre o OSS, com
   threads de tempo real e um grafo de nós como o do BeOS (alvo: uns 5 ms).
 - **Replicants**: pedaços vivos de um app na área de trabalho ou em outro app.

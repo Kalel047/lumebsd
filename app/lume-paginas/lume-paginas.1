@@ -1,0 +1,105 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 14, 2026
+.Dt LUME-PAGINAS 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-paginas
+.Nd Páginas do LumeBSD: editor de texto com a folha na tela
+.Sh SYNOPSIS
+.Nm
+.Op Ar arquivo
+.Nm
+.Fl -converter
+.Ar entrada saida
+.Nm
+.Fl -modelo
+.Ar nome saida
+.Nm
+.Fl -resumo
+.Ar arquivo
+.Nm
+.Fl -foto
+.Ar saida.png
+.Op Ar arquivo | Fl -modelo Ar nome | Fl -galeria
+.Sh DESCRIPTION
+Um editor de texto com a cara do Pages: a folha aparece como vai sair na
+impressão, página por página, e o painel à direita formata o texto
+.Pq Formatar
+e a página
+.Pq Folha .
+Ao abrir sem arquivo, uma galeria de modelos:
+.Bl -tag -width "Trabalho acadêmico"
+.It Em branco
+uma folha A4.
+.It Trabalho acadêmico
+nas normas da ABNT (NBR 14724): margens de 3 e 2 cm, fonte 12,
+espaçamento de 1,5, recuo de 1,25 cm, citação longa com recuo de 4 cm,
+números de página, capa e referências.
+.It Plano de aula
+tema, objetivos, conteúdo, metodologia, recursos e avaliação.
+.It Relatório
+resumo, indicadores numa tabela, análise e próximos passos.
+.It Carta
+local e data, destinatário, assunto e assinatura.
+.It Currículo
+objetivo, formação, experiência e habilidades.
+.El
+.Pp
+Abre e salva
+.Pa .odt
+(OpenDocument, o do LibreOffice; o padrão) e
+.Pa .docx
+(Word), com leitores e gravadores próprios.
+Exporta PDF (com os números de página), Markdown e texto puro, e abre
+Markdown, HTML e texto.
+Vão e voltam os estilos de parágrafo (título, subtítulo, cabeçalhos 1 a 3,
+corpo, citação e legenda), a fonte, o tamanho, o negrito, o itálico, o
+sublinhado, o riscado, a cor, o sobrescrito e o subscrito, o alinhamento, o
+espaçamento e os recuos, as listas com marcadores e numeradas (com níveis),
+as tabelas (com células mescladas), as imagens, as quebras de página, o
+tamanho do papel, as margens e os números de página.
+O
+.Pa .doc
+do Word antigo não abre: salve como
+.Pa .docx
+no LibreOffice.
+.Sh ATALHOS
+.Bl -tag -width "Ctrl+Alt+0..3" -compact
+.It Ctrl+B, Ctrl+I, Ctrl+U
+negrito, itálico, sublinhado
+.It Ctrl+L, E, R, J
+alinhar à esquerda, centralizar, à direita, justificar
+.It Ctrl+Alt+T
+estilo Título
+.It Ctrl+Alt+1..3
+cabeçalhos; Ctrl+Alt+0 volta ao corpo
+.It Ctrl+Enter
+quebra de página
+.It Tab, Shift+Tab
+numa lista, um nível para dentro ou para fora; numa tabela, a próxima célula
+.It Ctrl+F
+procurar e substituir
+.It Ctrl+P
+exportar PDF
+.El
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Fl -converter Ar entrada saida
+converte sem abrir a janela; o formato sai da extensão
+.Pq odt, docx, pdf, md, txt, html .
+.It Fl -modelo Ar nome saida
+grava um dos modelos
+.Pq branco, abnt, aula, relatorio, carta, curriculo .
+.It Fl -resumo Ar arquivo
+mostra a estrutura do documento (os testes comparam).
+.It Fl -foto Ar saida.png
+fotografa a janela (para a documentação).
+.El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa ~/.config/LumeBSD/lume-paginas.conf
+os documentos recentes
+.El
+.Sh SEE ALSO
+.Xr lume-financas 1 ,
+.Xr lume-atributo 1

@@ -86,6 +86,7 @@ const APPS: &[(&str, &[&str])] = &[
     ("lume-atributos", &["lume-atributos.desktop", "lume-atributos-menu.desktop",
                          "lume-atributos-pasta.desktop", "lume-consulta.xml"]),
     ("lume-financas", &["lume-financas.svg", "lume-financas.desktop"]),
+    ("lume-paginas", &["lume-paginas.svg", "lume-paginas.desktop"]),
 ];
 
 pub const USO_APP: &str = "uso: lume-montar app STAGE QT6BASE.pkg
@@ -98,6 +99,8 @@ manual NOME.1), com o ícone, os atalhos do menu e a política do polkit em
 fn libs_app(nome: &str) -> &'static [&'static str] {
     match nome {
         "lume-rede" => &["-lcrypto"],
+        // Os .odt e .docx são zips: o zlib da base.
+        "lume-paginas" => &["-lz"],
         _ => &[],
     }
 }

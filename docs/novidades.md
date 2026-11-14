@@ -1,4 +1,14 @@
-# LumeBSD 2.1 "Farol"
+# LumeBSD 2.2 "Farol"
+
+Sobre o FreeBSD 15.1. Chega o **Páginas**, o editor de texto do LumeBSD, com a cara do Pages.
+
+- **A folha na tela**: o documento aparece como vai sair na impressão, página por página, com as margens, as quebras de página e os números de página. À direita, o painel **Formatar** (estilo do parágrafo, fonte, tamanho, negrito, itálico, sublinhado, riscado, cor, sobrescrito, alinhamento, espaçamento, recuos e listas) e o painel **Folha** (papel, orientação, margens, números de página e a fonte do corpo).
+- **Modelos para quem estuda e ensina**: trabalho acadêmico nas normas da ABNT (margens de 3 e 2 cm, fonte 12, entrelinha de 1,5, recuo de 1,25 cm, citação longa com recuo de 4 cm, capa e referências), plano de aula, relatório com tabela, carta e currículo. Num documento qualquer, **Folha > Pôr as margens e a fonte da ABNT** acerta tudo de uma vez.
+- **Abre e salva .docx e .odt**, os formatos do Word e do LibreOffice, sem precisar de nenhum dos dois: estilos, listas com níveis, tabelas com células mescladas, imagens, quebras de página, o papel e as margens vão e voltam. Exporta **PDF** (Ctrl+P), Markdown e texto puro.
+- **Tabelas e imagens**: Tab passa de célula em célula (e cria a linha nova no fim); o botão direito acrescenta e apaga linhas e colunas, mescla células e muda o tamanho das imagens.
+- **Procurar e substituir** (Ctrl+F), a contagem de palavras e de páginas no rodapé, e os documentos recentes na galeria.
+- No terminal: `lume-paginas --converter trabalho.docx trabalho.pdf`.
+
 
 Sobre o FreeBSD 15.1. Termina o que a 2.0 deixou pela metade nas abas e nos atributos.
 

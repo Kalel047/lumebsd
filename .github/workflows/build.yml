@@ -14,7 +14,7 @@ on:
       tag:
         description: "Tag da Release"
         type: string
-        default: "v2.1.0"
+        default: "v2.2.0"
   schedule:
     - cron: "23 5 1 * *"
 
