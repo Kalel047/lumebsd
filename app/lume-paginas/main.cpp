@@ -3569,10 +3569,10 @@ private:
 			b->setCursor(Qt::PointingHandCursor);
 			const QString id = m.id;
 			connect(b, &QToolButton::clicked, this, [this, id] { modelo(id); });
-			grade->addWidget(b, i / 6, i % 6, Qt::AlignTop | Qt::AlignLeft);
+			grade->addWidget(b, i / 3, i % 3, Qt::AlignTop | Qt::AlignLeft);
 			i++;
 		}
-		grade->setColumnStretch(6, 1);
+		grade->setColumnStretch(3, 1);
 		v->addLayout(grade);
 		v->addSpacing(22);
 		auto *linha = new QHBoxLayout;
@@ -4961,6 +4961,11 @@ int main(int argc, char **argv)
 	}
 	if (a.size() >= 2 && !a[1].startsWith("--"))
 		j.abrir(a[1]);
-	j.show();
+	// Numa tela pequena (um notebook de 1366 × 768), a janela inteira.
+	const QRect tela = app.primaryScreen() ? app.primaryScreen()->availableGeometry() : QRect(0, 0, 1920, 1080);
+	if (tela.width() < 1500 || tela.height() < 950)
+		j.showMaximized();
+	else
+		j.show();
 	return app.exec();
 }
