@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Finanças do LumeBSD: um gráfico que sobe, com o farol no lugar da última barra (tema Papel). -->
+  <circle cx="32" cy="32" r="30" fill="#f2efe8" stroke="#222" stroke-width="2"/>
+  <path d="M15 47 h34" stroke="#222" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="17" y="38" width="5" height="9" fill="#222"/>
+  <rect x="25" y="33" width="5" height="14" fill="#222"/>
+  <path d="M15.5 34 L24 28 L31 30 L39 21" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2.4"/>
+  <path d="M37.6 47 L39 26 h3 L43.4 47 Z" fill="#f2efe8" stroke="#222" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M38.5 33 h4.3 M38.2 39 h4.9" stroke="#222" stroke-width="1.4"/>
+  <path d="M38.4 26 h4.2 l-0.8 -3.4 h-2.6 Z" fill="#222"/>
+  <path d="M44 22 l4 -2 M44.5 25 h4.5" stroke="#222" stroke-width="1.4" stroke-linecap="round"/>
+</svg>
