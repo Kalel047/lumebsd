@@ -84,11 +84,8 @@ for u in $(pw groupshow wheel | awk -F: '{print $4}' | tr ',' ' '); do
 	pw groupmod webcamd -m "$u" 2>/dev/null
 done
 
-# Indexador de arquivos do KDE (Baloo) desligado por padrão: no FreeBSD ele
-# cai em loop no extrator e gasta disco e CPU. Quem quiser liga nas
-# Configurações do Sistema > Pesquisa.
-mkdir -p /usr/local/etc/xdg
-printf '[Basic Settings]\nIndexing-Enabled=false\n' > /usr/local/etc/xdg/baloofilerc
+# O indexador de arquivos do KDE (Baloo) sem pasta nenhuma para indexar: o
+# lume tema (abaixo) grava o baloofilerc.
 
 # Visual "Papel" (e-ink) como padrão; lume tema padrao volta ao do KDE.
 /usr/sbin/lume-tema papel

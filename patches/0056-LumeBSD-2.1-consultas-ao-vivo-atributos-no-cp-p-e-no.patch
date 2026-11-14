@@ -1,0 +1,946 @@
+From 4960457be4b2f63388ba54d3657f24e2b1eba87d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 14 Nov 2026 12:22:01 -0300
+Subject: [PATCH] LumeBSD 2.1: consultas ao vivo, atributos no cp -p e no mv,
+ colunas do Dolphin
+
+lume-atributo procurar -v: vigia as pastas com o inotify e diz o que entra
+e o que sai. cp -p e mv entre sistemas de arquivos levam os atributos do
+espaco user. O Baloo fica ligado sem pasta para indexar, para o Dolphin
+mostrar as colunas Etiquetas e Comentario. Versao 2.1.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ bin/cp/cp.1                                   |   6 +-
+ bin/cp/utils.c                                |  69 ++++
+ bin/mv/mv.c                                   |  65 ++++
+ sys/amd64/conf/LUME                           |   2 +-
+ sys/conf/newvers.sh                           |   2 +-
+ sys/sys/copyright.h                           |   2 +-
+ usr.bin/login/motd.template                   |   2 +-
+ usr.bin/lume-atributo/lume-atributo.1         |  35 +-
+ usr.bin/lume-atributo/lume-atributo.c         | 330 +++++++++++++++---
+ usr.bin/lume/lume.c                           |   2 +-
+ usr.sbin/forja/forja.8                        |   2 +-
+ usr.sbin/forja/forja.sh                       |   2 +-
+ usr.sbin/lume-configurar/ajuda/tela.html      |   8 +-
+ usr.sbin/lume-configurar/lume-configurar.sh   |   2 +-
+ usr.sbin/lume-configurar/lume-desktop.sh      |   7 +-
+ usr.sbin/lume-configurar/lume-instalar.sh     |   6 +-
+ usr.sbin/lume-configurar/lume-tema.sh         |  18 +
+ .../lume-configurar/tema/metadata-noite.json  |   2 +-
+ usr.sbin/lume-configurar/tema/metadata.json   |   2 +-
+ 19 files changed, 498 insertions(+), 66 deletions(-)
+
+diff --git a/bin/cp/cp.1 b/bin/cp/cp.1
+index 5231fa726..c67cdbe1d 100644
+--- a/bin/cp/cp.1
++++ b/bin/cp/cp.1
+@@ -29,7 +29,7 @@
+ .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ .\" SUCH DAMAGE.
+ .\"
+-.Dd July 9, 2025
++.Dd November 13, 2026
+ .Dt CP 1
+ .Os
+ .Sh NAME
+@@ -169,7 +169,9 @@ options.)
+ .It Fl p
+ Preserve the following attributes of each source
+ file in the copy: modification time, access time,
+-file flags, file mode, ACL, user ID, and group ID, as allowed by permissions.
++file flags, file mode, ACL, extended attributes in the
++.Dq user
++namespace, user ID, and group ID, as allowed by permissions.
+ .Pp
+ If the user ID and group ID cannot be preserved, no error message
+ is displayed and the exit value is not altered.
+diff --git a/bin/cp/utils.c b/bin/cp/utils.c
+index 2579ea0a9..8ccf77953 100644
+--- a/bin/cp/utils.c
++++ b/bin/cp/utils.c
+@@ -31,6 +31,7 @@
+ 
+ #include <sys/param.h>
+ #include <sys/acl.h>
++#include <sys/extattr.h>
+ #include <sys/stat.h>
+ 
+ #include <err.h>
+@@ -41,6 +42,7 @@
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <sysexits.h>
+ #include <unistd.h>
+ 
+@@ -98,6 +100,69 @@ copy_fallback(int from_fd, int to_fd)
+ 	return (wcount < 0 ? wcount : rcount);
+ }
+ 
++/*
++ * LumeBSD: os atributos estendidos do espaço "user" (as etiquetas, a nota e
++ * o comentário do lume-atributo(1), os mesmos do Dolphin) vão junto, como
++ * no BeOS e no macOS. Um destino que não guarda atributos (msdosfs, por
++ * exemplo) fica sem eles, em silêncio, como as ACLs.
++ */
++static int
++copy_user_extattrs(int source_fd, int dest_fd, const char *dest_name)
++{
++	char *list, *val = NULL;
++	size_t vsize = 0;
++	ssize_t lsize, n;
++	int ret = 0;
++
++	lsize = extattr_list_fd(source_fd, EXTATTR_NAMESPACE_USER, NULL, 0);
++	if (lsize <= 0)
++		return (0);
++	if ((list = malloc(lsize)) == NULL) {
++		warn("%s: extended attributes", dest_name);
++		return (-1);
++	}
++	lsize = extattr_list_fd(source_fd, EXTATTR_NAMESPACE_USER, list,
++	    lsize);
++	for (ssize_t i = 0; i < lsize; i += 1 + (unsigned char)list[i]) {
++		char name[EXTATTR_MAXNAMELEN + 1];
++		size_t len = (unsigned char)list[i];
++
++		if (i + 1 + (ssize_t)len > lsize)
++			break;
++		memcpy(name, list + i + 1, len);
++		name[len] = '\0';
++		n = extattr_get_fd(source_fd, EXTATTR_NAMESPACE_USER, name,
++		    NULL, 0);
++		if (n < 0)
++			continue;
++		if ((size_t)n >= vsize) {
++			char *nval = realloc(val, n + 1);
++
++			if (nval == NULL) {
++				warn("%s: extended attributes", dest_name);
++				ret = -1;
++				break;
++			}
++			val = nval;
++			vsize = n + 1;
++		}
++		n = extattr_get_fd(source_fd, EXTATTR_NAMESPACE_USER, name,
++		    val, vsize);
++		if (n < 0)
++			continue;
++		if (extattr_set_fd(dest_fd, EXTATTR_NAMESPACE_USER, name, val,
++		    n) < 0) {
++			if (errno == EOPNOTSUPP)
++				break;
++			warn("%s: extended attribute %s", dest_name, name);
++			ret = -1;
++		}
++	}
++	free(val);
++	free(list);
++	return (ret);
++}
++
+ int
+ copy_file(const FTSENT *entp, bool dne, bool beneath)
+ {
+@@ -243,6 +308,8 @@ copy_file(const FTSENT *entp, bool dne, bool beneath)
+ 		rval = 1;
+ 	if (pflag && preserve_fd_acls(from_fd, to_fd) != 0)
+ 		rval = 1;
++	if (pflag && copy_user_extattrs(from_fd, to_fd, to.path) != 0)
++		rval = 1;
+ 	if (close(to_fd)) {
+ 		warn("%s%s", to.base, to.path);
+ 		rval = 1;
+@@ -476,6 +543,8 @@ preserve_dir_acls(const char *source_dir, const char *dest_dir)
+ 	if ((ret = preserve_fd_acls(source_fd, dest_fd)) != 0) {
+ 		/* preserve_fd_acls() already printed a message */
+ 	}
++	if (copy_user_extattrs(source_fd, dest_fd, dest_dir) != 0)
++		ret = -1;
+ 	if (dest_fd != to.dir)
+ 		close(dest_fd);
+ 	close(source_fd);
+diff --git a/bin/mv/mv.c b/bin/mv/mv.c
+index 801ac52dc..94fdc9454 100644
+--- a/bin/mv/mv.c
++++ b/bin/mv/mv.c
+@@ -34,6 +34,7 @@
+ 
+ #include <sys/param.h>
+ #include <sys/acl.h>
++#include <sys/extattr.h>
+ #include <sys/mount.h>
+ #include <sys/stat.h>
+ #include <sys/time.h>
+@@ -252,6 +253,69 @@ do_move(const char *from, const char *to)
+ 	    fastcopy(from, to, &sb) : copy(from, to));
+ }
+ 
++/*
++ * LumeBSD: os atributos estendidos do espaço "user" (as etiquetas, a nota e
++ * o comentário do lume-atributo(1), os mesmos do Dolphin) vão junto, como
++ * no BeOS e no macOS. Um destino que não guarda atributos (msdosfs, por
++ * exemplo) fica sem eles, em silêncio, como as ACLs.
++ */
++static int
++copy_user_extattrs(int source_fd, int dest_fd, const char *dest_name)
++{
++	char *list, *val = NULL;
++	size_t vsize = 0;
++	ssize_t lsize, n;
++	int ret = 0;
++
++	lsize = extattr_list_fd(source_fd, EXTATTR_NAMESPACE_USER, NULL, 0);
++	if (lsize <= 0)
++		return (0);
++	if ((list = malloc(lsize)) == NULL) {
++		warn("%s: extended attributes", dest_name);
++		return (-1);
++	}
++	lsize = extattr_list_fd(source_fd, EXTATTR_NAMESPACE_USER, list,
++	    lsize);
++	for (ssize_t i = 0; i < lsize; i += 1 + (unsigned char)list[i]) {
++		char name[EXTATTR_MAXNAMELEN + 1];
++		size_t len = (unsigned char)list[i];
++
++		if (i + 1 + (ssize_t)len > lsize)
++			break;
++		memcpy(name, list + i + 1, len);
++		name[len] = '\0';
++		n = extattr_get_fd(source_fd, EXTATTR_NAMESPACE_USER, name,
++		    NULL, 0);
++		if (n < 0)
++			continue;
++		if ((size_t)n >= vsize) {
++			char *nval = realloc(val, n + 1);
++
++			if (nval == NULL) {
++				warn("%s: extended attributes", dest_name);
++				ret = -1;
++				break;
++			}
++			val = nval;
++			vsize = n + 1;
++		}
++		n = extattr_get_fd(source_fd, EXTATTR_NAMESPACE_USER, name,
++		    val, vsize);
++		if (n < 0)
++			continue;
++		if (extattr_set_fd(dest_fd, EXTATTR_NAMESPACE_USER, name, val,
++		    n) < 0) {
++			if (errno == EOPNOTSUPP)
++				break;
++			warn("%s: extended attribute %s", dest_name, name);
++			ret = -1;
++		}
++	}
++	free(val);
++	free(list);
++	return (ret);
++}
++
+ static int
+ fastcopy(const char *from, const char *to, struct stat *sbp)
+ {
+@@ -313,6 +377,7 @@ err:		if (unlink(to))
+ 	 * source_file.
+ 	 */
+ 	preserve_fd_acls(from_fd, to_fd, from, to);
++	(void)copy_user_extattrs(from_fd, to_fd, to);
+ 	(void)close(from_fd);
+ 
+ 	ts[0] = sbp->st_atim;
+diff --git a/sys/amd64/conf/LUME b/sys/amd64/conf/LUME
+index 18a5848c6..d8127020f 100644
+--- a/sys/amd64/conf/LUME
++++ b/sys/amd64/conf/LUME
+@@ -1,5 +1,5 @@
+ #
+-# LUME -- kernel do LumeBSD 2.0 "Farol" para amd64.
++# LUME -- kernel do LumeBSD 2.1 "Farol" para amd64.
+ # Parte do GENERIC: todos os drivers e módulos, DTrace e ZFS.
+ # Os símbolos de depuração são gerados (o DTrace precisa deles para o CTF),
+ # mas não são instalados (WITHOUT_DEBUG_FILES no src.conf).
+diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
+index 35c7fa9f3..f315ab782 100644
+--- a/sys/conf/newvers.sh
++++ b/sys/conf/newvers.sh
+@@ -50,7 +50,7 @@
+ #
+ 
+ TYPE="LumeBSD"
+-REVISION="2.0"
++REVISION="2.1"
+ BRANCH="FAROL"
+ # Versão do FreeBSD por baixo: o compilador mira nela (x86_64-unknown-freebsd15.1).
+ FREEBSD_REVISION="15.1"
+diff --git a/sys/sys/copyright.h b/sys/sys/copyright.h
+index 0b901be68..7f80057a4 100644
+--- a/sys/sys/copyright.h
++++ b/sys/sys/copyright.h
+@@ -30,7 +30,7 @@
+ /* Add a FreeBSD vendor copyright here - or via CFLAGS */
+ #ifndef COPYRIGHT_Vendor
+ #define	COPYRIGHT_Vendor \
+-	"LumeBSD 2.0 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
++	"LumeBSD 2.1 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
+ #endif
+ 
+ /* FreeBSD */
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index 3e0de54f7..e61958a86 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -1,5 +1,5 @@
+ 
+-   LumeBSD 2.0 "Farol"  -  luz firme sobre fundação BSD
++   LumeBSD 2.1 "Farol"  -  luz firme sobre fundação BSD
+ 
+    Este é o LumeBSD, uma distribuição BSD independente construída
+    a partir do código-fonte do FreeBSD.
+diff --git a/usr.bin/lume-atributo/lume-atributo.1 b/usr.bin/lume-atributo/lume-atributo.1
+index 8343b82b6..14de1b1e0 100644
+--- a/usr.bin/lume-atributo/lume-atributo.1
++++ b/usr.bin/lume-atributo/lume-atributo.1
+@@ -1,7 +1,7 @@
+ .\"
+ .\" SPDX-License-Identifier: BSD-2-Clause
+ .\"
+-.Dd November 11, 2026
++.Dd November 13, 2026
+ .Dt LUME-ATRIBUTO 1
+ .Os
+ .Sh NAME
+@@ -19,6 +19,7 @@
+ .Ar arquivo ...
+ .Ar nome Ns = Ns Ar valor | nome Ns += Ns Ar etiqueta | nome Ns -= Ns Ar etiqueta ...
+ .Nm lume atributo procurar
++.Op Fl v
+ .Op Fl d Ar pasta
+ .Ar condição ...
+ .Sh DESCRIPTION
+@@ -79,17 +80,49 @@ contém o texto (sem diferença de maiúsculas);
+ .It Ar nome Ns >= Ns Ar n , nome Ns <= Ns Ar n , nome Ns > Ns Ar n , nome Ns < Ns Ar n
+ compara números (a nota, em estrelas).
+ .El
++.Pp
++Com
++.Fl v ,
++a procura fica ao vivo, como as consultas do BeOS: depois da primeira
++passada, continua de olho nas pastas (com o
++.Xr inotify 2 ,
++uma vigia por pasta) e mostra cada mudança no resultado, até ser
++interrompida:
++.Bl -tag -width "+ caminho"
++.It Li + Ar caminho
++entrou no resultado (na primeira passada, todos os achados);
++.It Li ~ Ar caminho
++continua, mas os atributos mudaram;
++.It Li - Ar caminho
++saiu (perdeu a condição, foi apagado ou movido para fora);
++.It Li \&.
++fim da primeira passada;
++.It Li *
++o sistema perdeu avisos: a lista recomeça do zero.
++.El
++.Pp
++A janela de procura
++.Pq Xr lume-atributos 1
++usa este modo: a lista se atualiza sozinha.
+ .Sh EXIT STATUS
+ 0 quando deu certo; 1 quando um arquivo falhou ou a procura não achou
+ nada; 2 num erro de uso.
++Com
++.Fl v ,
++a procura só termina sozinha se a
++.Ar pasta
++for apagada (0).
+ .Sh EXAMPLES
+ .Bd -literal -offset indent
+ lume atributo contrato.pdf etiquetas+=trabalho nota=4 cliente=Acme
+ lume atributo contrato.pdf
+ lume atributo procurar etiquetas=trabalho 'nota>=4'
+ lume atributo procurar -d ~/Imagens 'comentario~praia'
++lume atributo procurar -v etiquetas=urgente
+ .Ed
+ .Sh SEE ALSO
+ .Xr lume 1 ,
++.Xr lume-atributos 1 ,
++.Xr inotify 2 ,
+ .Xr getextattr 8 ,
+ .Xr setextattr 8
+diff --git a/usr.bin/lume-atributo/lume-atributo.c b/usr.bin/lume-atributo/lume-atributo.c
+index 4954f7f44..d6561b49a 100644
+--- a/usr.bin/lume-atributo/lume-atributo.c
++++ b/usr.bin/lume-atributo/lume-atributo.c
+@@ -17,6 +17,7 @@
+ 
+ #include <sys/param.h>
+ #include <sys/extattr.h>
++#include <sys/inotify.h>
+ #include <sys/stat.h>
+ 
+ #include <ctype.h>
+@@ -24,6 +25,7 @@
+ #include <errno.h>
+ #include <fts.h>
+ #include <limits.h>
++#include <search.h>
+ #include <stdbool.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -53,7 +55,7 @@ uso(void)
+ 	    "uso: lume atributo ARQUIVO...\n"
+ 	    "     lume atributo ARQUIVO NOME\n"
+ 	    "     lume atributo ARQUIVO NOME=VALOR | NOME+=ETIQUETA | NOME-=ETIQUETA...\n"
+-	    "     lume atributo procurar [-d PASTA] CONDIÇÃO...\n"
++	    "     lume atributo procurar [-v] [-d PASTA] CONDIÇÃO...\n"
+ 	    "        CONDIÇÃO: NOME | NOME=VALOR | NOME~TEXTO | NOME>=N | NOME<=N\n"
+ 	    "                  | NOME>N | NOME<N  (todas valem juntas)\n"
+ 	    "     nomes: etiquetas, nota (0-5), comentario, origem ou um seu\n");
+@@ -420,68 +422,314 @@ cumpre(const char *arq, const struct cond *c, int nc, char *valor)
+ 	return (true);
+ }
+ 
++/*
++ * A procura. Com -v (ao vivo, como as consultas do BeOS), depois da
++ * primeira passada ela continua de olho nas pastas (inotify: uma vigia por
++ * pasta, que também avisa quando um atributo de um arquivo dela muda) e
++ * escreve o que entra e o que sai do resultado, uma linha por mudança:
++ *	+ CAMINHO	entrou (ou já estava, na primeira passada)
++ *	~ CAMINHO	continua no resultado, mas os atributos mudaram
++ *	- CAMINHO	saiu
++ *	.		fim da primeira passada
++ *	*		recomeço (o kernel perdeu eventos): tudo de novo
++ */
++static struct cond *conds;
++static int nconds;
++static char *valor_busca;
++static bool vivo;
++static int ifd = -1;
++static char **vigias;		/* a pasta de cada vigia (wd) */
++static int nvigias;
++static void *achados;		/* os caminhos no resultado (tsearch) */
++static int nachados;
++
+ static int
+-procurar(int argc, char *argv[])
++cmp(const void *a, const void *b)
+ {
+-	char *pastas[2] = { NULL, NULL };
+-	struct cond *c;
+-	char *valor;
+-	FTS *fts;
+-	FTSENT *e;
+-	int ch, achados = 0;
++	return (strcmp(a, b));
++}
+ 
+-	optind = 1;
+-	while ((ch = getopt(argc, argv, "d:")) != -1) {
+-		switch (ch) {
+-		case 'd':
+-			pastas[0] = optarg;
+-			break;
+-		default:
+-			uso();
+-		}
++static void
++vigiar(const char *pasta)
++{
++	int wd;
++
++	wd = inotify_add_watch(ifd, pasta, IN_ATTRIB | IN_CREATE | IN_DELETE |
++	    IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE_SELF | IN_ONLYDIR |
++	    IN_DONT_FOLLOW);
++	if (wd < 0) {
++		warn("%s", pasta);
++		return;
+ 	}
+-	argc -= optind;
+-	argv += optind;
+-	if (argc == 0)
+-		uso();
+-	if (pastas[0] == NULL && (pastas[0] = getenv("HOME")) == NULL)
+-		pastas[0] = __DECONST(char *, ".");
+-	if ((c = calloc(argc, sizeof(*c))) == NULL ||
+-	    (valor = malloc(VALOR_MAX)) == NULL)
++	if (wd >= nvigias) {
++		int n = MAX(wd + 1, nvigias * 2);
++
++		if ((vigias = reallocarray(vigias, n, sizeof(*vigias))) == NULL)
++			err(1, NULL);
++		memset(vigias + nvigias, 0, (n - nvigias) * sizeof(*vigias));
++		nvigias = n;
++	}
++	free(vigias[wd]);
++	if ((vigias[wd] = strdup(pasta)) == NULL)
+ 		err(1, NULL);
+-	for (int i = 0; i < argc; i++)
+-		ler_cond(argv[i], &c[i]);
++}
++
++static void
++avisar(char sinal, const char *caminho)
++{
++	if (vivo) {
++		printf("%c %s\n", sinal, caminho);
++		fflush(stdout);
++	} else
++		puts(caminho);
++}
++
++/* O caminho cumpre as condições? Avisa se entrou, mudou ou saiu. */
++static void
++avaliar(const char *caminho, bool mudou)
++{
++	bool cumpriu = cumpre(caminho, conds, nconds, valor_busca);
++	char **k = tfind(caminho, &achados, cmp);
++
++	if (cumpriu && k == NULL) {
++		char *c = strdup(caminho);
++
++		if (c == NULL || tsearch(c, &achados, cmp) == NULL)
++			err(1, NULL);
++		nachados++;
++		avisar('+', caminho);
++	} else if (cumpriu && mudou)
++		avisar('~', caminho);
++	else if (!cumpriu && k != NULL) {
++		char *c = *k;
++
++		tdelete(caminho, &achados, cmp);
++		nachados--;
++		avisar('-', caminho);
++		free(c);
++	}
++}
++
++/* Percorre a pasta: avalia cada arquivo e, ao vivo, vigia cada pasta. */
++static void
++varrer(const char *raiz, bool eh_raiz)
++{
++	char *pastas[2] = { __DECONST(char *, raiz), NULL };
++	FTS *fts;
++	FTSENT *e;
+ 
+ 	fts = fts_open(pastas, FTS_PHYSICAL | FTS_NOCHDIR | FTS_XDEV, NULL);
+ 	if (fts == NULL)
+-		err(1, "%s", pastas[0]);
++		err(1, "%s", raiz);
+ 	while ((e = fts_read(fts)) != NULL) {
+ 		switch (e->fts_info) {
+ 		case FTS_D:
+ 			/* Pastas ocultas (.cache, .local, .zfs) ficam de fora. */
+-			if (e->fts_level > 0 && e->fts_name[0] == '.')
++			if (e->fts_level > 0 && e->fts_name[0] == '.') {
+ 				fts_set(fts, e, FTS_SKIP);
+-			else if (e->fts_level > 0 &&
+-			    cumpre(e->fts_accpath, c, argc, valor)) {
+-				puts(e->fts_path);
+-				achados++;
++				break;
+ 			}
++			if (vivo)
++				vigiar(e->fts_path);
++			if (e->fts_level > 0 || !eh_raiz)
++				avaliar(e->fts_path, false);
+ 			break;
+ 		case FTS_F:
+-			if (e->fts_name[0] != '.' &&
+-			    cumpre(e->fts_accpath, c, argc, valor)) {
+-				puts(e->fts_path);
+-				achados++;
+-			}
++			if (e->fts_name[0] != '.')
++				avaliar(e->fts_path, false);
+ 			break;
+ 		default:
+ 			break;
+ 		}
+ 	}
+ 	fts_close(fts);
+-	free(valor);
+-	free(c);
+-	return (achados > 0 ? 0 : 1);
++}
++
++/* Some o caminho e o que estiver dentro dele (apagado ou movido). */
++static const char *sumiu;
++static char **sumidos;
++static int nsumidos;
++
++static void
++juntar(const void *no, VISIT v, int nivel __unused)
++{
++	const char *c = *(char *const *)no;
++	size_t n = strlen(sumiu);
++
++	if ((v == postorder || v == leaf) && strncmp(c, sumiu, n) == 0 &&
++	    (c[n] == '\0' || c[n] == '/')) {
++		if ((sumidos = reallocarray(sumidos, nsumidos + 1,
++		    sizeof(*sumidos))) == NULL)
++			err(1, NULL);
++		sumidos[nsumidos++] = __DECONST(char *, c);
++	}
++}
++
++static void
++sumir(const char *caminho)
++{
++	size_t n = strlen(caminho);
++
++	sumiu = caminho;
++	nsumidos = 0;
++	twalk(achados, juntar);
++	for (int i = 0; i < nsumidos; i++) {
++		avisar('-', sumidos[i]);
++		tdelete(sumidos[i], &achados, cmp);
++		nachados--;
++		free(sumidos[i]);
++	}
++	/* As vigias das pastas de dentro (o kernel tira as de apagadas). */
++	for (int wd = 0; wd < nvigias; wd++) {
++		if (vigias[wd] != NULL && strncmp(vigias[wd], caminho, n) == 0 &&
++		    (vigias[wd][n] == '\0' || vigias[wd][n] == '/')) {
++			inotify_rm_watch(ifd, wd);
++			free(vigias[wd]);
++			vigias[wd] = NULL;
++		}
++	}
++}
++
++static void
++esquecer(const void *no, VISIT v, int nivel __unused)
++{
++	if (v == postorder || v == leaf) {
++		if ((sumidos = reallocarray(sumidos, nsumidos + 1,
++		    sizeof(*sumidos))) == NULL)
++			err(1, NULL);
++		sumidos[nsumidos++] = *(char *const *)no;
++	}
++}
++
++/* Recomeça do zero: o kernel avisou que perdeu eventos. */
++static void
++recomecar(const char *raiz)
++{
++	nsumidos = 0;
++	twalk(achados, esquecer);
++	for (int i = 0; i < nsumidos; i++) {
++		tdelete(sumidos[i], &achados, cmp);
++		free(sumidos[i]);
++	}
++	nachados = 0;
++	for (int wd = 0; wd < nvigias; wd++) {
++		free(vigias[wd]);
++		vigias[wd] = NULL;
++	}
++	close(ifd);
++	if ((ifd = inotify_init1(IN_CLOEXEC)) < 0)
++		err(1, "inotify");
++	avisar('*', "");
++	varrer(raiz, true);
++	printf(".\n");
++	fflush(stdout);
++}
++
++static void
++acompanhar(const char *raiz)
++{
++	/* Alinhado: os eventos começam em múltiplos do tamanho do int. */
++	char buf[64 * 1024] __aligned(_Alignof(struct inotify_event));
++	char caminho[PATH_MAX];
++	ssize_t n;
++
++	for (;;) {
++		n = read(ifd, buf, sizeof(buf));
++		if (n < 0) {
++			if (errno == EINTR)
++				continue;
++			err(1, "inotify");
++		}
++		for (char *p = buf; p < buf + n;) {
++			struct inotify_event *ev = (struct inotify_event *)(void *)p;
++			const char *pasta;
++			struct stat st;
++
++			p += sizeof(*ev) + ev->len;
++			if (ev->mask & IN_Q_OVERFLOW) {
++				recomecar(raiz);
++				break;
++			}
++			if (ev->wd < 0 || ev->wd >= nvigias ||
++			    (pasta = vigias[ev->wd]) == NULL)
++				continue;
++			if (ev->mask & IN_IGNORED) {
++				free(vigias[ev->wd]);
++				vigias[ev->wd] = NULL;
++				continue;
++			}
++			if (ev->len == 0 || ev->name[0] == '\0') {
++				/* A própria pasta: a de cima já avisou. */
++				if ((ev->mask & IN_DELETE_SELF) &&
++				    strcmp(pasta, raiz) == 0)
++					exit(0);
++				continue;
++			}
++			if (ev->name[0] == '.')
++				continue;
++			if (snprintf(caminho, sizeof(caminho), "%s/%s", pasta,
++			    ev->name) >= (int)sizeof(caminho))
++				continue;
++			if (ev->mask & (IN_DELETE | IN_MOVED_FROM)) {
++				sumir(caminho);
++				continue;
++			}
++			if (lstat(caminho, &st) < 0)
++				continue;
++			if (S_ISDIR(st.st_mode) &&
++			    (ev->mask & (IN_CREATE | IN_MOVED_TO)))
++				varrer(caminho, false);
++			else
++				avaliar(caminho, (ev->mask & IN_ATTRIB) != 0);
++		}
++	}
++}
++
++static int
++procurar(int argc, char *argv[])
++{
++	char raiz[PATH_MAX];
++	const char *pasta = NULL;
++	int ch;
++
++	optind = 1;
++	while ((ch = getopt(argc, argv, "d:v")) != -1) {
++		switch (ch) {
++		case 'd':
++			pasta = optarg;
++			break;
++		case 'v':
++			vivo = true;
++			break;
++		default:
++			uso();
++		}
++	}
++	argc -= optind;
++	argv += optind;
++	if (argc == 0)
++		uso();
++	if (pasta == NULL && (pasta = getenv("HOME")) == NULL)
++		pasta = ".";
++	/* Ao vivo, os caminhos completos (as vigias guardam a pasta). */
++	if (vivo && realpath(pasta, raiz) != NULL)
++		pasta = raiz;
++	nconds = argc;
++	if ((conds = calloc(argc, sizeof(*conds))) == NULL ||
++	    (valor_busca = malloc(VALOR_MAX)) == NULL)
++		err(1, NULL);
++	for (int i = 0; i < argc; i++)
++		ler_cond(argv[i], &conds[i]);
++
++	if (vivo && (ifd = inotify_init1(IN_CLOEXEC)) < 0)
++		err(1, "inotify");
++	varrer(pasta, true);
++	if (!vivo)
++		return (nachados > 0 ? 0 : 1);
++	printf(".\n");
++	fflush(stdout);
++	acompanhar(pasta);
++	return (0);
+ }
+ 
+ int
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 10b9fe042..1a2a58794 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -35,7 +35,7 @@
+ #include <unistd.h>
+ 
+ #define	LUME_NAME	"LumeBSD"
+-#define	LUME_VERSION	"2.0"
++#define	LUME_VERSION	"2.1"
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+diff --git a/usr.sbin/forja/forja.8 b/usr.sbin/forja/forja.8
+index 08c79376d..01f2c3ed8 100644
+--- a/usr.sbin/forja/forja.8
++++ b/usr.sbin/forja/forja.8
+@@ -80,7 +80,7 @@ segue com a que já existe.
+ A árvore de ports confere a versão do sistema; como o
+ .Xr uname 1
+ do LumeBSD diz
+-.Dq 2.0-FAROL ,
++.Dq 2.1-FAROL ,
+ a forja passa a ela a versão do FreeBSD por baixo
+ .Pq Va _OSRELEASE ,
+ tirada de
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index 47ba32d45..afa3c86d3 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -25,7 +25,7 @@ LOGS=/var/log/forja
+ PORTS=${PORTSDIR:-/usr/ports}
+ 
+ # Para a árvore de ports e os programas que ela compila, o sistema é o
+-# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 2.0-FAROL", que o
++# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 2.1-FAROL", que o
+ # configure dos programas não conhece. A versão vem do kern.osreldate
+ # (1501000 -> 15.1-RELEASE); o uname(1) respeita UNAME_s e UNAME_r, e os
+ # ports repassam essas variáveis para cada compilação.
+diff --git a/usr.sbin/lume-configurar/ajuda/tela.html b/usr.sbin/lume-configurar/ajuda/tela.html
+index 4189ba16b..3560364be 100644
+--- a/usr.sbin/lume-configurar/ajuda/tela.html
++++ b/usr.sbin/lume-configurar/ajuda/tela.html
+@@ -68,11 +68,11 @@
+ <h2>Atributos dos arquivos</h2>
+ <p>Como no BeOS, cada arquivo pode levar <b>etiquetas</b>, uma <b>nota</b> de 0 a 5 estrelas, um <b>comentário</b> e atributos seus (autor, cliente, projeto…), gravados no próprio arquivo. Eles vão junto quando o arquivo é copiado, movido ou guardado na máquina do tempo.</p>
+ <ul>
+-<li>No Dolphin, clique com o botão direito num arquivo (ou em vários) › <b>Atributos…</b> para ver e editar. O painel de informações do Dolphin (<kbd>F11</kbd>) mostra as mesmas etiquetas, nota e comentário.</li>
+-<li><b>Procurar por atributos</b> fica no menu, e no botão direito de uma pasta. Escreva as condições, por exemplo <code>etiquetas=trabalho nota&gt;=4 cliente~acme</code>: <code>=</code> é igual (nas etiquetas, ter a etiqueta), <code>~</code> é conter, <code>&gt;=</code> e <code>&lt;=</code> comparam números. Todas valem juntas.</li>
+-<li><b>Salvar consulta…</b> guarda a procura num arquivo <code>.consulta</code> (em <code>~/Consultas</code>). Dois cliques nele procuram de novo.</li>
++<li>No Dolphin, clique com o botão direito num arquivo (ou em vários) › <b>Atributos…</b> para ver e editar. O painel de informações do Dolphin (<kbd>F11</kbd>) mostra as mesmas etiquetas, nota e comentário, e na lista em <b>Detalhes</b> elas viram colunas: botão direito no cabeçalho da lista › <b>Etiquetas</b>, <b>Nota</b>, <b>Comentário</b>.</li>
++<li><b>Procurar por atributos</b> fica no menu, e no botão direito de uma pasta. Escreva as condições, por exemplo <code>etiquetas=trabalho nota&gt;=4 cliente~acme</code>: <code>=</code> é igual (nas etiquetas, ter a etiqueta), <code>~</code> é conter, <code>&gt;=</code> e <code>&lt;=</code> comparam números. Todas valem juntas. A lista fica <b>ao vivo</b>, como as consultas do BeOS: um arquivo que ganha a etiqueta aparece na hora, um que a perde (ou é apagado) some, sem procurar de novo.</li>
++<li><b>Salvar consulta…</b> guarda a procura num arquivo <code>.consulta</code> (em <code>~/Consultas</code>). Dois cliques nele abrem a procura, ao vivo, de novo.</li>
+ </ul>
+-<p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura. Mais em <code>man lume-atributo</code>.</p>
++<p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura (com <code>-v</code>, fica ao vivo, mostrando o que entra e o que sai). Mais em <code>man lume-atributo</code>.</p>
+ 
+ <h2>Animações das janelas</h2>
+ <p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index a811f9873..4777fde73 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -37,7 +37,7 @@ cabecalho()
+ {
+ 	echo
+ 	echo "  ============================================================"
+-	echo "     LumeBSD 2.0 \"Farol\"  -  assistente de configuração"
++	echo "     LumeBSD 2.1 \"Farol\"  -  assistente de configuração"
+ 	echo "  ============================================================"
+ 	echo
+ }
+diff --git a/usr.sbin/lume-configurar/lume-desktop.sh b/usr.sbin/lume-configurar/lume-desktop.sh
+index 098a31793..455d68105 100644
+--- a/usr.sbin/lume-configurar/lume-desktop.sh
++++ b/usr.sbin/lume-configurar/lume-desktop.sh
+@@ -84,11 +84,8 @@ for u in $(pw groupshow wheel | awk -F: '{print $4}' | tr ',' ' '); do
+ 	pw groupmod webcamd -m "$u" 2>/dev/null
+ done
+ 
+-# Indexador de arquivos do KDE (Baloo) desligado por padrão: no FreeBSD ele
+-# cai em loop no extrator e gasta disco e CPU. Quem quiser liga nas
+-# Configurações do Sistema > Pesquisa.
+-mkdir -p /usr/local/etc/xdg
+-printf '[Basic Settings]\nIndexing-Enabled=false\n' > /usr/local/etc/xdg/baloofilerc
++# O indexador de arquivos do KDE (Baloo) sem pasta nenhuma para indexar: o
++# lume tema (abaixo) grava o baloofilerc.
+ 
+ # Visual "Papel" (e-ink) como padrão; lume tema padrao volta ao do KDE.
+ /usr/sbin/lume-tema papel
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 37d91c496..3375cbf3c 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -63,7 +63,7 @@ roda()
+     morrer "lume instalar roda a partir do pendrive do LumeBSD"
+ : > "$LOG"
+ 
+-printf "\n  ${NEGRITO}LumeBSD 2.0 \"Farol\" - instalação${FIM}\n\n"
++printf "\n  ${NEGRITO}LumeBSD 2.1 \"Farol\" - instalação${FIM}\n\n"
+ 
+ # --- 1. escolher o disco ------------------------------------------------
+ 
+@@ -275,7 +275,7 @@ case "$(sysctl -n hw.model 2>/dev/null)" in
+ *)	ucode=intel-ucode.bin; sensor=coretemp ;;
+ esac
+ cat > "$ALVO/boot/loader.conf" <<EOF
+-# LumeBSD 2.0 - notebook
++# LumeBSD 2.1 - notebook
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+@@ -307,7 +307,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
+ cat >> "$ALVO/etc/make.conf" <<'EOF'
+ # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
+-# diz "LumeBSD 2.0-FAROL", que o configure dos programas não conhece; a
++# diz "LumeBSD 2.1-FAROL", que o configure dos programas não conhece; a
+ # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
+ .if !defined(_OSRELEASE)
+ _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 5816bba11..53ae1c31f 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -296,6 +296,7 @@ integrar()
+ 		    update-mime-database $P/share/mime >/dev/null 2>&1
+ 		padrao_mime "application/x-lume-consulta" lume-atributos.desktop
+ 	fi
++	baloo
+ 	# A Ajuda do LumeBSD, no menu.
+ 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
+ 	    $P/share/applications/lume-ajuda.desktop 0644
+@@ -322,6 +323,23 @@ integrar()
+ 	return 0
+ }
+ 
++# As colunas Etiquetas e Comentário do Dolphin (2.1): ele só lê os
++# atributos de cada arquivo (xdg.tags, xdg.comment) com a indexação do Baloo
++# "ligada". Fica ligada, mas sem pasta nenhuma para indexar (no FreeBSD o
++# indexador cai em loop no extrator e gasta disco e CPU): a lista lê os
++# atributos direto do arquivo. Quem quiser o índice inclui as pastas nas
++# Configurações do Sistema > Pesquisa. Só troca o arquivo que o LumeBSD
++# gravou antes (o da 2.0: Indexing-Enabled=false e mais nada).
++baloo()
++{
++	b=$XDG/baloofilerc
++	if [ -f $b ] && [ "$(cat $b)" != "$(printf '[Basic Settings]\nIndexing-Enabled=false')" ]; then
++		return 0
++	fi
++	mkdir -p $XDG
++	printf '[Basic Settings]\nIndexing-Enabled=true\n\n[General]\nfolders=\nonly basic indexing=true\n' > $b
++}
++
+ # Os atalhos de teclado do KDE (Alt+Tab, Alt+F4, Ctrl+Meta+T...). O KWin
+ # registra os dele assim que a sessão começa, antes de o kglobalacceld subir
+ # pelo autostart; sem o arquivo do D-Bus que o chama na hora (o pacote do
+diff --git a/usr.sbin/lume-configurar/tema/metadata-noite.json b/usr.sbin/lume-configurar/tema/metadata-noite.json
+index 3a8538c9b..ff5bf05db 100644
+--- a/usr.sbin/lume-configurar/tema/metadata-noite.json
++++ b/usr.sbin/lume-configurar/tema/metadata-noite.json
+@@ -5,7 +5,7 @@
+         "Id": "org.lumebsd.papel-noite",
+         "License": "BSD-2-Clause",
+         "Name": "Papel noite (LumeBSD)",
+-        "Version": "2.0"
++        "Version": "2.1"
+     },
+     "KPackageStructure": "Plasma/LookAndFeel",
+     "X-Plasma-APIVersion": "2"
+diff --git a/usr.sbin/lume-configurar/tema/metadata.json b/usr.sbin/lume-configurar/tema/metadata.json
+index bc97bffaa..15e36583d 100644
+--- a/usr.sbin/lume-configurar/tema/metadata.json
++++ b/usr.sbin/lume-configurar/tema/metadata.json
+@@ -5,7 +5,7 @@
+         "Id": "org.lumebsd.papel",
+         "License": "BSD-2-Clause",
+         "Name": "Papel (LumeBSD)",
+-        "Version": "2.0"
++        "Version": "2.1"
+     },
+     "KPackageStructure": "Plasma/LookAndFeel",
+     "X-Plasma-APIVersion": "2"
+-- 
+2.43.0
+

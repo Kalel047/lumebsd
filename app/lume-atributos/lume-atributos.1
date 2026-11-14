@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: BSD-2-Clause
 .\"
-.Dd November 11, 2026
+.Dd November 13, 2026
 .Dt LUME-ATRIBUTOS 1
 .Os
 .Sh NAME
@@ -29,14 +29,18 @@ Sem
 abre a janela de procura: a pasta, as condições (as mesmas de
 .Cm lume atributo procurar )
 e a lista do que achou, com as etiquetas, a nota e o comentário.
+A lista fica ao vivo
+.Pq Cm lume atributo procurar Fl v :
+um arquivo que ganha a etiqueta aparece, um que a perde ou é apagado
+some, e as colunas mudam junto com os atributos, sem procurar de novo.
 Dois cliques abrem o arquivo.
 .Dq Salvar consulta…
 grava a procura num arquivo
 .Pa .consulta
 (em
 .Pa ~/Consultas ,
-por padrão), como as consultas do BeOS: dois cliques nele procuram de
-novo.
+por padrão), como as consultas do BeOS: dois cliques nele abrem a
+procura, ao vivo, de novo.
 .Sh FILES
 .Bl -tag -width indent
 .It Pa ~/Consultas/*.consulta

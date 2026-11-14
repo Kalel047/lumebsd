@@ -68,11 +68,11 @@
 <h2>Atributos dos arquivos</h2>
 <p>Como no BeOS, cada arquivo pode levar <b>etiquetas</b>, uma <b>nota</b> de 0 a 5 estrelas, um <b>comentário</b> e atributos seus (autor, cliente, projeto…), gravados no próprio arquivo. Eles vão junto quando o arquivo é copiado, movido ou guardado na máquina do tempo.</p>
 <ul>
-<li>No Dolphin, clique com o botão direito num arquivo (ou em vários) › <b>Atributos…</b> para ver e editar. O painel de informações do Dolphin (<kbd>F11</kbd>) mostra as mesmas etiquetas, nota e comentário.</li>
-<li><b>Procurar por atributos</b> fica no menu, e no botão direito de uma pasta. Escreva as condições, por exemplo <code>etiquetas=trabalho nota&gt;=4 cliente~acme</code>: <code>=</code> é igual (nas etiquetas, ter a etiqueta), <code>~</code> é conter, <code>&gt;=</code> e <code>&lt;=</code> comparam números. Todas valem juntas.</li>
-<li><b>Salvar consulta…</b> guarda a procura num arquivo <code>.consulta</code> (em <code>~/Consultas</code>). Dois cliques nele procuram de novo.</li>
+<li>No Dolphin, clique com o botão direito num arquivo (ou em vários) › <b>Atributos…</b> para ver e editar. O painel de informações do Dolphin (<kbd>F11</kbd>) mostra as mesmas etiquetas, nota e comentário, e na lista em <b>Detalhes</b> elas viram colunas: botão direito no cabeçalho da lista › <b>Etiquetas</b>, <b>Nota</b>, <b>Comentário</b>.</li>
+<li><b>Procurar por atributos</b> fica no menu, e no botão direito de uma pasta. Escreva as condições, por exemplo <code>etiquetas=trabalho nota&gt;=4 cliente~acme</code>: <code>=</code> é igual (nas etiquetas, ter a etiqueta), <code>~</code> é conter, <code>&gt;=</code> e <code>&lt;=</code> comparam números. Todas valem juntas. A lista fica <b>ao vivo</b>, como as consultas do BeOS: um arquivo que ganha a etiqueta aparece na hora, um que a perde (ou é apagado) some, sem procurar de novo.</li>
+<li><b>Salvar consulta…</b> guarda a procura num arquivo <code>.consulta</code> (em <code>~/Consultas</code>). Dois cliques nele abrem a procura, ao vivo, de novo.</li>
 </ul>
-<p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura. Mais em <code>man lume-atributo</code>.</p>
+<p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura (com <code>-v</code>, fica ao vivo, mostrando o que entra e o que sai). Mais em <code>man lume-atributo</code>.</p>
 
 <h2>Animações das janelas</h2>
 <p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>

@@ -7,6 +7,9 @@ A fonte de verdade são os `patches/`; esta pasta é gerada por `ferramentas/mon
 
 Estes só aparecem nos patches (são mudanças pequenas em arquivos do FreeBSD):
 
+- `bin/cp/cp.1`
+- `bin/cp/utils.c`
+- `bin/mv/mv.c`
 - `libexec/rc/rc.d/Makefile`
 - `libexec/rc/rc.d/os-release`
 - `share/mk/src.sys.env.mk`
