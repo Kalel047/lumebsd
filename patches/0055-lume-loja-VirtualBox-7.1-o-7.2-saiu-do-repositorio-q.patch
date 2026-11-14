@@ -1,0 +1,28 @@
+From f70d074e8cd5ca093cda27b1db55ef4ac632c3f6 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 20:51:34 -0300
+Subject: [PATCH] lume loja: VirtualBox 7.1 (o 7.2 saiu do repositorio
+ quarterly)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
+---
+ usr.sbin/lume-configurar/loja/catalogo | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/usr.sbin/lume-configurar/loja/catalogo b/usr.sbin/lume-configurar/loja/catalogo
+index a542d2151..e64a16f57 100644
+--- a/usr.sbin/lume-configurar/loja/catalogo
++++ b/usr.sbin/lume-configurar/loja/catalogo
+@@ -160,7 +160,7 @@ gnucash|financas|GnuCash|gnucash||QuickBooks|Contabilidade de partidas dobradas,
+ # --- Sistema e compatibilidade -------------------------------------------
+ windows|sistema|Programas do Windows (Wine)|wine wine-mono wine-gecko winetricks||Windows|Roda muitos programas .exe de 64 bits do Windows. Depois de instalado, é só dar dois cliques no .exe.|wine|
+ linux|sistema|Programas do Linux|+linux linux_base-rl9||Linux|A camada que roda programas feitos para Linux (Rocky Linux 9), como o Chrome e o Discord.|tux|-
+-virtualbox|sistema|VirtualBox|virtualbox-ose-72||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
++virtualbox|sistema|VirtualBox|virtualbox-ose-71||VirtualBox, VMware|Máquinas virtuais: rode um Windows inteiro numa janela, para o que nada mais resolve.|virtualbox|
+ filelight|sistema|Filelight|filelight||WinDirStat, DaisyDisk|Mostra o que está ocupando o disco.|filelight|
+ keepassxc|sistema|KeePassXC|keepassxc||1Password, LastPass, Keychain, Chaves do Mac|Cofre de senhas.|keepassxc|
+ skanlite|sistema|Scanner|skanlite||Digitalizador do Windows|Digitalizar documentos e fotos.|skanlite|
+-- 
+2.43.0
+
