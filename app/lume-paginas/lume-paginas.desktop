@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Pages
+Name[pt_BR]=Páginas
+Name[pt]=Páginas
+GenericName=Word processor
+GenericName[pt_BR]=Editor de texto
+Comment=Write documents page by page: academic papers (ABNT), lesson plans, reports, letters and résumés; opens and saves .odt and .docx
+Comment[pt_BR]=Escreva documentos página por página: trabalhos acadêmicos (ABNT), planos de aula, relatórios, cartas e currículos; abre e salva .odt e .docx
+Exec=/usr/bin/lume-paginas %f
+Icon=/usr/share/lume/app/lume-paginas.svg
+Categories=Office;WordProcessor;Education;
+MimeType=application/vnd.oasis.opendocument.text;application/vnd.openxmlformats-officedocument.wordprocessingml.document;text/markdown;
+Keywords=texto;documento;editor;word;docx;odt;pages;abnt;trabalho;tcc;monografia;carta;currículo;curriculo;relatório;relatorio;plano de aula;pdf;
+StartupNotify=true

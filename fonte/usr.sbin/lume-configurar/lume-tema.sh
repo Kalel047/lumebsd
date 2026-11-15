@@ -303,6 +303,14 @@ integrar()
 		instalar $A/lume-financas.desktop \
 		    $P/share/applications/lume-financas.desktop 0644
 	fi
+	# O Páginas (o editor de texto, com os modelos da ABNT, de aula e de
+	# carta), no menu e como o programa dos .odt e .docx (se ninguém já é).
+	if [ -x /usr/bin/lume-paginas ]; then
+		instalar $A/lume-paginas.desktop \
+		    $P/share/applications/lume-paginas.desktop 0644
+		padrao_mime "application/vnd.oasis.opendocument.text application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
+		    lume-paginas.desktop
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644

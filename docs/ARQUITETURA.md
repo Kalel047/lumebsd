@@ -46,13 +46,14 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-rede/` | o ícone de rede (C++/Qt): cabo e Wi-Fi pelo socket de controle do wpa_supplicant |
 | `app/lume-janelas/` | as abas de janelas (o efeito `lume_abas`) e a decoração Papel (`org.lumebsd.papel`), para o KWin |
 | `app/lume-atributos/`, `usr.bin/lume-atributo/` | os atributos dos arquivos: a janela e a procura (Qt) e o `lume atributo` (C) |
+| `app/lume-paginas/` | o Páginas (C++/Qt): o editor de texto, com leitores e gravadores de `.odt` e `.docx` e o PDF; também na linha de comando |
 | `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
 | `usr.sbin/lume-configurar/marca/` | a identidade: o farol (ícones, logotipo, splash) |
 | `ferramentas/lume-montar/` | as ferramentas de construção, em Rust (`ferramentas/montar SUBCOMANDO`) |
 | `stand/lua/gfx-lume*.lua` | marca e emblema do menu do loader |
 | `sys/amd64/conf/LUME` | configuração do kernel |
-| `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=2.0`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
+| `sys/conf/newvers.sh` | identidade: `TYPE=LumeBSD`, `REVISION=2.2`, `BRANCH=FAROL`, e `FREEBSD_REVISION=15.1` |
 
 Os arquivos do FreeBSD que os patches *alteram* (Makefiles, `newvers.sh`,
 `os-release`, `motd.template`, `drawer.lua`, `pkg/Makefile`...) estão
@@ -598,6 +599,42 @@ pastas nas Configurações do Sistema › Pesquisa.
   procurar -v` e atualiza a lista a cada linha. Uma consulta salva é um arquivo
   `.consulta` (tipo `application/x-lume-consulta`, com `pasta=` e
   `condicoes=`), que abre o `lume-atributos` com dois cliques.
+
+## O Páginas (editor de texto)
+
+`app/lume-paginas/main.cpp`, um arquivo só, Qt 6 sem moc, como os outros
+apps. As peças:
+
+- **A folha.** O documento é um `QTextDocument` com o tamanho da página em
+  pixels de 96 por polegada e as margens na moldura raiz: com a altura da
+  página, o próprio Qt pagina (as margens valem em cada página, e
+  `PageBreak_AlwaysBefore` é a quebra de página). Na tela, um `QTextEdit`
+  com a largura da folha e a altura de todas as páginas, sem rolagem
+  própria (quem rola é a mesa em volta); por baixo do texto ele desenha as
+  folhas, uma faixa da mesa no meio das margens entre uma e outra, e os
+  números. O QTextEdit põe a altura da página em -1 quando a largura muda:
+  o `resizeEvent` devolve. O PDF desenha cada página com o mesmo
+  documento (`QPdfWriter` a 96 ppp), então sai igual à tela.
+- **Os estilos.** O nome do estilo fica numa propriedade do bloco
+  (`UserProperty + 1`); os tamanhos são proporção da fonte do corpo. O
+  esquema "abnt" muda os estilos para a NBR 14724. No `.odt` e no `.docx`
+  os estilos vão com os nomes de lá (Heading 1, Title, Quote...), e na
+  leitura voltam pelo nome (do LibreOffice, do Word, ou em português).
+- **Os formatos.** `.odt` e `.docx` são zips: o `ZipLeitor` e o
+  `ZipEscritor` usam o zlib da base. O XML é lido numa árvore pequena
+  (`No`) com os prefixos de costume, qualquer que seja o do arquivo. Os
+  gravadores escrevem o XML à mão; o ODF com as listas aninhadas como o
+  padrão pede, o OOXML com a numeração (`numbering.xml`), o rodapé com o
+  campo PAGE e as imagens em `word/media`. Na leitura do Word: as fontes
+  do tema, o espaçamento contextual, a numeração "sem número" dos títulos
+  do LibreOffice e as imagens ligadas fora do pacote.
+- **Os testes.** `lume-paginas --resumo` imprime a estrutura;
+  `tests/paginas.sh` grava cada modelo em `.odt` e `.docx`, converte de um
+  para o outro e compara, e roda o `--autoteste`, que digita com eventos
+  de teclado de verdade (estilos, listas com Tab, quebra de página, Tab
+  na tabela). No CI ele compila para o Linux e roda os testes; a
+  interoperabilidade com o LibreOffice foi conferida à mão (o LibreOffice
+  abre o `.docx` e devolve o `.odt` com a mesma estrutura, e o contrário).
 
 ## Ícone de rede
 
