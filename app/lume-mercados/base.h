@@ -79,6 +79,10 @@ static const double NAO = std::numeric_limits<double>::quiet_NaN();
 #include <QXmlStreamReader>
 #include <QStringConverter>
 #include <QTextBrowser>
+#include <QSslSocket>
+#include <QSystemTrayIcon>
+#include <QRandomGenerator>
+#include <QSpinBox>
 
 // --- Números em português ---------------------------------------------------
 
@@ -731,6 +735,8 @@ tabela(const QStringList &cabecalho, int altura = 300)
 
 // --- A rede ------------------------------------------------------------------
 
+static QString config(const char *chave, const QString &padrao = {});
+
 // Tudo o que vem da internet passa por aqui: guarda o que veio em
 // ~/.cache/lume-mercados (o nome é o MD5 do endereço) e, sem rede, entrega
 // o guardado com um aviso de quando é. LUME_MERCADOS_DADOS=PASTA lê dali em
@@ -785,7 +791,12 @@ buscar(const QString &url, int validadeSeg, QObject *dono, const Resposta &f, bo
 		}
 	}
 	QNetworkRequest req{QUrl(url)};
-	req.setHeader(QNetworkRequest::UserAgentHeader, "lume-mercados/1.0 (LumeBSD; github.com/Kalel047/lumebsd)");
+	// A SEC pede que quem consulta diga quem é: o contato que a pessoa pôs
+	// na tela CONFIG vai junto, e só para a SEC.
+	const bool sec = QUrl(url).host().endsWith("sec.gov");
+	req.setHeader(QNetworkRequest::UserAgentHeader, sec
+	    ? QStringLiteral("LumeBSD lume-mercados %1").arg(config("contato"))
+	    : QStringLiteral("lume-mercados/1.0 (LumeBSD; github.com/Kalel047/lumebsd)"));
 	req.setRawHeader("Digitraffic-User", "LumeBSD/lume-mercados");
 	req.setTransferTimeout(45000);
 	QNetworkReply *r = rede()->get(req);
@@ -798,6 +809,21 @@ buscar(const QString &url, int validadeSeg, QObject *dono, const Resposta &f, bo
 			if (a.open(QIODevice::WriteOnly | QIODevice::Truncate))
 				a.write(d);
 			f(d, QString());
+			return;
+		}
+		// A fonte das cotações tem dois endereços: se um pede para esperar
+		// (muitas consultas), o outro costuma responder.
+		if (http == 429 && !segundaVez && url.contains("query1.finance.yahoo.com")) {
+			QString outro = url;
+			outro.replace("query1.finance.yahoo.com", "query2.finance.yahoo.com");
+			buscar(outro, 0, dono, [=](const QByteArray &d, const QString &av) {
+				if (!d.isEmpty()) {
+					QFile a(arq);
+					if (a.open(QIODevice::WriteOnly | QIODevice::Truncate))
+						a.write(d);
+				}
+				f(d, av);
+			}, true);
 			return;
 		}
 		// Um tropeço do servidor (502, 503): mais uma tentativa.
@@ -871,6 +897,109 @@ variacao(double fracao, int casas = 2)
 	if (!std::isfinite(fracao))
 		return QStringLiteral("—");
 	return (fracao > 0 ? QStringLiteral("▲ ") : fracao < 0 ? QStringLiteral("▼ ") : QString()) + pct(std::fabs(fracao), casas);
+}
+
+// Um CSV inteiro, com ; e aspas (um campo entre aspas pode ter quebras de
+// linha, como os textos do Formulário de Referência).
+static QVector<QStringList>
+lerCsv(const QString &t, QChar sep = QLatin1Char(';'))
+{
+	QVector<QStringList> linhas;
+	QStringList l;
+	QString c;
+	bool aspas = false;
+	for (int i = 0; i < t.size(); i++) {
+		const QChar ch = t[i];
+		if (ch == QLatin1Char('"')) {
+			if (aspas && i + 1 < t.size() && t[i + 1] == QLatin1Char('"')) {
+				c += ch;
+				i++;
+			} else
+				aspas = !aspas;
+		} else if (ch == sep && !aspas) {
+			l << c;
+			c.clear();
+		} else if (ch == QLatin1Char('\n') && !aspas) {
+			l << c.trimmed();
+			c.clear();
+			if (l.size() > 1 || !l.first().isEmpty())
+				linhas << l;
+			l.clear();
+		} else if (ch != QLatin1Char('\r'))
+			c += ch;
+	}
+	if (!c.isEmpty() || !l.isEmpty()) {
+		l << c.trimmed();
+		linhas << l;
+	}
+	return linhas;
+}
+
+// Uma casa de tabela que se ordena pelo número, não pelo texto.
+class CasaNumero : public QTableWidgetItem {
+public:
+	CasaNumero(const QString &texto, double valor) : QTableWidgetItem(texto), v_(valor)
+	{
+		setTextAlignment(Qt::AlignRight | Qt::AlignVCenter);
+		setFlags(flags() & ~Qt::ItemIsEditable);
+	}
+	bool operator<(const QTableWidgetItem &o) const override
+	{
+		const auto *n = dynamic_cast<const CasaNumero *>(&o);
+		if (!n)
+			return QTableWidgetItem::operator<(o);
+		// Os sem valor ficam sempre no fim.
+		if (std::isnan(v_) || std::isnan(n->v_))
+			return !std::isnan(v_) && std::isnan(n->v_) ? tableWidget()->horizontalHeader()->sortIndicatorOrder() == Qt::AscendingOrder
+								     : std::isnan(v_) && !std::isnan(n->v_) ? tableWidget()->horizontalHeader()->sortIndicatorOrder() != Qt::AscendingOrder : false;
+		return v_ < n->v_;
+	}
+
+private:
+	double v_;
+};
+
+// --- O que a pessoa configura --------------------------------------------------
+
+// As chaves e os contatos que só a pessoa pode dar (a tela CONFIG):
+// ~/.config/lume-mercados/config.json.
+static QString
+arquivoConfig()
+{
+	return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/config.json";
+}
+
+static QJsonObject
+lerConfig()
+{
+	QFile f(arquivoConfig());
+	return f.open(QIODevice::ReadOnly) ? QJsonDocument::fromJson(f.readAll()).object() : QJsonObject();
+}
+
+static QString
+config(const char *chave, const QString &padrao)
+{
+	const QString v = lerConfig().value(QLatin1String(chave)).toString().trimmed();
+	return v.isEmpty() ? padrao : v;
+}
+
+static void
+gravarConfig(const QJsonObject &o)
+{
+	QDir().mkpath(QFileInfo(arquivoConfig()).path());
+	QFile f(arquivoConfig());
+	if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+		f.setPermissions(QFile::ReadOwner | QFile::WriteOwner);	// tem chaves
+		f.write(QJsonDocument(o).toJson());
+	}
+}
+
+static QString
+pastaDados()
+{
+	const QString p = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+	QDir().mkpath(p);
+	return p;
 }
 
 // Uma tela: a página de uma função. `comando` leva a outra ("PETR4 G").

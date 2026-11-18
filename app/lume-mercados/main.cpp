@@ -38,7 +38,7 @@
 // Sem moc: só sinais do próprio Qt ligados a lambdas. Os arquivos .h ao
 // lado são partes deste programa, não uma biblioteca.
 
-#include "telas4.h"
+#include "telas6.h"
 
 struct Funcao {
 	const char *codigo, *outros, *nome, *exemplo;
@@ -64,6 +64,13 @@ funcoes()
 		{"CART", "PORT LISTA CARTEIRA", "Carteira", "CART · WEGE3 CART", [] { return new TelaCarteira; }},
 		{"TESOURO", "TD JUROS", "Tesouro Direto", "TESOURO", [] { return new TelaTesouro; }},
 		{"TIT", "YAS TITULO", "Calculadora de títulos", "TIT", [] { return new TelaTitulo; }},
+		{"TRI", "EQS TRIAGEM FILTRO", "Triagem de ações", "TRI", [] { return new TelaTriagem; }},
+		{"OPC", "OMON OPCOES", "Opções", "PETR4 OPC · AAPL OPC", [] { return new TelaOpcoes; }},
+		{"ALERTA", "ALRT ALERTAS", "Alertas de preço", "VALE3 ALERTA", [] { return new TelaAlertas; }},
+		{"ORDEM", "EMSX ORDENS SIMULADOR", "Ordens", "PETR4 ORDEM", [] { return new TelaOrdens; }},
+		{"VIVO", "TEMPO AOVIVO REALTIME", "Ao vivo (tempo real)", "BTC ETH AAPL VIVO", [] { return new TelaAoVivo; }},
+		{"CHAT", "IB CONVERSA", "Conversa", "CHAT", [] { return new TelaChat; }},
+		{"CONFIG", "CONFIGURACAO CHAVES", "Configuração", "CONFIG", [] { return new TelaConfig; }},
 	};
 	return f;
 }
@@ -94,6 +101,12 @@ uso()
 	      "     lume-mercados --cotacao ATIVO...\n"
 	      "     lume-mercados --correlacao A B [6mo|1y|2y|5y]\n"
 	      "     lume-mercados --relacoes ATIVO\n"
+	      "     lume-mercados --relacoes-cvm ATIVO\n"
+	      "     lume-mercados --triagem [NOME-OU-CODIGO]\n"
+	      "     lume-mercados --opcao compra|venda ATIVO EXERCICIO DIAS VOL% JUROS%\n"
+	      "     lume-mercados --alertas\n"
+	      "     lume-mercados --balanco ATIVO-DOS-EUA\n"
+	      "     lume-mercados --clientes ATIVO-DOS-EUA\n"
 	      "     lume-mercados --titulo FACE CUPOM% PAGAMENTOS-POR-ANO ANOS TAXA%\n"
 	      "     lume-mercados --chave URL\n", stderr);
 	return 2;
@@ -134,6 +147,166 @@ linhaDeComando(QCoreApplication &app, const QStringList &a)
 			dizer(QStringLiteral("  %1 %2 %3  %4").arg(x.grupo.leftJustified(13), curto(x.simbolo).leftJustified(10),
 			    r.nome(x.simbolo).leftJustified(28), x.nota));
 		return 0;
+	}
+	if (cmd == "--fio" && a.size() == 4) {	// diagnóstico: abre um WebSocket, manda uma mensagem, imprime 3 respostas
+		auto *w = new FioWs(&app);
+		auto *n = new int(0);
+		const QString msg = a[3];
+		w->abriu = [w, msg] { w->enviar(msg); };
+		w->mensagem = [&app, n](const QByteArray &m) {
+			dizer(QString::fromUtf8(m.left(300)));
+			if (++*n == 3)
+				app.exit(0);
+		};
+		w->fechou = [&app](const QString &m) {
+			fprintf(stderr, "fechou: %s\n", m.toUtf8().constData());
+			app.exit(1);
+		};
+		w->abrir(QUrl(a[2]));
+		QTimer::singleShot(20000, &app, [&app] { fprintf(stderr, "sem resposta\n"); app.exit(1); });
+		return app.exec();
+	}
+	if (cmd == "--clientes" && a.size() == 3) {
+		buscarCik(curto(simboloDe(a[2])), &app, [&app](qint64 cik, const QString &nome, const QString &aviso) {
+			if (!cik) {
+				fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+				app.exit(1);
+				return;
+			}
+			buscarClientesSec(cik, &app, [&app, nome](const RelatorioAnual &r, const QString &aviso) {
+				if (r.url.isEmpty()) {
+					fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+					app.exit(1);
+					return;
+				}
+				dizer(QStringLiteral("%1: %2 de %3, %4 trechos sobre clientes").arg(nome, r.form, r.data).arg(r.clientes.size()));
+				for (const TrechoCliente &t : r.clientes) {
+					QStringList p;
+					for (double x : t.percentuais)
+						p << num(x, x == std::floor(x) ? 0 : 1) + "%";
+					dizer(QStringLiteral("  [%1] %2").arg(p.join(" "), t.texto));
+				}
+				app.exit(0);
+			});
+		});
+		return app.exec();
+	}
+	if (cmd == "--balanco" && a.size() == 3 && !simboloDe(a[2]).endsWith(".SA")) {
+		buscarCik(curto(simboloDe(a[2])), &app, [&app](qint64 cik, const QString &nome, const QString &aviso) {
+			if (!cik) {
+				fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+				app.exit(1);
+				return;
+			}
+			buscarBalancoSec(cik, &app, [&app, nome](const QMap<int, Balanco> &anos, const QString &moeda, const QString &aviso) {
+				if (anos.isEmpty()) {
+					fprintf(stderr, "%s\n", aviso.isEmpty() ? "lume-mercados: sem balanços" : aviso.toUtf8().constData());
+					app.exit(1);
+					return;
+				}
+				dizer(QStringLiteral("%1 (%2, milhões)").arg(nome, moeda));
+				dizer("ano      receita       lucro       ativo  patrimônio");
+				for (auto it = anos.begin(); it != anos.end(); ++it)
+					dizer(QStringLiteral("%1 %2 %3 %4 %5").arg(it.key()).arg(num(it->receita / 1e6, 0).rightJustified(12),
+					    num(it->lucro / 1e6, 0).rightJustified(11), num(it->ativo / 1e6, 0).rightJustified(11), num(it->pl / 1e6, 0).rightJustified(11)));
+				app.exit(0);
+			});
+		});
+		return app.exec();
+	}
+	if (cmd == "--alertas" && a.size() == 2) {
+		conferirAlertas(&app, [&app](const QStringList &avisos, const QMap<QString, Cotacao> &) {
+			for (const QString &x : avisos)
+				dizer(x);
+			app.exit(0);
+		});
+		return app.exec();
+	}
+	if (cmd == "--opcao" && a.size() == 8) {
+		bool ok[6];
+		const double S = lerNumero(a[3], &ok[0]), K = lerNumero(a[4], &ok[1]), dias = lerNumero(a[5], &ok[2]),
+			     vol = lerNumero(a[6], &ok[3]) / 100, juros = lerNumero(a[7], &ok[4]) / 100;
+		const bool compra = a[2] == "compra";
+		if (!ok[0] || !ok[1] || !ok[2] || !ok[3] || !ok[4] || (!compra && a[2] != "venda"))
+			return uso();
+		const double r = std::log(1 + juros);
+		const contas::Opcao o = contas::blackScholes(S, K, dias / 365, r, vol, compra);
+		dizer(QStringLiteral("preço  %1").arg(num(o.preco, 4)));
+		dizer(QStringLiteral("delta  %1").arg(num(o.delta, 4)));
+		dizer(QStringLiteral("gama   %1").arg(num(o.gama, 4)));
+		dizer(QStringLiteral("vega   %1").arg(num(o.vega, 4)));
+		dizer(QStringLiteral("teta   %1").arg(num(o.teta, 4)));
+		dizer(QStringLiteral("volatilidade implícita de volta  %1").arg(pct(contas::volImplicita(o.preco, S, K, dias / 365, r, compra), 2)));
+		return 0;
+	}
+	if (cmd == "--triagem" && a.size() <= 3) {
+		const QString filtro = a.value(2);
+		buscarCodigos(&app, [&app, filtro](const Codigos &c, const QString &aviso) {
+			if (c.porCnpj.isEmpty()) {
+				fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+				app.exit(1);
+				return;
+			}
+			const int ano = QDate::currentDate().year() - 1;
+			buscar(urlDfp(ano), 7 * 86400, &app, [&app, filtro, c, ano](const QByteArray &d, const QString &aviso) {
+				if (d.isEmpty()) {
+					fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+					app.exit(1);
+					return;
+				}
+				QStringList m;
+				for (const char *x : {"BPA_con", "BPP_con", "DRE_con", "BPA_ind", "BPP_ind", "DRE_ind", "composicao_capital"})
+					m << QStringLiteral("dfp_cia_aberta_%1_%2.csv").arg(QLatin1String(x)).arg(ano);
+				extrairZip(arquivoDe(urlDfp(ano)), m, &app, [&app, filtro, c](const QByteArray &csv) {
+					buscarPregao(&app, [&app, filtro, c, csv](const PregaoB3 &p, const QString &aviso) {
+						if (p.papeis.isEmpty()) {
+							fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+							app.exit(1);
+							return;
+						}
+						TelaTriagem::capitalFre(&app, [&app, filtro, c, csv, p](const QMap<QString, QPair<double, double>> &fre) {
+						QVector<LinhaTriagem> ls = TelaTriagem::montar(c, csv, p, fre);
+						std::sort(ls.begin(), ls.end(), [](const LinhaTriagem &x, const LinhaTriagem &y) {
+							return (std::isfinite(x.valor) ? x.valor : -1) > (std::isfinite(y.valor) ? y.valor : -1);
+						});
+						dizer(QStringLiteral("%1 companhias; pregão de %2").arg(ls.size()).arg(p.data.toString("dd/MM/yyyy")));
+						dizer("código  preço       valor de mercado      P/L    P/VP   ROE      margem   companhia");
+						for (const LinhaTriagem &l : ls)
+							if (filtro.isEmpty() || l.codigo == filtro.toUpper() || l.nome.contains(filtro, Qt::CaseInsensitive))
+								dizer(QStringLiteral("%1 %2 %3 %4 %5 %6 %7  %8").arg(l.codigo.leftJustified(7), num(l.preco).rightJustified(8),
+								    dinheiroGrande(l.valor).rightJustified(18), num(l.pl, 1).rightJustified(8), num(l.pvp, 2).rightJustified(6),
+								    pct(l.roe, 1).rightJustified(8), pct(l.margem, 1).rightJustified(8), l.nome.left(40)));
+						app.exit(0);
+						});
+					});
+				});
+			});
+		});
+		return app.exec();
+	}
+	if (cmd == "--relacoes-cvm" && a.size() == 3) {
+		buscarRelacoesCvm(curto(simboloDe(a[2])), &app, [&app](const RelacoesCvm &r, const QString &aviso) {
+			if (!aviso.isEmpty())
+				fprintf(stderr, "%s\n", aviso.toUtf8().constData());
+			if (r.cnpj.isEmpty()) {
+				app.exit(1);
+				return;
+			}
+			dizer(QStringLiteral("%1 (formulário de %2)").arg(r.nome, r.data.left(4)));
+			dizer("Contratos com partes relacionadas:");
+			for (const LigacaoCvm &l : r.partes)
+				dizer(QStringLiteral("  %1 %2 %3 contratos  %4  saldo %5").arg(l.nome.left(44).leftJustified(44), l.codigo.leftJustified(7))
+				    .arg(l.contratos, 3).arg(dinheiroGrande(l.montante).rightJustified(14), dinheiroGrande(l.saldo)));
+			dizer("Acionistas:");
+			for (const LigacaoCvm &l : r.acionistas)
+				dizer(QStringLiteral("  %1 %2 %3%%4").arg(l.nome.left(44).leftJustified(44), l.codigo.leftJustified(7), num(l.pct, 2).rightJustified(7),
+				    l.controlador ? QStringLiteral("  controlador") : QString()));
+			dizer("Sociedades em que participa:");
+			for (const LigacaoCvm &l : r.sociedades)
+				dizer(QStringLiteral("  %1 %2 %3%").arg(l.nome.left(44).leftJustified(44), l.codigo.leftJustified(7), num(l.pct, 2).rightJustified(7)));
+			app.exit(0);
+		});
+		return app.exec();
 	}
 	if (cmd == "--cotacao" && a.size() >= 3) {
 		QStringList s;
@@ -259,6 +432,31 @@ public:
 			comando_->selectAll();
 		});
 		connect(nova, &QPushButton::clicked, this, [] { (new Janela)->show(); });
+		// Os alertas: a cada minuto, enquanto o programa está aberto, com o
+		// aviso na área de notificação (só a primeira janela confere).
+		static bool conferindo = false;
+		if (!conferindo) {
+			conferindo = true;
+			auto *bandeja = new QSystemTrayIcon(windowIcon(), qApp);
+			bandeja->setToolTip("Mercados do LumeBSD");
+			if (QSystemTrayIcon::isSystemTrayAvailable())
+				bandeja->show();
+			auto *relogio = new QTimer(qApp);
+			QObject::connect(relogio, &QTimer::timeout, qApp, [bandeja] {
+				conferirAlertas(qApp, [bandeja](const QStringList &avisos, const QMap<QString, Cotacao> &q) {
+					for (QWidget *w : QApplication::topLevelWidgets())
+						if (auto *j = dynamic_cast<Janela *>(w))
+							j->alertas(q);
+					if (avisos.isEmpty())
+						return;
+					if (bandeja->isVisible())
+						bandeja->showMessage("Alerta de preço", avisos.join("\n"), QSystemTrayIcon::Information, 30000);
+					else
+						QApplication::alert(QApplication::activeWindow() ? QApplication::activeWindow() : QApplication::topLevelWidgets().value(0));
+				});
+			});
+			relogio->start(60000);
+		}
 		comando_->setFocus();
 	}
 
@@ -290,6 +488,13 @@ public:
 		mudo_ = false;
 		telas_[f]->abrir(ativos);
 		comando_->setText(texto.toUpper());
+	}
+
+	void alertas(const QMap<QString, Cotacao> &q)
+	{
+		for (Tela *t : telas_)
+			if (auto *a = dynamic_cast<TelaAlertas *>(t))
+				a->mostrar(q);
 	}
 
 private:

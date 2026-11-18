@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "telas1.h"
+#include "relcvm.h"
 
 // --- ECO: os indicadores da economia ----------------------------------------
 
@@ -859,10 +859,47 @@ public:
 		t_->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
 		t_->setSelectionBehavior(QAbstractItemView::SelectRows);
 		v->addWidget(t_);
-		v->addWidget(rotulo("As relações são públicas e conhecidas (relatórios das empresas e a imprensa), sem os valores de cada "
-		    "contrato, que são dados pagos. O impacto é estatístico: o beta de cada empresa contra esta, em um ano de retornos "
-		    "diários, vezes o movimento. Diz como andaram juntas, não por quê. Em “Minhas relações” você acrescenta as suas.",
-		    "detalhe"));
+		v->addWidget(rotulo("Estas relações vêm de um arquivo (públicas e conhecidas, sem valores; em “Minhas relações” você "
+		    "acrescenta as suas). O impacto é estatístico: o beta de cada empresa contra esta, em um ano de retornos diários, "
+		    "vezes o movimento. Diz como andaram juntas, não por quê.", "detalhe"));
+
+		parte("Dos documentos oficiais", "O que a própria companhia declara à CVM no Formulário de Referência: o programa baixa, lê e soma.");
+		cvmAviso_ = rotulo(QString(), "aviso");
+		v->addWidget(cvmAviso_);
+		v->addWidget(rotulo("CONTRATOS COM PARTES RELACIONADAS (CONTROLADOR, CONTROLADAS, COLIGADAS E QUEM TEM LIGAÇÃO COM ELAS)"));
+		partes_ = tabela({"com quem", "código", "contratos", "valor dos contratos", "saldo em aberto", "a companhia é", "ligação"}, 260);
+		v->addWidget(partes_);
+		v->addWidget(rotulo("QUEM É DONO (ACIONISTAS COM PARTICIPAÇÃO RELEVANTE)"));
+		donos_ = tabela({"acionista", "código", "do capital", "controlador"}, 170);
+		v->addWidget(donos_);
+		v->addWidget(rotulo("DO QUE ELA É DONA (SOCIEDADES EM QUE PARTICIPA)"));
+		filhas_ = tabela({"sociedade", "código", "participação", "o que faz"}, 220);
+		v->addWidget(filhas_);
+		for (QTableWidget *t : {partes_, donos_, filhas_}) {
+			t->verticalHeader()->setVisible(false);
+			t->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+			t->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+			t->setSelectionBehavior(QAbstractItemView::SelectRows);
+			connect(t, &QTableWidget::cellDoubleClicked, this, [this, t](int l, int) {
+				if (!t->item(l, 1)->text().isEmpty()) {
+					ativo_->setText(t->item(l, 1)->text());
+					mostrar();
+				}
+			});
+		}
+		clientesTitulo_ = rotulo("CLIENTES E PARCELAS DA RECEITA, NO RELATÓRIO ANUAL (COMPANHIAS DOS EUA, PELA SEC)");
+		v->addWidget(clientesTitulo_);
+		clientes_ = tabela({"%", "o que o relatório diz"}, 240);
+		clientes_->verticalHeader()->setVisible(false);
+		clientes_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+		clientes_->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+		clientes_->setWordWrap(true);
+		v->addWidget(clientes_);
+		clientesAviso_ = rotulo(QString(), "detalhe");
+		v->addWidget(clientesAviso_);
+		v->addWidget(rotulo("Fonte: CVM, Formulário de Referência (dados abertos). São os contratos que a lei manda declarar, com partes "
+		    "relacionadas; a lista completa de clientes e fornecedores com valores não é pública no Brasil. Dois cliques numa linha "
+		    "com código seguem para essa empresa.", "detalhe"));
 		v->addStretch(1);
 		connect(ir, &QPushButton::clicked, this, [this] { mostrar(); });
 		connect(ativo_, &QLineEdit::returnPressed, this, [this] { mostrar(); });
@@ -907,6 +944,7 @@ private:
 		q_.clear();
 		d_->definir(alvo_, viz_, r_);
 		encher();
+		documentos();
 		if (viz_.isEmpty()) {
 			aviso_->setText(QStringLiteral("Ainda não há relações de %1 no arquivo. Há %2 empresas com relações; "
 			    "experimente PETR4, VALE3, AAPL, NVDA, EMBJ3, BA ou TSLA, ou acrescente em “Minhas relações”.")
@@ -926,6 +964,109 @@ private:
 			aviso_->setText(QStringLiteral("%1: %2 relações. Clique numa empresa para seguir a cadeia. %3")
 			    .arg(r_.nome(alvo_)).arg(viz_.size()).arg(aviso));
 			encher();
+		});
+	}
+
+	void clientesSec()
+	{
+		clientes_->setRowCount(0);
+		const bool eua = !(alvo_.endsWith(".SA") || alvo_.contains('=') || alvo_.startsWith('^'));
+		clientes_->setVisible(eua);
+		clientesTitulo_->setVisible(eua);
+		if (!eua) {
+			clientesAviso_->setText("No Brasil a lei não obriga a dar a lista de clientes em dados abertos: para as companhias da B3, "
+			    "os valores são os dos contratos com partes relacionadas, acima.");
+			return;
+		}
+		clientesAviso_->setText("Buscando o relatório anual na SEC…");
+		const QString alvo = alvo_;
+		buscarCik(curto(alvo_), this, [this, alvo](qint64 cik, const QString &, const QString &av) {
+			if (alvo != alvo_)
+				return;
+			if (!cik) {
+				clientesAviso_->setText(av);
+				return;
+			}
+			buscarClientesSec(cik, this, [this, alvo](const RelatorioAnual &r, const QString &av) {
+				if (alvo != alvo_)
+					return;
+				for (const TrechoCliente &t : r.clientes) {
+					const int n = clientes_->rowCount();
+					clientes_->insertRow(n);
+					QStringList p;
+					for (double x : t.percentuais)
+						p << num(x, x == std::floor(x) ? 0 : 1) + "%";
+					clientes_->setItem(n, 0, celula(p.join(" · ")));
+					auto *i = celula(t.texto);
+					i->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+					i->setToolTip(t.texto);
+					clientes_->setItem(n, 1, i);
+				}
+				clientes_->resizeRowsToContents();
+				clientesAviso_->setText(r.url.isEmpty() ? av
+				    : QStringLiteral("%1 trechos do %2 entregue em %3 (%4). O programa lê o texto e separa as frases sobre clientes e "
+					"parcelas da receita; a companhia às vezes chama o cliente de “Cliente A”. %5")
+					.arg(r.clientes.size()).arg(r.form, r.data, r.url, av));
+			});
+		});
+	}
+
+	void documentos()
+	{
+		for (QTableWidget *t : {partes_, donos_, filhas_})
+			t->setRowCount(0);
+		clientesSec();
+		if (!alvo_.endsWith(".SA")) {
+			cvmAviso_->setText("Os documentos da CVM cobrem as companhias da B3.");
+			return;
+		}
+		cvmAviso_->setText("Buscando o Formulário de Referência na CVM (8 MB na primeira vez)…");
+		const QString alvo = alvo_;
+		buscarRelacoesCvm(curto(alvo_), this, [this, alvo](const RelacoesCvm &r, const QString &aviso) {
+			if (alvo != alvo_)
+				return;
+			if (r.cnpj.isEmpty() || (r.partes.isEmpty() && r.acionistas.isEmpty() && r.sociedades.isEmpty())) {
+				cvmAviso_->setText(aviso.isEmpty() ? QStringLiteral("O formulário desta companhia não traz essas tabelas.") : aviso);
+				return;
+			}
+			auto esq = [](const QString &s) {
+				auto *i = celula(s);
+				i->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+				i->setToolTip(s);
+				return i;
+			};
+			double total = 0;
+			for (const LigacaoCvm &l : r.partes) {
+				const int n = partes_->rowCount();
+				partes_->insertRow(n);
+				partes_->setItem(n, 0, esq(l.nome));
+				partes_->setItem(n, 1, esq(l.codigo));
+				partes_->setItem(n, 2, celula(QString::number(l.contratos)));
+				partes_->setItem(n, 3, celula(dinheiroGrande(l.montante)));
+				partes_->setItem(n, 4, celula(dinheiroGrande(l.saldo)));
+				partes_->setItem(n, 5, esq(l.credor && l.devedor ? "credora e devedora" : l.credor ? "credora (recebe)" : "devedora (paga)"));
+				partes_->setItem(n, 6, esq(l.nota));
+				total += l.montante;
+			}
+			for (const LigacaoCvm &l : r.acionistas) {
+				const int n = donos_->rowCount();
+				donos_->insertRow(n);
+				donos_->setItem(n, 0, esq(l.nome));
+				donos_->setItem(n, 1, esq(l.codigo));
+				donos_->setItem(n, 2, celula(num(l.pct, 2) + "%"));
+				donos_->setItem(n, 3, esq(l.controlador ? "sim" : ""));
+			}
+			for (const LigacaoCvm &l : r.sociedades) {
+				const int n = filhas_->rowCount();
+				filhas_->insertRow(n);
+				filhas_->setItem(n, 0, esq(l.nome));
+				filhas_->setItem(n, 1, esq(l.codigo));
+				filhas_->setItem(n, 2, celula(std::isfinite(l.pct) && l.pct > 0 ? num(l.pct, 2) + "%" : QStringLiteral("—")));
+				filhas_->setItem(n, 3, esq(l.nota));
+			}
+			cvmAviso_->setText(QStringLiteral("%1: %2 partes relacionadas com contratos que somam %3, %4 acionistas relevantes e %5 "
+			    "sociedades. Formulário de %6. %7").arg(r.nome).arg(r.partes.size()).arg(dinheiroGrande(total))
+			    .arg(r.acionistas.size()).arg(r.sociedades.size()).arg(r.data.left(4), aviso));
 		});
 	}
 
@@ -960,9 +1101,9 @@ private:
 	}
 
 	QLineEdit *ativo_, *choque_;
-	QLabel *aviso_;
+	QLabel *aviso_, *cvmAviso_, *clientesAviso_, *clientesTitulo_;
 	Diagrama *d_;
-	QTableWidget *t_;
+	QTableWidget *t_, *partes_, *donos_, *filhas_, *clientes_;
 	Relacoes r_;
 	QString alvo_;
 	QVector<Vizinho> viz_;

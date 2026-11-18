@@ -438,4 +438,56 @@ taxaDoTitulo(double face, double cupom, int vezes, double anos, double preco)
 	return (a + b) / 2;
 }
 
+// --- Opções (Black-Scholes) ---
+
+static double
+normal(double x)
+{
+	return 0.5 * std::erfc(-x / std::sqrt(2.0));
+}
+
+struct Opcao {
+	double preco = NAO, delta = NAO, gama = NAO, vega = NAO, teta = NAO;
+};
+
+// Uma opção europeia sem dividendos: o ativo a S, o exercício a K, T anos,
+// juros r e volatilidade v (ao ano). O vega é por ponto de volatilidade e o
+// teta, por dia.
+static Opcao
+blackScholes(double S, double K, double T, double r, double v, bool compra)
+{
+	Opcao o;
+	if (!(S > 0) || !(K > 0) || !(T > 0) || !(v > 0))
+		return o;
+	const double raiz = v * std::sqrt(T);
+	const double d1 = (std::log(S / K) + (r + v * v / 2) * T) / raiz, d2 = d1 - raiz;
+	const double desc = K * std::exp(-r * T), dens = std::exp(-d1 * d1 / 2) / std::sqrt(2 * M_PI);
+	o.preco = compra ? S * normal(d1) - desc * normal(d2) : desc * normal(-d2) - S * normal(-d1);
+	o.delta = compra ? normal(d1) : normal(d1) - 1;
+	o.gama = dens / (S * raiz);
+	o.vega = S * dens * std::sqrt(T) / 100;
+	o.teta = (-S * dens * v / (2 * std::sqrt(T)) - (compra ? 1 : -1) * r * desc * normal(compra ? d2 : -d2)) / 365;
+	return o;
+}
+
+// A volatilidade que dá o preço (a implícita); NaN se o preço não cabe.
+static double
+volImplicita(double preco, double S, double K, double T, double r, bool compra)
+{
+	const double minimo = compra ? std::max(0.0, S - K * std::exp(-r * T)) : std::max(0.0, K * std::exp(-r * T) - S);
+	if (!(preco > minimo) || !(T > 0) || !(S > 0))
+		return NAO;
+	double a = 0.001, b = 5;
+	if (blackScholes(S, K, T, r, b, compra).preco < preco)
+		return NAO;
+	for (int k = 0; k < 80; k++) {
+		const double m = (a + b) / 2;
+		if (blackScholes(S, K, T, r, m, compra).preco < preco)
+			a = m;
+		else
+			b = m;
+	}
+	return (a + b) / 2;
+}
+
 } // namespace contas

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "telas2.h"
+#include "ws.h"
 
 // --- O mapa ------------------------------------------------------------------
 
@@ -518,14 +519,17 @@ tipoDeNavio(int t)
 
 class TelaNavios : public Tela {
 public:
-	TelaNavios() : Tela("NAVIOS", "Navios", "Os navios pelo sinal que transmitem (AIS). Por enquanto, o mar Báltico, que tem dados abertos.")
+	TelaNavios() : Tela("NAVIOS", "Navios", "Os navios pelo sinal que transmitem (AIS): o mar Báltico com dados abertos, e o mundo com a sua chave.")
 	{
 		auto *h = new QHBoxLayout;
 		h->setSpacing(10);
 		auto *b = botao("Atualizar");
 		filtro_ = new QComboBox;
 		filtro_->addItems({"todos os tipos", "carga", "petroleiro", "passageiros", "pesca", "rebocador"});
+		onde_ = new QComboBox;
+		onde_->addItems({"mar Báltico (dados abertos)", "onde o mapa está (o mundo, com a sua chave)"});
 		h->addWidget(b);
+		h->addWidget(onde_);
 		h->addWidget(filtro_);
 		h->addStretch(1);
 		v->addLayout(h);
@@ -537,12 +541,42 @@ public:
 		t_->verticalHeader()->setVisible(false);
 		t_->setSelectionBehavior(QAbstractItemView::SelectRows);
 		v->addWidget(t_);
-		v->addWidget(rotulo("Fonte: Fintraffic / digitraffic.fi (Finlândia), dados abertos CC BY 4.0: o Báltico e o golfo da "
-		    "Finlândia. Não existe fonte aberta e sem cadastro para o mundo inteiro; os outros mares entram numa próxima versão, "
-		    "com a chave gratuita de um serviço de AIS.", "detalhe"));
+		v->addWidget(rotulo("Báltico: Fintraffic / digitraffic.fi (Finlândia), dados abertos CC BY 4.0. O mundo: aisstream.io, com a "
+		    "chave gratuita que você cria lá e põe na tela CONFIG; a cobertura é a dos receptores voluntários em terra, "
+		    "boa nas costas e nos portos e fraca em alto-mar.", "detalhe"));
 		v->addStretch(1);
 		connect(b, &QPushButton::clicked, this, [this] { atualizar(); });
 		connect(filtro_, &QComboBox::currentIndexChanged, this, [this] { mostrar(); });
+		connect(onde_, &QComboBox::currentIndexChanged, this, [this](int k) {
+			vistos_.clear();
+			if (k == 0) {
+				fio_->fechar();
+				mapa_->irPara(22.5, 60.5, 16);
+				atualizar();
+			} else
+				mundo();
+		});
+		fio_ = new FioWs(this);
+		fio_->abriu = [this] { assinar(); };
+		fio_->mensagem = [this](const QByteArray &m) { receber(m); };
+		fio_->fechou = [this](const QString &motivo) {
+			if (onde_->currentIndex() == 1) {
+				erro_ = QStringLiteral("A conexão com o serviço de AIS fechou: %1 Confira a chave na tela CONFIG.").arg(motivo);
+				mostrar();
+			}
+		};
+		mapa_->moveu = [this] {
+			if (onde_->currentIndex() == 1 && fio_->aberto())
+				assinar();
+		};
+		auto *relogio = new QTimer(this);
+		connect(relogio, &QTimer::timeout, this, [this] {
+			if (onde_->currentIndex() == 1 && isVisible() && mudou_) {
+				mudou_ = false;
+				mostrar();
+			}
+		});
+		relogio->start(3000);
 		mapa_->escolheu = [this](const QString &id) {
 			for (int l = 0; l < t_->rowCount(); l++)
 				if (t_->item(l, 0)->data(Qt::UserRole).toString() == id)
@@ -569,8 +603,74 @@ private:
 		double lon = 0, lat = 0, vel = NAO, rumo = NAO, calado = NAO;
 	};
 
+	// O mundo: o serviço aisstream.io manda, por WebSocket, as posições dos
+	// navios dentro da caixa pedida. A chave é gratuita e é da pessoa.
+	void mundo()
+	{
+		const QString chave = config("chave_ais");
+		if (chave.isEmpty()) {
+			erro_ = "Para ver os navios do mundo todo é preciso uma chave gratuita do aisstream.io (crie a conta em "
+				"aisstream.io e copie a chave para a tela CONFIG). Sem chave, fica o Báltico.";
+			mostrar();
+			return;
+		}
+		erro_.clear();
+		nota_ = "Conectando ao serviço de AIS…";
+		mostrar();
+		fio_->abrir(QUrl(qEnvironmentVariable("LUME_MERCADOS_AIS", "wss://stream.aisstream.io/v0/stream")));
+	}
+	void assinar()
+	{
+		double o, s, l, n;
+		mapa_->limites(&o, &s, &l, &n);
+		QJsonObject m;
+		m["APIKey"] = config("chave_ais");
+		m["BoundingBoxes"] = QJsonArray{QJsonArray{QJsonArray{s, std::max(o, -180.0)}, QJsonArray{n, std::min(l, 180.0)}}};
+		m["FilterMessageTypes"] = QJsonArray{"PositionReport", "ShipStaticData"};
+		fio_->enviar(QString::fromUtf8(QJsonDocument(m).toJson(QJsonDocument::Compact)));
+		nota_ = "Ao vivo, do aisstream.io: os navios aparecem conforme transmitem.";
+		vistos_.clear();
+		mudou_ = true;
+	}
+	void receber(const QByteArray &dados)
+	{
+		const QJsonObject o = QJsonDocument::fromJson(dados).object();
+		if (o.contains("error")) {
+			erro_ = QStringLiteral("O serviço de AIS respondeu: %1").arg(o.value("error").toString());
+			mudou_ = true;
+			return;
+		}
+		const QJsonObject meta = o.value("MetaData").toObject(), msg = o.value("Message").toObject();
+		const qint64 mmsi = qint64(meta.value("MMSI").toDouble());
+		if (!mmsi)
+			return;
+		Navio &n = navios_[mmsi];
+		const QString nome = meta.value("ShipName").toString().trimmed();
+		if (!nome.isEmpty())
+			n.nome = nome;
+		if (msg.contains("PositionReport")) {
+			const QJsonObject p = msg.value("PositionReport").toObject();
+			n.lat = p.value("Latitude").toDouble(meta.value("latitude").toDouble(meta.value("Latitude").toDouble()));
+			n.lon = p.value("Longitude").toDouble(meta.value("longitude").toDouble(meta.value("Longitude").toDouble()));
+			n.vel = p.value("Sog").toDouble();
+			n.rumo = p.value("Cog").toDouble() >= 360 ? NAO : p.value("Cog").toDouble();
+			if (!vistos_.contains(mmsi))
+				vistos_ << mmsi;
+		} else if (msg.contains("ShipStaticData")) {
+			const QJsonObject p = msg.value("ShipStaticData").toObject();
+			n.tipo = p.value("Type").toInt();
+			n.destino = p.value("Destination").toString().trimmed();
+			n.calado = p.value("MaximumStaticDraught").toDouble();
+		}
+		mudou_ = true;
+	}
+
 	void atualizar()
 	{
+		if (onde_->currentIndex() == 1) {
+			mundo();
+			return;
+		}
 		aviso_->setText("Buscando…");
 		// De dez em dez minutos, para o que fica guardado não se multiplicar.
 		const qint64 desde = (QDateTime::currentSecsSinceEpoch() / 600 - 2) * 600 * 1000;
@@ -642,7 +742,9 @@ private:
 		    : QStringLiteral("%1 navios com sinal nos últimos minutos, %2 em movimento. %3").arg(alvos.size()).arg(andando).arg(nota_));
 	}
 
-	QComboBox *filtro_;
+	QComboBox *filtro_, *onde_;
+	FioWs *fio_;
+	bool mudou_ = false;
 	QLabel *aviso_;
 	Mapa *mapa_;
 	QTableWidget *t_;

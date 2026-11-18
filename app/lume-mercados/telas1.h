@@ -589,8 +589,31 @@ struct Balanco {
 
 // Lê as contas de uma empresa nas demonstrações (DRE, balanço e fluxo de
 // caixa, consolidados ou, na falta, individuais) de um ano da CVM.
+// Com o CNPJ vazio, lê todas as companhias (a triagem).
+static void lerDfpGrupo(const QByteArray &csv, const QString &cnpj, QMap<QString, QMap<int, Balanco>> *todos, bool consolidado);
+
+// As demonstrações consolidadas; de quem só entrega as individuais (uma
+// companhia sem controladas), as individuais.
 static void
-lerDfp(const QByteArray &csv, const QString &cnpj, QMap<int, Balanco> *anos)
+lerDfp(const QByteArray &csv, const QString &cnpj, QMap<QString, QMap<int, Balanco>> *todos)
+{
+	QMap<QString, QMap<int, Balanco>> ind;
+	lerDfpGrupo(csv, cnpj, todos, true);
+	lerDfpGrupo(csv, cnpj, &ind, false);
+	// Há quem entregue o consolidado todo em zeros: conta como sem consolidado.
+	auto vazio = [](const QMap<int, Balanco> &m) {
+		for (const Balanco &b : m)
+			if ((std::isfinite(b.receita) && b.receita != 0) || (std::isfinite(b.ativo) && b.ativo != 0))
+				return false;
+		return true;
+	};
+	for (auto it = ind.begin(); it != ind.end(); ++it)
+		if (!todos->contains(it.key()) || vazio((*todos)[it.key()]))
+			(*todos)[it.key()] = it.value();
+}
+
+static void
+lerDfpGrupo(const QByteArray &csv, const QString &cnpj, QMap<QString, QMap<int, Balanco>> *todos, bool consolidado)
 {
 	const QByteArray chave = cnpj.toLatin1() + ";";
 	QStringList cab;
@@ -605,10 +628,13 @@ lerDfp(const QByteArray &csv, const QString &cnpj, QMap<int, Balanco> *anos)
 			cab = partesCsv(QString::fromLatin1(bruta).trimmed());
 			continue;
 		}
-		if (!bruta.startsWith(chave))
+		if ((!cnpj.isEmpty() && !bruta.startsWith(chave)) || !cab.contains("CD_CONTA"))
 			continue;
+		// Só as contas que interessam (o arquivo tem centenas por companhia).
 		const QStringList p = partesCsv(QString::fromLatin1(bruta).trimmed());
 		auto col = [&](const char *n) { return p.value(cab.indexOf(n)); };
+		if (col("GRUPO_DFP").contains("Consolidado") != consolidado)
+			continue;
 		const int ano = col("DT_FIM_EXERC").left(4).toInt();
 		const QString conta = col("CD_CONTA"), nome = col("DS_CONTA");
 		double valor = col("VL_CONTA").toDouble();
@@ -617,7 +643,9 @@ lerDfp(const QByteArray &csv, const QString &cnpj, QMap<int, Balanco> *anos)
 		// Os fluxos (DRE, caixa) são do ano inteiro.
 		if (cab.contains("DT_INI_EXERC") && !col("DT_INI_EXERC").endsWith("-01-01"))
 			continue;
-		Balanco &b = (*anos)[ano];
+		if (conta.size() > 7)
+			continue;
+		Balanco &b = (*todos)[p.value(0)][ano];
 		const int versao = col("VERSAO").toInt();
 		if (versao < b.versao)
 			continue;
@@ -643,12 +671,14 @@ lerDfp(const QByteArray &csv, const QString &cnpj, QMap<int, Balanco> *anos)
 	}
 }
 
+#include "sec.h"
+
 class TelaBalancos : public Tela {
 public:
-	TelaBalancos() : Tela("BAL", "Balanços", "Receita, lucro, dívida e margens, ano a ano, das demonstrações entregues à CVM.")
+	TelaBalancos() : Tela("BAL", "Balanços", "Receita, lucro, dívida e margens, ano a ano: as companhias da B3 pela CVM, as dos EUA pela SEC.")
 	{
 		auto *h = new QHBoxLayout;
-		ativo_ = campo("PETR4", "ação da B3");
+		ativo_ = campo("PETR4", "ação da B3 ou dos EUA");
 		auto *ir = botao("Mostrar", "primario");
 		h->addWidget(ativo_);
 		h->addWidget(ir);
@@ -662,9 +692,8 @@ public:
 		v->addWidget(t_);
 		g_ = new Grafico("O gráfico da receita e do lucro aparece aqui.");
 		v->addWidget(g_);
-		v->addWidget(rotulo("Fonte: CVM, demonstrações financeiras padronizadas (DFP), dados abertos. Em reais. "
-		    "Na primeira vez baixa uns 25 MB; depois fica guardado por uma semana. Empresas dos EUA entram "
-		    "numa próxima versão (a SEC exige um contato identificado de quem consulta).", "detalhe"));
+		fonte_ = rotulo(fonteCvm_, "detalhe");
+		v->addWidget(fonte_);
 		v->addStretch(1);
 		connect(ir, &QPushButton::clicked, this, [this] { mostrar(); });
 		connect(ativo_, &QLineEdit::returnPressed, this, [this] { mostrar(); });
@@ -679,10 +708,40 @@ public:
 private:
 	void mostrar()
 	{
-		const QString codigo = curto(simboloDe(ativo_->text()));
+		const QString simbolo = simboloDe(ativo_->text());
+		const QString codigo = curto(simbolo);
 		const int vez = ++vez_;
-		aviso_->setText("Buscando a empresa na CVM…");
 		anos_.clear();
+		moeda_ = "R$";
+		if (!simbolo.endsWith(".SA")) {
+			aviso_->setText("Buscando a companhia na SEC…");
+			buscarCik(codigo, this, [this, vez, codigo](qint64 cik, const QString &nome, const QString &av) {
+				if (vez != vez_)
+					return;
+				if (!cik) {
+					aviso_->setText(av);
+					t_->setRowCount(0);
+					g_->limpar();
+					return;
+				}
+				titulo_->setText(QStringLiteral("%1 — %2").arg(codigo, nome));
+				aviso_->setText("Buscando os balanços na SEC…");
+				buscarBalancoSec(cik, this, [this, vez](const QMap<int, Balanco> &a, const QString &moeda, const QString &av) {
+					if (vez != vez_)
+						return;
+					anos_ = a;
+					moeda_ = moeda == "USD" ? QStringLiteral("US$") : moeda;
+					fonte_->setText("Fonte: SEC (EDGAR), dados XBRL dos relatórios anuais (10-K, 20-F). Na moeda da companhia.");
+					faltam_ = 1;
+					pronto();
+					if (anos_.isEmpty() && !av.isEmpty())
+						aviso_->setText(av);
+				});
+			});
+			return;
+		}
+		fonte_->setText(fonteCvm_);
+		aviso_->setText("Buscando a empresa na CVM…");
 		buscarEmpresaCvm(codigo, this, [this, vez, codigo](const EmpresaCvm &e, const QString &av) {
 			if (vez != vez_)
 				return;
@@ -705,11 +764,15 @@ private:
 					}
 					QStringList m;
 					for (const char *x : {"BPA", "BPP", "DRE", "DFC_MI", "DFC_MD"})
-						m << QStringLiteral("dfp_cia_aberta_%1_con_%2.csv").arg(QLatin1String(x)).arg(a);
+						for (const char *g : {"con", "ind"})
+							m << QStringLiteral("dfp_cia_aberta_%1_%2_%3.csv").arg(QLatin1String(x), QLatin1String(g)).arg(a);
 					extrairZip(arquivoDe(urlDfp(a)), m, this, [this, vez, e](const QByteArray &csv) {
 						if (vez != vez_)
 							return;
-						lerDfp(csv, e.cnpj, &anos_);
+						QMap<QString, QMap<int, Balanco>> t;
+						lerDfp(csv, e.cnpj, &t);
+						for (auto it = t[e.cnpj].begin(); it != t[e.cnpj].end(); ++it)
+							anos_[it.key()] = it.value();
 						pronto();
 					});
 				});
@@ -737,17 +800,17 @@ private:
 		t_->setHorizontalHeaderLabels(cab);
 		t_->verticalHeader()->setVisible(false);
 		auto mi = [](double x) { return std::isfinite(x) ? num(x / 1e6, 0) : QStringLiteral("—"); };
-		auto grande = [](double x) {
+		auto grande = [this](double x) {
 			return !std::isfinite(x) ? QStringLiteral("—")
-			    : std::fabs(x) >= 1e9 ? QStringLiteral("R$ %1 bilhões").arg(num(x / 1e9, 1))
-						  : QStringLiteral("R$ %1 milhões").arg(num(x / 1e6, 0));
+			    : std::fabs(x) >= 1e9 ? QStringLiteral("%1 %2 bilhões").arg(moeda_, num(x / 1e9, 1))
+						  : QStringLiteral("%1 %2 milhões").arg(moeda_, num(x / 1e6, 0));
 		};
 		auto pc = [](double a, double b) { return std::isfinite(a) && std::isfinite(b) && b != 0 ? pct(a / b, 1) : QStringLiteral("—"); };
 		const struct {
 			const char *nome;
 			std::function<QString(const Balanco &)> f;
 		} linhas[] = {
-			{"Receita líquida (R$ milhões)", [&](const Balanco &b) { return mi(b.receita); }},
+			{"Receita líquida (milhões)", [&](const Balanco &b) { return mi(b.receita); }},
 			{"Lucro bruto", [&](const Balanco &b) { return mi(b.bruto); }},
 			{"Resultado operacional (EBIT)", [&](const Balanco &b) { return mi(b.ebit); }},
 			{"Lucro líquido", [&](const Balanco &b) { return mi(b.lucro); }},
@@ -785,16 +848,20 @@ private:
 			const int k = int(std::lround(x));
 			return k >= 0 && k < anos.size() ? QString::number(anos[k]) : QString();
 		};
-		g_->definir("", "R$ milhões", {r, lu}, {}, true, true);
+		g_->definir("", moeda_ + " milhões", {r, lu}, {}, true, true);
 		const Balanco &u = anos_[anos.last()];
 		aviso_->setText(QStringLiteral("Em %1: receita de %2, lucro de %3, margem líquida de %4.")
 		    .arg(anos.last()).arg(grande(u.receita), grande(u.lucro), pc(u.lucro, u.receita)));
 	}
 
 	QLineEdit *ativo_;
-	QLabel *titulo_, *aviso_;
+	QLabel *titulo_, *aviso_, *fonte_;
 	QTableWidget *t_;
 	Grafico *g_;
 	QMap<int, Balanco> anos_;
+	QString moeda_ = "R$";
+	const QString fonteCvm_ = QStringLiteral("Fonte: CVM, demonstrações financeiras padronizadas (DFP), dados abertos, em reais "
+	    "(na primeira vez baixa uns 25 MB; depois fica guardado por uma semana). Companhias dos EUA: SEC (EDGAR), com o seu "
+	    "e-mail na tela CONFIG.");
 	int vez_ = 0, faltam_ = 0;
 };

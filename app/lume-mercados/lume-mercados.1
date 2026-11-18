@@ -23,6 +23,24 @@
 .Fl -titulo
 .Ar face cupom vezes anos taxa
 .Nm
+.Fl -relacoes-cvm
+.Ar ativo
+.Nm
+.Fl -balanco
+.Ar ativo
+.Nm
+.Fl -clientes
+.Ar ativo
+.Nm
+.Fl -triagem
+.Op Ar nome
+.Nm
+.Fl -opcao
+.Cm compra | venda
+.Ar ativo exercicio dias vol juros
+.Nm
+.Fl -alertas
+.Nm
 .Fl -chave
 .Ar url
 .Sh DESCRIPTION
@@ -43,8 +61,9 @@ todos partem de 100.
 .It Cm DES
 a ficha do ativo, os dividendos e o cadastro da companhia na CVM.
 .It Cm BAL
-os balanços das companhias da B3, ano a ano, das demonstrações entregues à
-CVM, com margens e retorno sobre o patrimônio.
+os balanços ano a ano, com margens e retorno sobre o patrimônio: as
+companhias da B3 pelas demonstrações entregues à CVM, as dos Estados Unidos
+pelos dados XBRL da SEC.
 .It Cm ECO
 os indicadores do Banco Central (SGS) e as expectativas do boletim Focus.
 .It Cm CAMBIO
@@ -59,10 +78,17 @@ matérias-primas, ações e fundos inversos), com a proporção de proteção.
 de quem a empresa compra, para quem vende, com quem concorre e de que grupo
 é, num desenho que se percorre, e o impacto estimado de um movimento dela em
 cada uma das outras (o beta de um ano de retornos diários).
+Embaixo, o que a própria companhia declara, lido e somado pelo programa:
+das companhias da B3, no Formulário de Referência da CVM, os contratos com
+partes relacionadas (com os valores e os saldos), os acionistas e as
+sociedades em que participa; das dos Estados Unidos, no relatório anual
+entregue à SEC (10-K ou 20-F), as frases sobre clientes e a parcela da
+receita de cada um.
 .It Cm VOO
 os aviões no ar, no mapa, pelo sinal ADS-B; procura por voo ou matrícula.
 .It Cm NAVIOS
-os navios, no mapa, pelo sinal AIS (por enquanto, o mar Báltico).
+os navios, no mapa, pelo sinal AIS: o mar Báltico com dados abertos, e
+qualquer parte do mundo com a chave gratuita do aisstream.io.
 .It Cm NOT
 as manchetes sobre um ativo ou um assunto; dois cliques abrem a notícia.
 .It Cm CART
@@ -72,6 +98,29 @@ sem quantidade, o ativo é só acompanhado.
 as taxas e os preços do Tesouro Direto e a curva de juros.
 .It Cm TIT
 a calculadora de títulos: preço, taxa, duração, convexidade e DV01.
+.It Cm TRI
+a triagem das companhias da B3: preço, valor de mercado, P/L, P/VP, ROE,
+margem, dívida e crescimento de todas, com filtros, dos balanços da CVM e do
+arquivo do último pregão da B3.
+.It Cm OPC
+a grade de opções por vencimento, com a volatilidade implícita e o delta: as
+da B3 pelo arquivo do pregão, as dos Estados Unidos pela Cboe; e uma
+calculadora de Black-Scholes.
+.It Cm ALERTA
+avisos quando um ativo chega a um preço, conferidos a cada minuto com o
+programa aberto, na área de notificação.
+.It Cm ORDEM
+ordens num simulador local, com dinheiro de mentira (B3 e Estados Unidos), ou
+na corretora Alpaca (ações dos Estados Unidos), na conta de papel ou na real,
+com as chaves da pessoa; a conta real pede confirmação a cada ordem.
+.It Cm VIVO
+as cotações em tempo real: criptomoedas pela Coinbase, ações dos Estados
+Unidos pela Finnhub (com a chave gratuita da pessoa); as da B3, com atraso.
+.It Cm CHAT
+um canal aberto de conversa (IRC); só conecta quando a pessoa pede.
+.It Cm CONFIG
+o e-mail para a SEC, as chaves da Finnhub, da Alpaca e do aisstream.io, e o
+servidor da conversa.
 .El
 .Pp
 Os ativos: ações da B3 pelo código
@@ -98,6 +147,10 @@ diz (os testes)
 .It Ev LUME_MERCADOS_PASTA
 onde estão o mapa e as relações, no lugar de
 .Pa /usr/share/lume/app
+.It Ev LUME_MERCADOS_ALPACA
+o endereço da corretora, no lugar do da Alpaca (os testes)
+.It Ev LUME_MERCADOS_AIS
+o endereço do serviço de AIS, no lugar do aisstream.io
 .El
 .Sh FILES
 .Bl -tag -width indent
@@ -106,6 +159,12 @@ o que veio da internet, para abrir sem rede com os últimos dados; some
 depois de oito dias
 .It Pa ~/.local/share/lume-mercados/carteira.json
 a carteira
+.It Pa ~/.local/share/lume-mercados/alertas.json
+os alertas
+.It Pa ~/.local/share/lume-mercados/simulador.json
+a conta do simulador de ordens
+.It Pa ~/.config/lume-mercados/config.json
+o e-mail para a SEC, as chaves e a conversa; só a pessoa lê
 .It Pa ~/.local/share/lume-mercados/relacoes.tsv
 as relações entre empresas que a pessoa acrescenta
 .It Pa /usr/share/lume/app/lume-mercados-relacoes.tsv
@@ -118,9 +177,13 @@ as costas e as fronteiras do mapa (Natural Earth, domínio público)
 .Dl lume-mercados --cotacao PETR4 DOLAR OURO
 .Dl lume-mercados --correlacao PETR4 BRENT 2y
 .Dl lume-mercados --titulo 1000 10 2 10 12
+.Dl lume-mercados --relacoes-cvm PETR4
+.Dl lume-mercados --triagem
+.Dl lume-mercados --alertas
 .Sh SEE ALSO
 .Xr lume-financas 1
 .Pp
-Fontes dos dados: Yahoo Finance (cotações), CVM, Banco Central do Brasil,
-Tesouro Nacional, adsb.lol e OpenSky Network (aviões), Fintraffic (navios) e
-Google Notícias.
+Fontes dos dados: Yahoo Finance (cotações), B3 (o arquivo do pregão), CVM,
+SEC, Banco Central do Brasil, Tesouro Nacional, Cboe (opções), Coinbase e
+Finnhub (tempo real), adsb.lol e OpenSky Network (aviões), Fintraffic e
+aisstream.io (navios) e Google Notícias.
