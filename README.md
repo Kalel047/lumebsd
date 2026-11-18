@@ -45,7 +45,8 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 | **Abas de janelas** (2.0) | como no BeOS: **Ctrl+Meta+E** empilha janelas no mesmo lugar, com uma aba para cada uma na barra de título |
 | **Atributos nos arquivos** (2.0) | etiquetas, nota, comentário e atributos seus gravados no arquivo (`lume atributo`); editar no botão direito do Dolphin, procurar e salvar a consulta num `.consulta` |
 | **Mercados do LumeBSD** (2.x) | um terminal de mercados numa linha de comando (`PETR4 G`, `VALE3 REL`, `MUNDO`): cotações (cripto e ações dos EUA em tempo real), gráficos, ficha, balanços (CVM e SEC), triagem das companhias da B3, opções com volatilidade implícita, economia (Banco Central e Focus), câmbio, correlações, o ativo oposto, as relações entre empresas com os valores que elas declaram (contratos com partes relacionadas na CVM, clientes no relatório anual da SEC), aviões e navios no mapa, notícias, carteira, alertas, ordens (simulador e corretora Alpaca), conversa, Tesouro Direto e calculadora de títulos |
-| **Finanças do LumeBSD** (2.x) | um app de economia e finanças no menu: o orçamento do mês (planejado × realizado, a regra 50/30/20, a reserva de emergência e metas), juros e taxas (como na HP 12C), financiamento Price × SAC com o CET, VPL e TIR de projetos, correção pelo IPCA, IGP-M, Selic e CDI com os dados do Banco Central, e regressão por MQO com a estatística descritiva |
+| **Páginas** (2.2) | o editor de texto do LumeBSD, com a cara do Pages: a folha na tela página por página, o painel de formatação, modelos de trabalho acadêmico (ABNT), plano de aula, relatório, carta e currículo; abre e salva **.docx** e **.odt** e exporta PDF |
+| **Finanças do LumeBSD** (2.1) | um app de economia e finanças no menu: o orçamento do mês (planejado × realizado, a regra 50/30/20, a reserva de emergência e metas), juros e taxas (como na HP 12C), financiamento Price × SAC com o CET, VPL e TIR de projetos, correção pelo IPCA, IGP-M, Selic e CDI com os dados do Banco Central, e regressão por MQO com a estatística descritiva |
 | **Sem Python** (2.0) | o ícone de rede (`lume-rede`, C++) no lugar do networkmgr; as ferramentas de construção em Rust (`lume-montar`); o `lume-motor` virou biblioteca |
 | **Papel e tinta de verdade** (1.5) | o filtro e-ink ganhou o **grão do papel** (fibras paradas na tela) e a **viscosidade da tinta**: quando a tela muda, o conteúdo novo assenta sobre o anterior, sem piscar |
 | **Motor de renderização** (1.5) | o protótipo `lume-motor`: desenha direto na placa de vídeo (DRM/KMS), letras e desenhos calculados pelas equações das curvas em cada pixel, papel num compute shader, no modo de maior taxa do monitor ([docs/MOTOR.md](docs/MOTOR.md)) |
@@ -399,6 +400,13 @@ aplica de novo.
 |---|---|
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
+
+### O Páginas (2.2) na tela
+
+| | |
+|---|---|
+| ![A galeria de modelos do Páginas](docs/capturas/paginas-1-galeria.png) | ![O trabalho acadêmico nas normas da ABNT](docs/capturas/paginas-2-abnt.png) |
+| ![Um .docx do Word aberto no Páginas](docs/capturas/paginas-3-word.png) | ![O relatório, com o tema escuro](docs/capturas/paginas-5-escuro.png) |
 
 ### Novidades da 2.0 na tela
 

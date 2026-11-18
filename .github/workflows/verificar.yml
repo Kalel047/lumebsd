@@ -126,6 +126,17 @@ jobs:
             grep -q '^\[Desktop Entry\]' "$d" || { echo "$d"; exit 1; }
           done
 
+      # O Páginas também no Linux, sem tela: os modelos vão e voltam em .odt
+      # e .docx, o PDF sai, e a edição pelo teclado dá o esperado.
+      - name: Páginas (ida e volta)
+        if: matrix.base == 'fixado'
+        run: |
+          sudo apt-get install -y -q qt6-base-dev zlib1g-dev fonts-ibm-plex fonts-liberation
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
+              $(pkg-config --cflags Qt6Widgets) app/lume-paginas/main.cpp \
+              -o lume-paginas $(pkg-config --libs Qt6Widgets) -lz
+          sh tests/paginas.sh ./lume-paginas paginas-teste
+
       # O lume-motor também no Linux, sem tela (Mesa llvmpipe): desenha a
       # página, o zoom e a troca de texto, e os quadros vão como artefato.
       - name: Motor de renderização (desenha sem tela)
