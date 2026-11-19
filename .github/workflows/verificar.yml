@@ -137,6 +137,16 @@ jobs:
               -o lume-paginas $(pkg-config --libs Qt6Widgets) -lz
           sh tests/paginas.sh ./lume-paginas paginas-teste
 
+      # As contas dos Mercados (sem rede): títulos, correlação, Black-Scholes,
+      # a leitura dos documentos da CVM e da SEC.
+      - name: Mercados (contas)
+        if: matrix.base == 'fixado'
+        run: |
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -fPIC \
+              $(pkg-config --cflags Qt6Widgets Qt6Network) app/lume-mercados/main.cpp \
+              -o lume-mercados $(pkg-config --libs Qt6Widgets Qt6Network)
+          QT_QPA_PLATFORM=offscreen sh tests/mercados-contas.sh ./lume-mercados app/lume-mercados
+
       # O lume-motor também no Linux, sem tela (Mesa llvmpipe): desenha a
       # página, o zoom e a troca de texto, e os quadros vão como artefato.
       - name: Motor de renderização (desenha sem tela)
