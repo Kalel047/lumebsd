@@ -25,7 +25,7 @@ ATUALIZACAO=$TOP/atualizacao
 
 # Commit do releng/15.1 em que os patches foram testados (FREEBSD_COMMIT=...
 # para outro; o CI semanal confere o topo do ramo).
-FREEBSD_COMMIT=${FREEBSD_COMMIT:-95719d8a895bf8170851e9844d9b4092b1d2b6fe}
+FREEBSD_COMMIT=${FREEBSD_COMMIT:-bb03631fe3b7a8bfa8071e8063f554528d4e4618}
 
 # 1. Código-fonte do FreeBSD 15.1 + mudanças do LumeBSD
 if [ ! -d "$SRC" ]; then

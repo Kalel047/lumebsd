@@ -1,6 +1,6 @@
 # LumeBSD 2.2 "Farol"
 
-Sobre o FreeBSD 15.1. Três apps novos, feitos para o LumeBSD: o **Páginas** (editor de texto), as **Finanças** (economia e finanças pessoais) e os **Mercados** (um terminal de mercados). E o que a 2.0 deixou pela metade nas abas e nos atributos.
+Sobre o FreeBSD 15.1, com as correções de segurança de novembro (15.1-RELEASE-p7: OpenSSL 3.5.9, TCP, tmpfs, fdescfs, memória virtual e bsnmp). Três apps novos, feitos para o LumeBSD: o **Páginas** (editor de texto), as **Finanças** (economia e finanças pessoais) e os **Mercados** (um terminal de mercados). E o que a 2.0 deixou pela metade nas abas e nos atributos.
 
 ## Páginas, o editor de texto
 

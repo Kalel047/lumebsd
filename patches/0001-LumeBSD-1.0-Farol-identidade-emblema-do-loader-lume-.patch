@@ -1,8 +1,8 @@
-From 6ae34c4520975ac2a8dfca8307e98411edc31a73 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sun, 1 Nov 2026 23:43:51 -0300
-Subject: [PATCH] LumeBSD 1.0 'Farol': identidade, emblema do loader, lume(1),
- rc.d/lume_farol, kernel LUME
+Subject: [PATCH 01/59] LumeBSD 1.0 'Farol': identidade, emblema do loader,
+ lume(1), rc.d/lume_farol, kernel LUME
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01CMniwHHqnsVXVYi22gBRrS
@@ -266,7 +266,7 @@ index 000000000..07001b56c
 +nooptions	KDTRACE_HOOKS
 +nooptions	DDB_CTF
 diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
-index 4926891ae..d12701e81 100644
+index 47beebf54..d12701e81 100644
 --- a/sys/conf/newvers.sh
 +++ b/sys/conf/newvers.sh
 @@ -49,9 +49,9 @@
@@ -275,7 +275,7 @@ index 4926891ae..d12701e81 100644
  
 -TYPE="FreeBSD"
 -REVISION="15.1"
--BRANCH="RELEASE-p6"
+-BRANCH="RELEASE-p7"
 +TYPE="LumeBSD"
 +REVISION="1.0"
 +BRANCH="FAROL"
