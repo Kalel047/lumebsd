@@ -1,6 +1,8 @@
 # LumeBSD 2.2 "Farol"
 
-Sobre o FreeBSD 15.1. Chega o **Páginas**, o editor de texto do LumeBSD, com a cara do Pages.
+Sobre o FreeBSD 15.1, com as correções de segurança de novembro (15.1-RELEASE-p7: OpenSSL 3.5.9, TCP, tmpfs, fdescfs, memória virtual e bsnmp). Três apps novos, feitos para o LumeBSD: o **Páginas** (editor de texto), as **Finanças** (economia e finanças pessoais) e os **Mercados** (um terminal de mercados). E o que a 2.0 deixou pela metade nas abas e nos atributos.
+
+## Páginas, o editor de texto
 
 - **A folha na tela**: o documento aparece como vai sair na impressão, página por página, com as margens, as quebras de página e os números de página. À direita, o painel **Formatar** (estilo do parágrafo, fonte, tamanho, negrito, itálico, sublinhado, riscado, cor, sobrescrito, alinhamento, espaçamento, recuos e listas) e o painel **Folha** (papel, orientação, margens, números de página e a fonte do corpo).
 - **Modelos para quem estuda e ensina**: trabalho acadêmico nas normas da ABNT (margens de 3 e 2 cm, fonte 12, entrelinha de 1,5, recuo de 1,25 cm, citação longa com recuo de 4 cm, capa e referências), plano de aula, relatório com tabela, carta e currículo. Num documento qualquer, **Folha > Pôr as margens e a fonte da ABNT** acerta tudo de uma vez.
@@ -9,8 +11,21 @@ Sobre o FreeBSD 15.1. Chega o **Páginas**, o editor de texto do LumeBSD, com a 
 - **Procurar e substituir** (Ctrl+F), a contagem de palavras e de páginas no rodapé, e os documentos recentes na galeria.
 - No terminal: `lume-paginas --converter trabalho.docx trabalho.pdf`.
 
+## Finanças do LumeBSD
 
-Sobre o FreeBSD 15.1. Termina o que a 2.0 deixou pela metade nas abas e nos atributos.
+- **O orçamento do mês**: planejado × realizado, a regra 50/30/20, a reserva de emergência e as metas.
+- **Juros e taxas** como na HP 12C, **financiamento** Price × SAC com o CET, **VPL e TIR** de projetos.
+- **Correção** pelo IPCA, IGP-M, Selic e CDI com os dados do Banco Central, e **regressão** por MQO com a estatística descritiva.
+
+## Mercados do LumeBSD
+
+- Um **terminal de mercados** com uma linha de comando (`PETR4 G`, `VALE3 REL`, `MUNDO`) e uma tela por função, com dados públicos e oficiais.
+- **Cotações** (cripto e ações dos EUA em tempo real), gráficos, ficha da companhia, **balanços** da CVM e da SEC, **triagem** de todas as companhias da B3, **opções** com volatilidade implícita.
+- **Economia** (Banco Central e Focus), câmbio, correlações e o ativo oposto, **Tesouro Direto** e a calculadora de títulos.
+- **As relações entre empresas** com os valores que elas mesmas declaram (contratos com partes relacionadas na CVM, clientes no relatório anual da SEC).
+- Aviões e navios no mapa, notícias, carteira, alertas, ordens (simulador e a corretora Alpaca) e conversa.
+
+## Abas e atributos (o que a 2.0 deixou pela metade)
 
 - **Consultas ao vivo**, como no BeOS: a janela de procura por atributos se atualiza sozinha. Um arquivo que ganha a etiqueta aparece na hora, um que a perde (ou é apagado, ou sai da pasta) some, e as colunas acompanham as mudanças. Vale também para as consultas salvas (`.consulta`). No terminal: `lume atributo procurar -v etiquetas=trabalho`.
 - **Etiquetas e comentário nas colunas do Dolphin**: na lista em Detalhes, as colunas Etiquetas, Nota e Comentário mostram os atributos de cada arquivo (botão direito no cabeçalho da lista para ligar). Antes, só a nota aparecia.

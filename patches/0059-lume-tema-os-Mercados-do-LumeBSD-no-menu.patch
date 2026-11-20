@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 18 Nov 2026 21:00:00 -0300
+Subject: [PATCH] lume tema: os Mercados do LumeBSD no menu
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01CMniwLB9Hzf56G8drEFzwQ
+---
+ usr.sbin/lume-configurar/lume-tema.sh | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index a6a66f0..1b3d031 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -303,6 +303,11 @@ integrar()
+ 		instalar $A/lume-financas.desktop \
+ 		    $P/share/applications/lume-financas.desktop 0644
+ 	fi
++	# Os Mercados do LumeBSD (o terminal de mercados), no menu.
++	if [ -x /usr/bin/lume-mercados ]; then
++		instalar $A/lume-mercados.desktop \
++		    $P/share/applications/lume-mercados.desktop 0644
++	fi
+ 	# O Páginas (o editor de texto, com os modelos da ABNT, de aula e de
+ 	# carta), no menu e como o programa dos .odt e .docx (se ninguém já é).
+ 	if [ -x /usr/bin/lume-paginas ]; then
+-- 
+2.43.0
+

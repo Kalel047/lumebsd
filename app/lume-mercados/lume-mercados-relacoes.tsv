@@ -1,0 +1,388 @@
+# As relações entre as empresas que vêm com os Mercados do LumeBSD.
+# Públicas e conhecidas (relatórios das empresas e a imprensa), sem os valores
+# dos contratos; mudam com o tempo. Uma por linha, com TAB entre as partes:
+#   A <tab> fornece|concorre|controla <tab> B <tab> nota     (A fornece para B)
+#   = <tab> SÍMBOLO <tab> Nome
+# As suas próprias vão em ~/.local/share/lume-mercados/relacoes.tsv.
+=	AAPL	Apple
+=	MSFT	Microsoft
+=	NVDA	Nvidia
+=	AMZN	Amazon
+=	GOOGL	Alphabet (Google)
+=	META	Meta
+=	TSLA	Tesla
+=	AMD	AMD
+=	INTC	Intel
+=	TSM	TSMC
+=	ASML	ASML
+=	AMAT	Applied Materials
+=	LRCX	Lam Research
+=	KLAC	KLA
+=	8035.T	Tokyo Electron
+=	MU	Micron
+=	000660.KS	SK Hynix
+=	005930.KS	Samsung Electronics
+=	2317.TW	Hon Hai (Foxconn)
+=	QCOM	Qualcomm
+=	AVGO	Broadcom
+=	SWKS	Skyworks
+=	QRVO	Qorvo
+=	GLW	Corning
+=	6758.T	Sony
+=	STM	STMicroelectronics
+=	1810.HK	Xiaomi
+=	DELL	Dell
+=	SMCI	Supermicro
+=	ORCL	Oracle
+=	HPQ	HP
+=	0992.HK	Lenovo
+=	ANET	Arista Networks
+=	MRVL	Marvell
+=	CRM	Salesforce
+=	6752.T	Panasonic
+=	300750.SZ	CATL
+=	373220.KS	LG Energy Solution
+=	ALB	Albemarle
+=	1211.HK	BYD
+=	F	Ford
+=	GM	General Motors
+=	7203.T	Toyota
+=	VOW3.DE	Volkswagen
+=	STLA	Stellantis
+=	BWA	BorgWarner
+=	APTV	Aptiv
+=	LEA	Lear
+=	MGA	Magna
+=	BA	Boeing
+=	AIR.PA	Airbus
+=	GE	GE Aerospace
+=	RTX	RTX (Pratt & Whitney, Collins)
+=	SAF.PA	Safran
+=	HWM	Howmet
+=	HXL	Hexcel
+=	RR.L	Rolls-Royce
+=	MTX.DE	MTU Aero Engines
+=	HON	Honeywell
+=	UAL	United Airlines
+=	DAL	Delta Air Lines
+=	AAL	American Airlines
+=	LUV	Southwest
+=	RYAAY	Ryanair
+=	LHA.DE	Lufthansa
+=	SKYW	SkyWest
+=	BBD-B.TO	Bombardier
+=	GD	General Dynamics (Gulfstream)
+=	TXT	Textron (Cessna)
+=	WMT	Walmart
+=	PG	Procter & Gamble
+=	KO	Coca-Cola
+=	PEP	PepsiCo
+=	UL	Unilever
+=	KHC	Kraft Heinz
+=	TGT	Target
+=	COST	Costco
+=	MELI	Mercado Livre
+=	BABA	Alibaba
+=	SE	Sea (Shopee)
+=	UPS	UPS
+=	KOF	Coca-Cola FEMSA
+=	CCEP	Coca-Cola Europacific
+=	MCD	McDonald's
+=	YUM	Yum! Brands
+=	XOM	ExxonMobil
+=	CVX	Chevron
+=	SHEL	Shell
+=	TTE	TotalEnergies
+=	EQNR	Equinor
+=	SLB	SLB (Schlumberger)
+=	HAL	Halliburton
+=	BKR	Baker Hughes
+=	FTI	TechnipFMC
+=	SBMO.AS	SBM Offshore
+=	6269.T	Modec
+=	SUBC.OL	Subsea 7
+=	RIO	Rio Tinto
+=	BHP	BHP
+=	FMG.AX	Fortescue
+=	MT	ArcelorMittal
+=	600019.SS	Baoshan Iron & Steel
+=	5401.T	Nippon Steel
+=	005490.KS	POSCO
+=	NUE	Nucor
+=	CAT	Caterpillar
+=	6301.T	Komatsu
+=	DOW	Dow
+=	LYB	LyondellBasell
+=	KMB	Kimberly-Clark
+=	UPM.HE	UPM
+=	BUD	AB InBev
+=	HEIA.AS	Heineken
+=	ABBN.SW	ABB
+=	SIE.DE	Siemens
+=	6594.T	Nidec
+=	TSN	Tyson Foods
+=	NU	Nubank
+=	BG	Bunge
+=	ADM	ADM
+=	WHR	Whirlpool
+=	066570.KS	LG Electronics
+=	PETR4.SA	Petrobras
+=	VALE3.SA	Vale
+=	ITUB4.SA	Itaú Unibanco
+=	BBDC4.SA	Bradesco
+=	BBAS3.SA	Banco do Brasil
+=	SANB11.SA	Santander Brasil
+=	BPAC11.SA	BTG Pactual
+=	ITSA4.SA	Itaúsa
+=	ABEV3.SA	Ambev
+=	WEGE3.SA	WEG
+=	SUZB3.SA	Suzano
+=	KLBN11.SA	Klabin
+=	GGBR4.SA	Gerdau
+=	GOAU4.SA	Metalúrgica Gerdau
+=	CSNA3.SA	CSN
+=	CMIN3.SA	CSN Mineração
+=	USIM5.SA	Usiminas
+=	PRIO3.SA	PRIO
+=	RECV3.SA	PetroReconcavo
+=	BRAV3.SA	Brava Energia
+=	VBBR3.SA	Vibra Energia
+=	UGPA3.SA	Ultrapar (Ipiranga)
+=	RAIZ4.SA	Raízen
+=	CSAN3.SA	Cosan
+=	RAIL3.SA	Rumo
+=	CGAS5.SA	Comgás
+=	BRKM5.SA	Braskem
+=	EMBJ3.SA	Embraer
+=	AZUL3.SA	Azul
+=	RENT3.SA	Localiza
+=	MOVI3.SA	Movida
+=	MGLU3.SA	Magazine Luiza
+=	BHIA3.SA	Casas Bahia
+=	DXCO3.SA	Dexco
+=	ALPA4.SA	Alpargatas
+=	JBS	JBS
+=	BEEF3.SA	Minerva
+=	MBRF3.SA	MBRF (Marfrig e BRF)
+=	B3SA3.SA	B3
+# Tecnologia e semicondutores
+TSM	fornece	AAPL	fabrica os chips do iPhone e do Mac
+2317.TW	fornece	AAPL	monta o iPhone
+QCOM	fornece	AAPL	modems de celular
+AVGO	fornece	AAPL	chips de rádio e Wi-Fi
+SWKS	fornece	AAPL	chips de rádio
+QRVO	fornece	AAPL	chips de rádio
+GLW	fornece	AAPL	vidro das telas
+005930.KS	fornece	AAPL	telas e memória
+6758.T	fornece	AAPL	sensores das câmeras
+STM	fornece	AAPL	sensores
+AAPL	concorre	005930.KS	celulares
+AAPL	concorre	1810.HK	celulares
+AAPL	concorre	GOOGL	sistemas de celular
+AAPL	concorre	MSFT	computadores e sistemas
+TSM	fornece	NVDA	fabrica os chips
+000660.KS	fornece	NVDA	memória rápida (HBM)
+MU	fornece	NVDA	memória
+NVDA	fornece	MSFT	chips de IA para os centros de dados
+NVDA	fornece	META	chips de IA para os centros de dados
+NVDA	fornece	AMZN	chips de IA para os centros de dados
+NVDA	fornece	GOOGL	chips de IA para os centros de dados
+NVDA	fornece	ORCL	chips de IA para os centros de dados
+NVDA	fornece	TSLA	chips de IA
+NVDA	fornece	DELL	chips para servidores
+NVDA	fornece	SMCI	chips para servidores
+NVDA	concorre	AMD	chips gráficos e de IA
+NVDA	concorre	INTC	chips
+NVDA	concorre	AVGO	chips de IA sob medida
+TSM	fornece	AMD	fabrica os chips
+TSM	fornece	QCOM	fabrica os chips
+TSM	fornece	AVGO	fabrica os chips
+TSM	fornece	MRVL	fabrica os chips
+ASML	fornece	TSM	máquinas de litografia
+AMAT	fornece	TSM	máquinas de fabricação de chips
+LRCX	fornece	TSM	máquinas de fabricação de chips
+KLAC	fornece	TSM	máquinas de inspeção
+8035.T	fornece	TSM	máquinas de fabricação de chips
+ASML	fornece	005930.KS	máquinas de litografia
+ASML	fornece	INTC	máquinas de litografia
+ASML	fornece	000660.KS	máquinas de litografia
+ASML	fornece	MU	máquinas de litografia
+TSM	concorre	005930.KS	fabricação de chips por encomenda
+TSM	concorre	INTC	fabricação de chips por encomenda
+AMD	fornece	MSFT	processadores para servidores e consoles
+AMD	fornece	META	processadores para servidores
+AMD	fornece	DELL	processadores
+AMD	fornece	HPQ	processadores
+AMD	concorre	INTC	processadores
+INTC	fornece	DELL	processadores
+INTC	fornece	HPQ	processadores
+INTC	fornece	0992.HK	processadores
+MU	fornece	AAPL	memória
+MU	concorre	000660.KS	memória
+MU	concorre	005930.KS	memória
+ANET	fornece	MSFT	equipamentos de rede
+ANET	fornece	META	equipamentos de rede
+AVGO	fornece	GOOGL	chips de IA sob medida
+MSFT	concorre	AMZN	nuvem
+MSFT	concorre	GOOGL	nuvem e escritório
+MSFT	concorre	ORCL	nuvem e bancos de dados
+MSFT	concorre	CRM	programas para empresas
+AMZN	concorre	GOOGL	nuvem
+AMZN	concorre	WMT	varejo
+AMZN	concorre	MELI	comércio eletrônico na América Latina
+AMZN	concorre	BABA	comércio eletrônico
+GOOGL	concorre	META	propaganda na internet
+# Carros e baterias
+6752.T	fornece	TSLA	baterias
+300750.SZ	fornece	TSLA	baterias
+373220.KS	fornece	TSLA	baterias
+ALB	fornece	TSLA	lítio
+TSLA	concorre	1211.HK	carros elétricos
+TSLA	concorre	F	carros
+TSLA	concorre	GM	carros
+TSLA	concorre	7203.T	carros
+TSLA	concorre	VOW3.DE	carros
+BWA	fornece	F	peças
+BWA	fornece	GM	peças
+APTV	fornece	GM	parte elétrica
+LEA	fornece	F	bancos e parte elétrica
+LEA	fornece	GM	bancos e parte elétrica
+MGA	fornece	GM	peças e montagem
+F	concorre	GM	carros
+F	concorre	STLA	carros
+# Aviação
+GE	fornece	BA	motores (com a Safran, na CFM)
+RTX	fornece	BA	motores e aviônicos
+SAF.PA	fornece	BA	motores (com a GE, na CFM) e trens de pouso
+HWM	fornece	BA	peças de motor e fixadores
+HXL	fornece	BA	fibra de carbono
+BA	fornece	UAL	aviões
+BA	fornece	DAL	aviões
+BA	fornece	AAL	aviões
+BA	fornece	LUV	aviões (só voa Boeing 737)
+BA	fornece	RYAAY	aviões (só voa Boeing 737)
+BA	concorre	AIR.PA	aviões comerciais
+SAF.PA	fornece	AIR.PA	motores (CFM) e trens de pouso
+GE	fornece	AIR.PA	motores (CFM)
+RTX	fornece	AIR.PA	motores (Pratt & Whitney)
+RR.L	fornece	AIR.PA	motores dos aviões grandes
+MTX.DE	fornece	AIR.PA	partes de motor
+HXL	fornece	AIR.PA	fibra de carbono
+AIR.PA	fornece	DAL	aviões
+AIR.PA	fornece	AAL	aviões
+AIR.PA	fornece	LHA.DE	aviões
+AIR.PA	fornece	AZUL3.SA	aviões
+GE	fornece	EMBJ3.SA	motores dos E-Jets E1
+RTX	fornece	EMBJ3.SA	motores dos E-Jets E2 (Pratt & Whitney)
+HON	fornece	EMBJ3.SA	aviônicos e motores de jatos executivos
+EMBJ3.SA	fornece	SKYW	jatos regionais
+EMBJ3.SA	fornece	AAL	jatos regionais
+EMBJ3.SA	fornece	AZUL3.SA	jatos E2
+EMBJ3.SA	concorre	AIR.PA	jatos de 100 a 150 lugares (A220)
+EMBJ3.SA	concorre	BBD-B.TO	jatos executivos
+EMBJ3.SA	concorre	GD	jatos executivos
+EMBJ3.SA	concorre	TXT	jatos executivos
+VBBR3.SA	fornece	AZUL3.SA	querosene de aviação
+# Consumo
+PG	fornece	WMT	produtos de limpeza e higiene
+KO	fornece	WMT	bebidas
+PEP	fornece	WMT	bebidas e salgadinhos
+UL	fornece	WMT	higiene e alimentos
+KHC	fornece	WMT	alimentos
+WMT	concorre	TGT	varejo
+WMT	concorre	COST	varejo
+KO	fornece	MCD	bebidas dos restaurantes
+PEP	fornece	YUM	bebidas dos restaurantes (KFC, Taco Bell, Pizza Hut)
+KO	fornece	KOF	concentrado (a KOF engarrafa)
+KO	fornece	CCEP	concentrado (a CCEP engarrafa)
+KO	concorre	PEP	bebidas
+MELI	concorre	MGLU3.SA	comércio eletrônico no Brasil
+MELI	concorre	SE	comércio eletrônico no Brasil (Shopee)
+# Petróleo e gás
+SLB	fornece	PETR4.SA	serviços de poços
+HAL	fornece	PETR4.SA	serviços de poços
+BKR	fornece	PETR4.SA	equipamentos e serviços
+FTI	fornece	PETR4.SA	equipamentos submarinos
+SUBC.OL	fornece	PETR4.SA	instalação submarina
+SBMO.AS	fornece	PETR4.SA	plataformas flutuantes (FPSO) afretadas
+6269.T	fornece	PETR4.SA	plataformas flutuantes (FPSO) afretadas
+PETR4.SA	fornece	VBBR3.SA	gasolina, diesel e querosene de aviação
+PETR4.SA	fornece	UGPA3.SA	gasolina e diesel (Ipiranga) e GLP (Ultragaz)
+PETR4.SA	fornece	RAIZ4.SA	gasolina e diesel (postos Shell)
+PETR4.SA	fornece	BRKM5.SA	nafta e outros insumos; também é sócia
+PETR4.SA	fornece	CGAS5.SA	gás natural
+PETR4.SA	concorre	PRIO3.SA	produção de petróleo no Brasil
+PETR4.SA	concorre	BRAV3.SA	produção de petróleo no Brasil
+PETR4.SA	concorre	RECV3.SA	produção em terra
+PETR4.SA	concorre	SHEL	sócia e concorrente no pré-sal
+PETR4.SA	concorre	TTE	sócia e concorrente no pré-sal
+PETR4.SA	concorre	EQNR	produção no Brasil
+PETR4.SA	concorre	XOM	petróleo
+PETR4.SA	concorre	CVX	petróleo
+VBBR3.SA	concorre	UGPA3.SA	distribuição de combustíveis
+VBBR3.SA	concorre	RAIZ4.SA	distribuição de combustíveis
+BRKM5.SA	concorre	DOW	petroquímica
+BRKM5.SA	concorre	LYB	petroquímica
+CSAN3.SA	controla	RAIZ4.SA	em sociedade com a Shell
+SHEL	controla	RAIZ4.SA	em sociedade com a Cosan
+CSAN3.SA	controla	RAIL3.SA	ferrovias
+CSAN3.SA	controla	CGAS5.SA	pela Compass
+XOM	concorre	CVX	petróleo
+XOM	concorre	SHEL	petróleo
+# Mineração e aço
+VALE3.SA	fornece	600019.SS	minério de ferro
+VALE3.SA	fornece	5401.T	minério de ferro
+VALE3.SA	fornece	005490.KS	minério de ferro
+VALE3.SA	fornece	MT	minério de ferro e pelotas
+VALE3.SA	fornece	USIM5.SA	minério de ferro e pelotas
+CAT	fornece	VALE3.SA	caminhões e máquinas de mina
+6301.T	fornece	VALE3.SA	caminhões e máquinas de mina
+VALE3.SA	concorre	RIO	minério de ferro
+VALE3.SA	concorre	BHP	minério de ferro e cobre
+VALE3.SA	concorre	FMG.AX	minério de ferro
+VALE3.SA	concorre	CMIN3.SA	minério de ferro
+CSNA3.SA	controla	CMIN3.SA	mineração
+GOAU4.SA	controla	GGBR4.SA
+GGBR4.SA	concorre	CSNA3.SA	aço
+GGBR4.SA	concorre	USIM5.SA	aço
+GGBR4.SA	concorre	MT	aço
+GGBR4.SA	concorre	NUE	aço nos Estados Unidos
+CSNA3.SA	concorre	USIM5.SA	aços planos
+# Bancos
+ITSA4.SA	controla	ITUB4.SA
+ITSA4.SA	controla	DXCO3.SA
+ITSA4.SA	controla	ALPA4.SA
+ITUB4.SA	concorre	BBDC4.SA	banco
+ITUB4.SA	concorre	BBAS3.SA	banco
+ITUB4.SA	concorre	SANB11.SA	banco
+ITUB4.SA	concorre	NU	banco digital
+ITUB4.SA	concorre	BPAC11.SA	banco de investimento
+BBDC4.SA	concorre	BBAS3.SA	banco
+BBDC4.SA	concorre	SANB11.SA	banco
+BBDC4.SA	concorre	NU	banco digital
+# Outras brasileiras
+BUD	controla	ABEV3.SA
+PEP	fornece	ABEV3.SA	licença para fazer e vender Pepsi no Brasil
+ABEV3.SA	concorre	HEIA.AS	cerveja
+WEGE3.SA	concorre	ABBN.SW	motores e automação
+WEGE3.SA	concorre	SIE.DE	motores e automação
+WEGE3.SA	concorre	6594.T	motores elétricos
+SUZB3.SA	fornece	KMB	celulose para papéis de higiene
+SUZB3.SA	concorre	KLBN11.SA	papel e celulose
+SUZB3.SA	concorre	UPM.HE	celulose
+STLA	fornece	RENT3.SA	carros (Fiat, Jeep)
+VOW3.DE	fornece	RENT3.SA	carros
+GM	fornece	RENT3.SA	carros
+7203.T	fornece	RENT3.SA	carros
+RENT3.SA	concorre	MOVI3.SA	aluguel de carros
+005930.KS	fornece	MGLU3.SA	celulares e eletrônicos
+WHR	fornece	MGLU3.SA	eletrodomésticos (Brastemp, Consul)
+066570.KS	fornece	MGLU3.SA	eletrônicos
+AAPL	fornece	MGLU3.SA	celulares
+MGLU3.SA	concorre	BHIA3.SA	varejo de eletrônicos
+MGLU3.SA	concorre	AMZN	comércio eletrônico
+RAIL3.SA	fornece	BG	transporte de grãos por trem
+RAIL3.SA	fornece	ADM	transporte de grãos por trem
+JBS	concorre	TSN	carnes
+JBS	concorre	BEEF3.SA	carne bovina
+JBS	concorre	MBRF3.SA	carnes

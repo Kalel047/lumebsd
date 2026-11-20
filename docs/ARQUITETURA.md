@@ -48,6 +48,7 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-atributos/`, `usr.bin/lume-atributo/` | os atributos dos arquivos: a janela e a procura (Qt) e o `lume atributo` (C) |
 | `app/lume-paginas/` | o Páginas (C++/Qt): o editor de texto, com leitores e gravadores de `.odt` e `.docx` e o PDF; também na linha de comando |
 | `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
+| `app/lume-mercados/` | os Mercados do LumeBSD (C++/Qt, com o QtNetwork): o terminal de mercados; `main.cpp` e as partes ao lado (`base.h` a rede, o gráfico e a configuração, `ws.h` um cliente de WebSocket, `dados.h` as cotações e as contas, `relcvm.h` o Formulário de Referência, `sec.h` a SEC, `telas1.h` a `telas6.h` as funções), o mapa (Natural Earth) e as relações entre empresas (`lume-mercados-relacoes.tsv`) |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
 | `usr.sbin/lume-configurar/marca/` | a identidade: o farol (ícones, logotipo, splash) |
 | `ferramentas/lume-montar/` | as ferramentas de construção, em Rust (`ferramentas/montar SUBCOMANDO`) |

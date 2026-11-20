@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Mercados do LumeBSD: o globo com uma linha de cotação por cima (tema Papel). -->
+  <circle cx="32" cy="32" r="30" fill="#f2efe8" stroke="#222" stroke-width="2"/>
+  <circle cx="32" cy="32" r="17" fill="none" stroke="#222" stroke-width="1.4"/>
+  <ellipse cx="32" cy="32" rx="7.5" ry="17" fill="none" stroke="#222" stroke-width="1.1"/>
+  <path d="M15 32 h34 M18 23.5 h28 M18 40.5 h28" stroke="#222" stroke-width="1.1"/>
+  <path d="M9 41 L19 35 L26 39 L35 27 L42 31 L55 19" fill="none" stroke="#f2efe8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M9 41 L19 35 L26 39 L35 27 L42 31 L55 19" fill="none" stroke="#222" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="55" cy="19" r="2.6" fill="#222"/>
+</svg>
