@@ -155,7 +155,7 @@ jobs:
       - name: Palco (ida e volta)
         if: matrix.base == 'fixado'
         run: |
-          sudo apt-get install -y -q python3-pptx || true
+          python3 -m pip install -q --user --break-system-packages python-pptx==1.0.2 || true
           g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
               $(pkg-config --cflags Qt6Widgets) app/lume-palco/main.cpp \
               -o lume-palco $(pkg-config --libs Qt6Widgets) -lz
