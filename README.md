@@ -410,7 +410,7 @@ aplica de novo.
 | ![A galeria de temas e modelos do Palco](docs/capturas/palco-1-galeria.png) | ![A conjuntura econômica, com o gráfico da inflação e dos juros](docs/capturas/palco-2-conjuntura.png) |
 | ![A aula, com uma forma escolhida e o painel Formatar](docs/capturas/palco-3-aula.png) | ![A tela do apresentador, com o slide seguinte e as notas](docs/capturas/palco-4-apresentador.png) |
 | ![Um .pptx do PowerPoint aberto no Palco](docs/capturas/palco-5-pptx.png) | ![O painel Animar, com a ordem das animações do slide](docs/capturas/palco-6-animar.png) |
-| ![Uma tabela da conjuntura, com o cabeçalho e as faixas do tema](docs/capturas/palco-7-tabela.png) | |
+| ![Uma tabela da conjuntura, com o cabeçalho e as faixas do tema](docs/capturas/palco-7-tabela.png) | ![Um vídeo tocando sozinho na apresentação](docs/capturas/palco-8-video.png) |
 
 ### Os Números (2.3) na tela
 
