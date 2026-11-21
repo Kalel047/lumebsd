@@ -81,6 +81,39 @@ diff -u "$T/auto.txt" "$T/auto-ods.txt" || { echo "FALHOU: autoteste .ods"; falh
 "$B" --resumo "$T/orcamento-csv.xlsx" > "$T/orcamento-csv.txt"
 grep -qF 'C5 "R$ 4.800,00" [moeda 2]' "$T/orcamento-csv.txt" || { echo "FALHOU: CSV (moeda)"; falhou=1; }
 grep -qF 'I5 "52,8%" [porcento 1]' "$T/orcamento-csv.txt" || { echo "FALHOU: CSV (porcentagem)"; falhou=1; }
+# Um .xlsx "de fora" (como os do Google Planilhas) com uma data num formato
+# próprio ("d.m": dia e mês): aparece como no Excel e vai e volta pelo .ods.
+python3 - "$T" <<'P'
+import sys, zipfile
+T = sys.argv[1]
+S = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+z = zipfile.ZipFile(T + '/fora.xlsx', 'w')
+z.writestr('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+           '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+           '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+           '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+           '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>')
+z.writestr('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+           '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
+z.writestr('xl/_rels/workbook.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+           '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+           '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
+z.writestr('xl/workbook.xml', '<?xml version="1.0"?><workbook %s xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+           '<sheets><sheet name="Datas" sheetId="1" r:id="rId1"/></sheets></workbook>' % S)
+z.writestr('xl/styles.xml', '<?xml version="1.0"?><styleSheet %s><numFmts count="2"><numFmt numFmtId="164" formatCode="d.m"/>'
+           '<numFmt numFmtId="165" formatCode="mmm/yy"/></numFmts><fonts count="1"><font><sz val="10"/><name val="Arial"/></font></fonts>'
+           '<fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders>'
+           '<cellXfs count="3"><xf numFmtId="0"/><xf numFmtId="164" applyNumberFormat="1"/><xf numFmtId="165" applyNumberFormat="1"/></cellXfs></styleSheet>' % S)
+z.writestr('xl/worksheets/sheet1.xml', '<?xml version="1.0"?><worksheet %s><sheetData><row r="1"><c r="A1" s="1"><v>45109</v></c>'
+           '<c r="B1" s="2"><v>45109</v></c></row></sheetData></worksheet>' % S)
+z.close()
+P
+"$B" --resumo "$T/fora.xlsx" > "$T/fora.txt"
+"$B" --converter "$T/fora.xlsx" "$T/fora.ods"
+"$B" --resumo "$T/fora.ods" > "$T/fora-ods.txt"
+grep -qF 'A1 "2.7" [data d.m]' "$T/fora.txt" || { echo "FALHOU: data d.m"; falhou=1; }
+grep -qF 'B1 "jul/23" [data mmm/yy]' "$T/fora.txt" || { echo "FALHOU: data mmm/yy"; falhou=1; }
+diff -u "$T/fora.txt" "$T/fora-ods.txt" || { echo "FALHOU: datas pelo .ods"; falhou=1; }
 # Zips e XML.
 python3 - "$T" <<'P' || falhou=1
 import sys, glob, zipfile

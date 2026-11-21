@@ -48,6 +48,49 @@ tabela 3x2
 X
 sed -n '3,12p' "$T/auto.txt" | diff -u "$T/auto-esperado.txt" - || { echo "FALHOU: autoteste"; falhou=1; }
 diff -u "$T/auto.txt" "$T/auto-docx.txt" || { echo "FALHOU: autoteste .docx"; falhou=1; }
+# Um .docx "de fora" (como os do Word e do Google Docs): listas numeradas
+# que continuam umas nas outras (startOverride) e uma tabela com a linha do
+# cabeçalho que repete em cada página (tblHeader); vão e voltam pelo .odt.
+python3 - "$T" <<'P'
+import sys, zipfile
+T = sys.argv[1]
+W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+def par(t, num=None):
+    pp = '<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="%s"/></w:numPr></w:pPr>' % num if num else ''
+    return '<w:p>%s<w:r><w:t>%s</w:t></w:r></w:p>' % (pp, t)
+def cel(t):
+    return '<w:tc><w:tcPr><w:tcW w:w="4000" w:type="dxa"/></w:tcPr>%s</w:tc>' % par(t)
+corpo = par('Bloco 1') + par('um', 1) + par('dois', 1) + par('Bloco 2') + par('tres', 2) + par('quatro', 2)
+corpo += ('<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/></w:tblPr><w:tblGrid><w:gridCol w:w="4000"/><w:gridCol w:w="4000"/></w:tblGrid>'
+          '<w:tr><w:trPr><w:tblHeader/></w:trPr>' + cel('Item') + cel('Gasto') + '</w:tr>')
+for i in range(40):
+    corpo += '<w:tr>' + cel('linha %d' % i) + cel('R$ %d' % i) + '</w:tr>'
+corpo += '</w:tbl>' + par('fim')
+num = ('<w:numbering %s><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/>'
+       '<w:lvlText w:val="%%1."/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>'
+       '<w:num w:numId="2"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="3"/></w:lvlOverride></w:num></w:numbering>') % W
+z = zipfile.ZipFile(T + '/fora.docx', 'w')
+z.writestr('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+           '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+           '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+           '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>')
+z.writestr('_rels/.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+           '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
+z.writestr('word/_rels/document.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+           '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>')
+z.writestr('word/document.xml', '<?xml version="1.0"?><w:document %s><w:body>%s</w:body></w:document>' % (W, corpo))
+z.writestr('word/numbering.xml', '<?xml version="1.0"?>' + num)
+z.close()
+P
+"$B" --resumo "$T/fora.docx" > "$T/fora.txt"
+"$B" --converter "$T/fora.docx" "$T/fora.odt"
+"$B" --resumo "$T/fora.odt" > "$T/fora-odt.txt"
+"$B" --converter "$T/fora.odt" "$T/fora-2.docx"
+"$B" --resumo "$T/fora-2.docx" > "$T/fora-2.txt"
+grep -qF '[corpo] lista-num1 desde3 "tres"' "$T/fora.txt" || { echo "FALHOU: .docx de fora (a lista que continua)"; falhou=1; }
+grep -qF 'tabela 41x2 cabecalho1' "$T/fora.txt" || { echo "FALHOU: .docx de fora (o cabeçalho da tabela)"; falhou=1; }
+diff -u "$T/fora.txt" "$T/fora-odt.txt" || { echo "FALHOU: .docx de fora pelo .odt"; falhou=1; }
+diff -u "$T/fora.txt" "$T/fora-2.txt" || { echo "FALHOU: .docx de fora de volta"; falhou=1; }
 # Zips e XML.
 python3 - "$T" <<'P' || falhou=1
 import sys, glob, zipfile

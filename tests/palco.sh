@@ -173,6 +173,8 @@ s = p.slides.add_slide(p.slide_layouts[6])
 sh = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(1), Inches(1), Inches(3), Inches(1.5)); sh.text = 'Forma com estilo'
 sh2 = s.shapes.add_shape(MSO_SHAPE.OVAL, Inches(5), Inches(1), Inches(2), Inches(2)); sh2.rotation = 30
 tb = s.shapes.add_textbox(Inches(1), Inches(4), Inches(4), Inches(1))
+# A margem do texto como os do Google Slides (0,1 polegada nos quatro lados).
+tb.text_frame.margin_left = tb.text_frame.margin_right = tb.text_frame.margin_top = tb.text_frame.margin_bottom = Inches(0.1)
 r = tb.text_frame.paragraphs[0].add_run(); r.text = 'Negrito'; r.font.bold = True; r.font.size = Pt(28)
 s.shapes.add_picture(T + '/azul.png', Inches(6), Inches(4), Inches(2), Inches(1))
 # Uma tabela (o estilo é o padrão do PowerPoint, sem cor nas células) e um
@@ -202,7 +204,7 @@ P
 	pp 'colunas "" 2 séries x 3 categorias, soma 96.50'
 	pp '  arredondado 72,72 216x108 #4f81bd borda #4f81bd 1.0pt 18pt'
 	pp '  elipse 360,72 144x144 girado 30° #4f81bd borda #4f81bd 1.0pt'
-	pp '  texto 72,288 288x72 28pt negrito'
+	pp '  texto 72,288 288x72 margem 7.2/7.2/7.2/7.2 28pt negrito'
 	pp '  imagem 432,288 144x72 200x100'
 	# E volta igual pelo .odp.
 	"$B" --converter "$T/pp.pptx" "$T/pp.odp"

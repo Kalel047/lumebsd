@@ -166,10 +166,11 @@ private:
 			g += " draw:stroke=\"none\"";
 		if (o.aceitaTexto()) {
 			g += QString(" draw:textarea-vertical-align=\"%1\" draw:textarea-horizontal-align=\"justify\" draw:auto-grow-height=\"false\" draw:auto-grow-width=\"false\" "
-			             "fo:min-height=\"0cm\" fo:padding-top=\"0.127cm\" fo:padding-bottom=\"0.127cm\" fo:padding-left=\"0.254cm\" fo:padding-right=\"0.254cm\" "
+			             "fo:min-height=\"0cm\" fo:padding-top=\"%3\" fo:padding-bottom=\"%4\" fo:padding-left=\"%5\" fo:padding-right=\"%6\" "
 			             "fo:wrap-option=\"wrap\" draw:fit-to-size=\"false\" style:shrink-to-fit=\"%2\"")
 			         .arg(o.vAlin == 1 ? "middle" : o.vAlin == 2 ? "bottom" : "top")
-			         .arg(o.encolher ? "true" : "false");
+			         .arg(o.encolher ? "true" : "false")
+			         .arg(cmDe(o.margem.top()), cmDe(o.margem.bottom()), cmDe(o.margem.left()), cmDe(o.margem.right()));
 		}
 		return g + "/>";
 	}
@@ -1302,6 +1303,17 @@ private:
 		o.vAlin = va == "middle" ? 1 : va == "bottom" ? 2 : va == "top" ? 0 : o.vAlin;
 		o.encolher = prop(fs, "style:graphic-properties", "style:shrink-to-fit") == "true" ||
 		             prop(fs, "style:graphic-properties", "draw:fit-to-size") == "shrink-to-fit";
+		// A margem do texto.
+		for (const auto &[lado, attr] : std::vector<std::pair<int, const char *>>{{0, "fo:padding-left"}, {1, "fo:padding-top"}, {2, "fo:padding-right"}, {3, "fo:padding-bottom"}}) {
+			const QString v = prop(fs, "style:graphic-properties", attr);
+			if (v.isEmpty())
+				continue;
+			const double pt = ptDe(v);
+			if (lado == 0) o.margem.setLeft(pt);
+			else if (lado == 1) o.margem.setTop(pt);
+			else if (lado == 2) o.margem.setRight(pt);
+			else o.margem.setBottom(pt);
+		}
 	}
 
 	void objetos(const No &pai, std::vector<Objeto> &saida, const QString &mestre, bool soEnfeites, int &corpos)

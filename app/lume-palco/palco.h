@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <QMarginsF>
+
 #include <QByteArray>
 #include <QColor>
 #include <QMap>
@@ -204,6 +206,13 @@ struct Objeto {
 	// As animações.
 	Animacao entrada, saida;
 	int idArq = 0;            // (só ao ler) o número do objeto no arquivo
+	// A margem do texto dentro da caixa (pontos: esquerda, cima, direita, baixo).
+	QMarginsF margem{7.2, 3.6, 7.2, 3.6};
+	bool margemPadrao() const
+	{
+		return std::fabs(margem.left() - 7.2) < 0.2 && std::fabs(margem.top() - 3.6) < 0.2 && std::fabs(margem.right() - 7.2) < 0.2 &&
+		       std::fabs(margem.bottom() - 3.6) < 0.2;
+	}
 
 	bool temTexto() const
 	{

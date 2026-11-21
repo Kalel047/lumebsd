@@ -1068,6 +1068,25 @@ static QString familiaDe(const QTextCharFormat &f)
 	return QString();
 }
 
+// O número com que uma lista numerada começa (o Word e o LibreOffice
+// continuam a numeração de uma lista na outra assim). Guardado também numa
+// propriedade, porque o Qt antes da 6.6 não tem o setStart.
+static constexpr int P_INICIO = QTextFormat::UserProperty + 40;
+static int inicioLista(const QTextListFormat &lf)
+{
+	const int n = lf.intProperty(P_INICIO);
+	return n > 0 ? n : 1;
+}
+static void marcarInicio(QTextListFormat &lf, int n)
+{
+	if (n <= 1)
+		return;
+	lf.setProperty(P_INICIO, n);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+	lf.setStart(n);
+#endif
+}
+
 static bool listaNumerada(const QTextListFormat &lf)
 {
 	switch (lf.style()) {
@@ -1376,6 +1395,7 @@ private:
 		bool itemAberto;
 	};
 	std::vector<Nivel> pilha_;
+	QSet<QTextList *> comecadas_;
 
 	void fecharListas(QXmlStreamWriter &x, size_t ate = 0)
 	{
@@ -1432,6 +1452,11 @@ private:
 			pilha_.push_back({pilha_.size() + 1 == nivel ? l : nullptr, false});
 		}
 		x.writeStartElement("text:list-item");
+		if (!comecadas_.contains(l)) {
+			comecadas_.insert(l);
+			if (inicioLista(l->format()) > 1)
+				x.writeAttribute("text:start-value", QString::number(inicioLista(l->format())));
+		}
 		pilha_.back().itemAberto = true;
 		paragrafo(x, b, true);
 	}
@@ -1484,7 +1509,11 @@ private:
 			x.writeEmptyElement("table:table-column");
 			x.writeAttribute("table:style-name", cs);
 		}
+		// As linhas do cabeçalho (repetem no alto de cada página).
+		const int cab = std::clamp(t->format().headerRowCount(), 0, t->rows());
 		for (int r = 0; r < t->rows(); r++) {
+			if (r == 0 && cab > 0)
+				x.writeStartElement("table:table-header-rows");
 			x.writeStartElement("table:table-row");
 			for (int c = 0; c < t->columns(); c++) {
 				const QTextTableCell cel = t->cellAt(r, c);
@@ -1507,6 +1536,8 @@ private:
 				x.writeEndElement();
 			}
 			x.writeEndElement();
+			if (r + 1 == cab)
+				x.writeEndElement(); // table-header-rows
 		}
 		x.writeEndElement();
 	}
@@ -1857,6 +1888,9 @@ private:
 				QTextListFormat lf;
 				lf.setStyle(numerada ? QTextListFormat::ListDecimal : (nivelLista == 2 ? QTextListFormat::ListCircle : nivelLista >= 3 ? QTextListFormat::ListSquare : QTextListFormat::ListDisc));
 				lf.setIndent(nivelLista);
+				if (numerada)
+					marcarInicio(lf, inicioPendente_);
+				inicioPendente_ = 0;
 				l = c_.createList(lf);
 			}
 		}
@@ -1956,13 +1990,20 @@ private:
 			if (n != it->second.end())
 				numerada = n->second;
 		}
-		// Uma lista nova de primeiro nível começa a numeração de novo.
-		if (nivel == 1)
+		// Uma lista nova de primeiro nível começa a numeração de novo (a não
+		// ser que continue a anterior).
+		const bool continua = l.a("text:continue-numbering") == "true" || !l.a("text:continue-list").isEmpty();
+		if (nivel == 1 && !continua)
 			listaAtual_.clear();
 		listaAtual_.erase(nivel + 1);
 		for (const No &item : l.filhos) {
 			if (item.nome != "text:list-item" && item.nome != "text:list-header")
 				continue;
+			if (item.atr.contains("text:start-value")) {
+				// Um número de começo: uma lista nova a partir dele.
+				listaAtual_.erase(nivel);
+				inicioPendente_ = item.a("text:start-value").toInt();
+			}
 			for (const No &f : item.filhos) {
 				if (f.nome == "text:p" || f.nome == "text:h")
 					paragrafo(f, nivel, numerada);
@@ -1980,18 +2021,22 @@ private:
 	{
 		// As linhas (dentro de grupos e cabeçalhos também) e as colunas.
 		std::vector<const No *> linhas;
-		std::function<void(const No &)> juntar = [&](const No &n) {
+		int cabecalho = 0;
+		std::function<void(const No &, bool)> juntar = [&](const No &n, bool cab) {
 			for (const No &f : n.filhos) {
 				if (f.nome == "table:table-row") {
 					const int rep = std::clamp(f.a("table:number-rows-repeated", "1").toInt(), 1, 50);
-					for (int i = 0; i < rep; i++)
+					for (int i = 0; i < rep; i++) {
 						linhas.push_back(&f);
+						if (cab)
+							cabecalho++;
+					}
 				} else if (f.nome == "table:table-header-rows" || f.nome == "table:table-rows" || f.nome == "table:table-row-group") {
-					juntar(f);
+					juntar(f, cab || f.nome == "table:table-header-rows");
 				}
 			}
 		};
-		juntar(t);
+		juntar(t, false);
 		QVector<QTextLength> larguras;
 		std::function<void(const No &)> cols = [&](const No &n) {
 			for (const No &f : n.filhos) {
@@ -2018,6 +2063,7 @@ private:
 			return;
 		ncol = std::min(ncol, 64);
 		QTextTableFormat tf = Montador::formatoTabela();
+		tf.setHeaderRowCount(cabecalho);
 		double soma = 0;
 		for (int i = 0; i < std::min<int>(ncol, larguras.size()); i++)
 			soma += larguras[i].rawValue();
@@ -2082,6 +2128,7 @@ private:
 	std::map<QString, std::map<int, bool>> listas_;
 	std::map<QString, QString> colunas_;
 	std::map<int, QTextList *> listaAtual_;
+	int inicioPendente_ = 0;
 	QTextCharFormat padrao_;
 	int imagens_ = 0;
 };
@@ -2324,6 +2371,7 @@ private:
 			if (id == 0) {
 				id = int(listas_.size());
 				numerada_[id] = listaNumerada(l->format());
+				inicio_[id] = inicioLista(l->format());
 			}
 			numero = "<w:numPr>" + val("w:ilvl", QString::number(std::clamp(l->format().indent() - 1, 0, 8))) +
 			         val("w:numId", QString::number(id)) + "</w:numPr>";
@@ -2378,7 +2426,7 @@ private:
 			o += "<w:gridCol w:w=\"" + QString::number(w) + "\"/>";
 		o += "</w:tblGrid>";
 		for (int r = 0; r < t->rows(); r++) {
-			o += "<w:tr>";
+			o += r < t->format().headerRowCount() ? "<w:tr><w:trPr><w:tblHeader/></w:trPr>" : "<w:tr>";
 			for (int c = 0; c < t->columns();) {
 				const QTextTableCell cel = t->cellAt(r, c);
 				const int cs = std::max(1, cel.columnSpan());
@@ -2463,7 +2511,7 @@ private:
 		}
 		for (auto it = numerada_.begin(); it != numerada_.end(); ++it)
 			s += "<w:num w:numId=\"" + QString::number(it.key()) + "\"><w:abstractNumId w:val=\"" + (it.value() ? "1" : "0") + "\"/>"
-			     "<w:lvlOverride w:ilvl=\"0\"><w:startOverride w:val=\"1\"/></w:lvlOverride></w:num>";
+			     "<w:lvlOverride w:ilvl=\"0\"><w:startOverride w:val=\"" + QString::number(inicio_.value(it.key(), 1)) + "\"/></w:lvlOverride></w:num>";
 		return s + "</w:numbering>";
 	}
 
@@ -2471,6 +2519,7 @@ private:
 	std::vector<QByteArray> imagens_;
 	QHash<QTextList *, int> listas_;
 	QMap<int, bool> numerada_;
+	QMap<int, int> inicio_;
 };
 
 // --- DOCX: ler -------------------------------------------------------------
@@ -2742,20 +2791,29 @@ private:
 		const No *raiz = s.achar("w:numbering");
 		if (!raiz)
 			return;
-		std::map<QString, std::map<int, int>> abstratos;
+		std::map<QString, std::map<int, int>> abstratos, comecos;
 		for (const No *a : raiz->todos("w:abstractNum")) {
-			std::map<int, int> lv;
+			std::map<int, int> lv, ini;
 			for (const No *l : a->todos("w:lvl")) {
 				const No *f = l->filho("w:numFmt");
 				const QString fmt = f ? f->a("w:val") : "decimal";
 				// 0: sem marca (a numeração dos títulos do LibreOffice), 1: marcador, 2: número.
 				lv[l->a("w:ilvl").toInt()] = fmt == "none" ? 0 : fmt == "bullet" ? 1 : 2;
+				if (const No *st = l->filho("w:start"))
+					ini[l->a("w:ilvl").toInt()] = st->a("w:val").toInt();
 			}
 			abstratos[a->a("w:abstractNumId")] = lv;
+			comecos[a->a("w:abstractNumId")] = ini;
 		}
 		for (const No *n : raiz->todos("w:num"))
-			if (const No *a = n->filho("w:abstractNumId"))
+			if (const No *a = n->filho("w:abstractNumId")) {
 				numeros_[n->a("w:numId")] = abstratos[a->a("w:val")];
+				std::map<int, int> ini = comecos[a->a("w:val")];
+				for (const No *o : n->todos("w:lvlOverride"))
+					if (const No *so = o->filho("w:startOverride"))
+						ini[o->a("w:ilvl").toInt()] = so->a("w:val").toInt();
+				inicios_[n->a("w:numId")] = ini;
+			}
 	}
 
 	bool contextual(const QString &id, int prof = 0)
@@ -2872,6 +2930,8 @@ private:
 				QTextListFormat lf;
 				lf.setStyle(numerada ? QTextListFormat::ListDecimal : (ilvl == 1 ? QTextListFormat::ListCircle : ilvl >= 2 ? QTextListFormat::ListSquare : QTextListFormat::ListDisc));
 				lf.setIndent(ilvl + 1);
+				if (numerada && inicios_.count(numId) && inicios_[numId].count(ilvl))
+					marcarInicio(lf, inicios_[numId][ilvl]);
 				l = c_.createList(lf);
 			}
 		}
@@ -2987,6 +3047,16 @@ private:
 			return;
 		ncol = std::min(ncol, 64);
 		QTextTableFormat tf = Montador::formatoTabela();
+		// As primeiras linhas marcadas como cabeçalho (repetem em cada página).
+		int cabecalho = 0;
+		for (const No *r : linhas) {
+			const No *pr = r->filho("w:trPr");
+			const No *th = pr ? pr->filho("w:tblHeader") : nullptr;
+			if (!th || th->a("w:val") == "0" || th->a("w:val") == "false")
+				break;
+			cabecalho++;
+		}
+		tf.setHeaderRowCount(cabecalho);
 		double soma = 0;
 		for (double w : grade)
 			soma += w;
@@ -3061,7 +3131,7 @@ private:
 	int naTabela_ = 0;
 	QString ultimoEstilo_;
 	std::map<QString, EstiloW> estilos_;
-	std::map<QString, std::map<int, int>> numeros_;
+	std::map<QString, std::map<int, int>> numeros_, inicios_;
 	std::map<QString, QTextList *> listas_;
 	QHash<QString, QString> rels_;
 	QTextCharFormat padraoLetra_;
@@ -3235,7 +3305,10 @@ static QString resumo(QTextDocument *d)
 		for (; it != fim && !it.atEnd(); ++it) {
 			if (QTextFrame *fr = it.currentFrame()) {
 				if (auto *t = qobject_cast<QTextTable *>(fr)) {
-					o << rec << "tabela " << t->rows() << "x" << t->columns() << "\n";
+					o << rec << "tabela " << t->rows() << "x" << t->columns();
+					if (t->format().headerRowCount() > 0)
+						o << " cabecalho" << t->format().headerRowCount();
+					o << "\n";
 					for (int i = 0; i < t->rows(); i++)
 						for (int j = 0; j < t->columns(); j++) {
 							const QTextTableCell c = t->cellAt(i, j);
@@ -3254,7 +3327,11 @@ static QString resumo(QTextDocument *d)
 			const QTextBlockFormat bf = b.blockFormat();
 			o << rec << "[" << estiloDe(b) << "]";
 			if (QTextList *l = b.textList())
+			{
 				o << " lista" << (listaNumerada(l->format()) ? "-num" : "-mar") << l->format().indent();
+				if (inicioLista(l->format()) > 1 && l->itemNumber(b) == 0)
+					o << " desde" << inicioLista(l->format());
+			}
 			if (bf.pageBreakPolicy() & QTextFormat::PageBreak_AlwaysBefore)
 				o << " quebra";
 			if (bf.alignment() & Qt::AlignHCenter) o << " centro";

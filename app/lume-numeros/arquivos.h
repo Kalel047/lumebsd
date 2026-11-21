@@ -33,7 +33,7 @@ inline QString codigoExcel(const Formato &f)
 	case Formato::Porcento:
 		return "0" + casas + "%";
 	case Formato::Data:
-		return "dd/mm/yyyy";
+		return f.codigoData.isEmpty() ? QString("dd/mm/yyyy") : f.codigoData;
 	case Formato::Texto:
 		return "@";
 	default:
@@ -68,6 +68,13 @@ inline void formatoDeCodigo(QString cod, Formato &f)
 	}
 	if (!l.contains('0') && !l.contains('#') && (l.contains('d') || l.contains('y') || l.contains('m') || l.contains('a'))) {
 		f.tipo = Formato::Data;
+		// O código como veio (sem a parte da língua entre colchetes), se não
+		// for o dd/mm/aaaa de sempre.
+		QString c = primeira;
+		c.remove(QRegularExpression("\\[[^\\]]*\\]"));
+		const QString cl = c.toLower();
+		if (cl != "dd/mm/yyyy" && cl != "dd/mm/aaaa" && cl != "m/d/yyyy" && cl != "mm-dd-yy" && cl != "d/m/yyyy" && cl != "dd/mm/yy")
+			f.codigoData = c;
 		return;
 	}
 	auto casasDe = [&] {
@@ -970,7 +977,7 @@ private:
 
 	QString estiloDeDado(const Formato &f)
 	{
-		const QString chaveF = QString("%1/%2/%3").arg(int(f.tipo)).arg(f.casas).arg(f.milhar);
+		const QString chaveF = QString("%1/%2/%3/%4").arg(int(f.tipo)).arg(f.casas).arg(f.milhar).arg(f.codigoData);
 		if (dados_.contains(chaveF))
 			return dados_.value(chaveF);
 		const QString nome = "N" + QString::number(dados_.size() + 1);
@@ -986,9 +993,25 @@ private:
 		case Formato::Porcento:
 			autos_ += "<number:percentage-style style:name=\"" + nome + "\"><number:number " + casas + "/><number:text>%</number:text></number:percentage-style>";
 			break;
-		case Formato::Data:
-			autos_ += "<number:date-style style:name=\"" + nome + "\"><number:day number:style=\"long\"/><number:text>/</number:text><number:month number:style=\"long\"/><number:text>/</number:text><number:year number:style=\"long\"/></number:date-style>";
+		case Formato::Data: {
+			// O formato da data pedaço por pedaço (o dd/mm/aaaa de sempre ou o código do Excel).
+			QString x;
+			for (const PedacoData &p : pedacosData(f.codigoData.isEmpty() ? QString("dd/mm/yyyy") : f.codigoData)) {
+				const QString longo = p.n >= 2 ? " number:style=\"long\"" : "";
+				switch (p.t) {
+				case 'd': x += p.n >= 3 ? "<number:day-of-week" + QString(p.n >= 4 ? " number:style=\"long\"" : "") + "/>" : "<number:day" + longo + "/>"; break;
+				case 'm': x += p.n >= 3 ? "<number:month number:textual=\"true\"" + QString(p.n >= 4 ? " number:style=\"long\"" : "") + "/>" : "<number:month" + longo + "/>"; break;
+				case 'y': x += "<number:year" + QString(p.n >= 3 ? " number:style=\"long\"" : "") + "/>"; break;
+				case 'h': x += "<number:hours" + longo + "/>"; break;
+				case 'M': x += "<number:minutes" + longo + "/>"; break;
+				case 's': x += "<number:seconds" + longo + "/>"; break;
+				case 'a': x += "<number:am-pm/>"; break;
+				default: x += "<number:text>" + esc(p.txt) + "</number:text>";
+				}
+			}
+			autos_ += "<number:date-style style:name=\"" + nome + "\">" + x + "</number:date-style>";
 			break;
+		}
 		case Formato::Texto:
 			autos_ += "<number:text-style style:name=\"" + nome + "\"><number:text-content/></number:text-style>";
 			break;
@@ -1305,7 +1328,28 @@ private:
 				Formato f;
 				if (s.nome == "number:currency-style") f.tipo = Formato::Moeda;
 				else if (s.nome == "number:percentage-style") f.tipo = Formato::Porcento;
-				else if (s.nome == "number:date-style") f.tipo = Formato::Data;
+				else if (s.nome == "number:date-style") {
+					f.tipo = Formato::Data;
+					// O código do Excel a partir dos pedaços.
+					QString c;
+					for (const No &p : s.filhos) {
+						const bool longo = p.a("number:style") == "long";
+						if (p.nome == "number:day") c += longo ? "dd" : "d";
+						else if (p.nome == "number:day-of-week") c += longo ? "dddd" : "ddd";
+						else if (p.nome == "number:month") c += p.a("number:textual") == "true" ? (longo ? "mmmm" : "mmm") : (longo ? "mm" : "m");
+						else if (p.nome == "number:year") c += longo ? "yyyy" : "yy";
+						else if (p.nome == "number:hours") c += longo ? "hh" : "h";
+						else if (p.nome == "number:minutes") c += longo ? "mm" : "m";
+						else if (p.nome == "number:seconds") c += longo ? "ss" : "s";
+						else if (p.nome == "number:am-pm") c += "AM/PM";
+						else if (p.nome == "number:text") {
+							const QString t = p.textoTodo();
+							c += t.size() == 1 && QString("/.-: ,").contains(t) ? t : "\"" + t + "\"";
+						}
+					}
+					if (c != "dd/mm/yyyy")
+						f.codigoData = c;
+				}
 				else if (s.nome == "number:text-style") f.tipo = Formato::Texto;
 				else f.tipo = Formato::Numero;
 				if (const No *n = s.filho("number:number")) {
@@ -1378,6 +1422,7 @@ private:
 			f.tipo = d.tipo;
 			f.casas = d.casas;
 			f.milhar = d.milhar;
+			f.codigoData = d.codigoData;
 		}
 		return f;
 	}
@@ -1924,6 +1969,7 @@ inline QString resumo(Pasta &p)
 			if (!m.padrao()) {
 				static const char *tipos[] = {"geral", "numero", "moeda", "porcento", "data", "texto"};
 				o << " [" << tipos[m.tipo];
+				if (!m.codigoData.isEmpty()) o << " " << m.codigoData;
 				if (m.tipo == Formato::Numero || m.tipo == Formato::Moeda || m.tipo == Formato::Porcento) o << " " << m.casas;
 				if (m.negrito) o << " N";
 				if (m.italico) o << " I";

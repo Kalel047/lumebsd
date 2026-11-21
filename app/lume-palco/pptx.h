@@ -386,7 +386,11 @@ private:
 
 	QString corpo(const Objeto &o) const
 	{
-		return "<p:txBody><a:bodyPr wrap=\"square\" lIns=\"91440\" tIns=\"45720\" rIns=\"91440\" bIns=\"45720\" rtlCol=\"0\" anchor=\"" +
+		return QString("<p:txBody><a:bodyPr wrap=\"square\" lIns=\"%1\" tIns=\"%2\" rIns=\"%3\" bIns=\"%4\" rtlCol=\"0\" anchor=\"")
+		           .arg(emu(o.margem.left()))
+		           .arg(emu(o.margem.top()))
+		           .arg(emu(o.margem.right()))
+		           .arg(emu(o.margem.bottom())) +
 		       QString(o.vAlin == 1 ? "ctr" : o.vAlin == 2 ? "b" : "t") + "\">" + (o.encolher ? "<a:normAutofit/>" : "<a:noAutofit/>") +
 		       "</a:bodyPr><a:lstStyle/>" + pars(o) + "</p:txBody>";
 	}
@@ -1679,6 +1683,11 @@ private:
 					anchor = a == "ctr" ? 1 : a == "b" ? 2 : 0;
 				if (bp->filho("a:normAutofit")) autoFit = 1;
 				else if (bp->filho("a:noAutofit") || bp->filho("a:spAutoFit")) autoFit = 0;
+				// A margem do texto (o padrão do PowerPoint: 0,1 e 0,05 polegada).
+				if (bp->atr.contains("lIns")) o.margem.setLeft(bp->a("lIns").toDouble() / 12700);
+				if (bp->atr.contains("tIns")) o.margem.setTop(bp->a("tIns").toDouble() / 12700);
+				if (bp->atr.contains("rIns")) o.margem.setRight(bp->a("rIns").toDouble() / 12700);
+				if (bp->atr.contains("bIns")) o.margem.setBottom(bp->a("bIns").toDouble() / 12700);
 			}
 			if (const No *ls = tb->filho("a:lstStyle"))
 				lerNiveis(*ls, proprio, m);

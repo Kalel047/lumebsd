@@ -26,7 +26,7 @@
 constexpr double K = 10; // a escala do texto
 
 // As folgas da caixa de texto, as mesmas do PowerPoint (0,1" e 0,05").
-inline QRectF interior(const Objeto &o) { return o.r.adjusted(7.2, 3.6, -7.2, -3.6); }
+inline QRectF interior(const Objeto &o) { return o.r.marginsRemoved(o.margem); }
 
 inline QFont fonteK(const QString &familia, double pontos)
 {

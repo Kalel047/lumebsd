@@ -366,6 +366,10 @@ inline QString resumo(const Doc &d)
 			l += " " + rr(o.r);
 			if (o.giro != 0)
 				l += QString(" girado %1°").arg(std::lround(o.giro));
+			if (o.aceitaTexto() && !o.margemPadrao())
+				l += QString(" margem %1/%2/%3/%4")
+				         .arg(QString::number(o.margem.left(), 'f', 1), QString::number(o.margem.top(), 'f', 1), QString::number(o.margem.right(), 'f', 1),
+				              QString::number(o.margem.bottom(), 'f', 1));
 			if (o.forma() && o.preench.isValid())
 				l += " " + o.preench.name();
 			if (o.borda.isValid() && o.espBorda > 0)
