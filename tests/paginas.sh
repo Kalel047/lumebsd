@@ -48,6 +48,17 @@ tabela 3x2
 X
 sed -n '3,12p' "$T/auto.txt" | diff -u "$T/auto-esperado.txt" - || { echo "FALHOU: autoteste"; falhou=1; }
 diff -u "$T/auto.txt" "$T/auto-docx.txt" || { echo "FALHOU: autoteste .docx"; falhou=1; }
+# O gráfico colado dos Números (o fim do autoteste) vira gráfico de verdade:
+# volta com os dados pelo .odt e pelo .docx, e por .odt -> .docx -> .odt.
+G='[corpo] {grafico linhas "PIB, inflação e juros" 3x10 soma 161.39 600x360}'
+grep -qxF "$G" "$T/auto.txt" || { echo "FALHOU: gráfico colado"; falhou=1; }
+"$B" --converter "$T/auto.odt" "$T/auto-g.docx"
+"$B" --converter "$T/auto-g.docx" "$T/auto-g.odt"
+"$B" --resumo "$T/auto.odt" > "$T/auto-r.txt"
+"$B" --resumo "$T/auto-g.odt" | diff -u "$T/auto-r.txt" - || { echo "FALHOU: gráfico .odt -> .docx -> .odt"; falhou=1; }
+unzip -l "$T/auto.docx" | grep -q 'word/charts/chart1.xml' || { echo "FALHOU: .docx sem c:chart"; falhou=1; }
+unzip -l "$T/auto.docx" | grep -q 'word/embeddings/.*\.xlsx' || { echo "FALHOU: .docx sem a planilha do gráfico"; falhou=1; }
+unzip -l "$T/auto.odt" | grep -q 'Object 1/content.xml' || { echo "FALHOU: .odt sem o objeto de gráfico"; falhou=1; }
 # Um .docx "de fora" (como os do Word e do Google Docs): listas numeradas
 # que continuam umas nas outras (startOverride) e uma tabela com a linha do
 # cabeçalho que repete em cada página (tblHeader); vão e voltam pelo .odt.

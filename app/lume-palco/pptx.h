@@ -19,6 +19,7 @@
 
 #include "base.h"
 #include "desenho.h"
+#include "../comum/grafico-arquivos.h"
 
 #include <QBuffer>
 #include <QDateTime>
@@ -56,14 +57,6 @@ inline QByteArray pngDoGrafico(const Doc &d, const Objeto &o)
 	return b;
 }
 
-// A letra da coluna (0: A, 1: B...).
-inline QString colunaExcel(int c)
-{
-	QString s;
-	for (c++; c > 0; c = (c - 1) / 26)
-		s.prepend(QChar('A' + (c - 1) % 26));
-	return s;
-}
 
 inline QString extensaoDe(const QByteArray &b, const QString &chave)
 {
@@ -636,167 +629,8 @@ private:
 	}
 	// --- o gráfico (DrawingML) ---------------------------------------------
 
-	// A planilha embutida com os dados (o "Editar dados" do PowerPoint):
-	// as categorias na coluna A, uma série por coluna.
-	static QByteArray planilha(const DadosGrafico &g)
-	{
-		ZipEscritor z;
-		z.add("[Content_Types].xml", CAB "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
-		      "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
-		      "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
-		      "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
-		      "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
-		      "</Types>");
-		z.add("_rels/.rels", CAB "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-		      "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
-		      "</Relationships>");
-		z.add("xl/workbook.xml", CAB "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
-		      "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Planilha1\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");
-		z.add("xl/_rels/workbook.xml.rels", CAB "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
-		      "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
-		      "</Relationships>");
-		auto txt = [](const QString &ref, const QString &t) { return "<c r=\"" + ref + "\" t=\"inlineStr\"><is><t>" + esc(t) + "</t></is></c>"; };
-		const int nS = g.tipo == TipoGrafico::Pizza ? std::min<int>(1, int(g.series.size())) : int(g.series.size());
-		QString s = CAB "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\">";
-		for (int k = 0; k < nS; k++)
-			s += txt(colunaExcel(k + 1) + "1", g.series[k]);
-		s += "</row>";
-		for (int c = 0; c < g.categorias.size(); c++) {
-			s += QString("<row r=\"%1\">").arg(c + 2) + txt(QString("A%1").arg(c + 2), g.categorias[c]);
-			for (int k = 0; k < nS; k++) {
-				const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
-				s += QString("<c r=\"%1%2\"><v>%3</v></c>").arg(colunaExcel(k + 1)).arg(c + 2).arg(QString::number(v, 'g', 15));
-			}
-			s += "</row>";
-		}
-		s += "</sheetData></worksheet>";
-		z.add("xl/worksheets/sheet1.xml", s.toUtf8());
-		return z.fechar();
-	}
-
-	QString txPr(double tam, const QColor &cor, bool negrito = false) const
-	{
-		return QString("<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz=\"%1\" b=\"%2\">").arg(qint64(std::llround(tam * 100))).arg(negrito ? 1 : 0) +
-		       preench(cor) + "<a:latin typeface=\"" + esc(d_.tema.fonteTexto) + "\"/></a:defRPr></a:pPr><a:endParaRPr lang=\"pt-BR\"/></a:p></c:txPr>";
-	}
-
-	QString graficoXml(const Objeto &o) const
-	{
-		const DadosGrafico &g = o.graf;
-		const double letra = std::clamp(std::min(o.r.width(), o.r.height()) / 22, 9.0, 20.0);
-		const bool pizza = g.tipo == TipoGrafico::Pizza;
-		const int nS = pizza ? std::min<int>(1, int(g.series.size())) : int(g.series.size());
-		const int nC = int(g.categorias.size());
-		auto cor = [&](int i) { return d_.tema.serie.empty() ? d_.tema.texto : d_.tema.serie[size_t(i) % d_.tema.serie.size()]; };
-		const QColor grade(d_.tema.apagado.red(), d_.tema.apagado.green(), d_.tema.apagado.blue());
-		QString s = CAB "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" "
-		                "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
-		                "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
-		                "<c:date1904 val=\"0\"/><c:lang val=\"pt-BR\"/><c:roundedCorners val=\"0\"/><c:chart>";
-		if (!g.titulo.isEmpty())
-			s += "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr/></a:pPr><a:r>" +
-			     QString("<a:rPr lang=\"pt-BR\" sz=\"%1\" b=\"0\">").arg(qint64(std::llround(letra * 1.25 * 100))) + preench(d_.tema.texto) +
-			     "<a:latin typeface=\"" + esc(d_.tema.fonteTexto) + "\"/></a:rPr><a:t>" + esc(g.titulo) +
-			     "</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title><c:autoTitleDeleted val=\"0\"/>";
-		else
-			s += "<c:autoTitleDeleted val=\"1\"/>";
-		s += "<c:plotArea><c:layout/>";
-		if (g.tipo == TipoGrafico::Linhas)
-			s += "<c:lineChart><c:grouping val=\"standard\"/><c:varyColors val=\"0\"/>";
-		else if (pizza)
-			s += "<c:pieChart><c:varyColors val=\"1\"/>";
-		else
-			s += QString("<c:barChart><c:barDir val=\"%1\"/><c:grouping val=\"clustered\"/><c:varyColors val=\"0\"/>").arg(g.tipo == TipoGrafico::Barras ? "bar" : "col");
-		const QString fimCat = "$A$" + QString::number(nC + 1);
-		for (int k = 0; k < nS; k++) {
-			const QString col = "$" + colunaExcel(k + 1) + "$";
-			s += QString("<c:ser><c:idx val=\"%1\"/><c:order val=\"%1\"/>").arg(k);
-			s += "<c:tx><c:strRef><c:f>Planilha1!" + col + "1</c:f><c:strCache><c:ptCount val=\"1\"/><c:pt idx=\"0\"><c:v>" + esc(g.series[k]) +
-			     "</c:v></c:pt></c:strCache></c:strRef></c:tx>";
-			if (g.tipo == TipoGrafico::Linhas)
-				s += QString("<c:spPr><a:ln w=\"%1\" cap=\"rnd\">").arg(emu(std::max(2.0, letra * 0.22))) + preench(cor(k)) + "<a:round/></a:ln></c:spPr>" +
-				     "<c:marker><c:symbol val=\"circle\"/><c:size val=\"5\"/><c:spPr>" + preench(cor(k)) + "<a:ln><a:noFill/></a:ln></c:spPr></c:marker>";
-			else if (pizza)
-				s += "<c:spPr><a:ln w=\"19050\">" + preench(fundoDe(d_, Slide())) + "</a:ln></c:spPr>";
-			else
-				s += "<c:spPr>" + preench(cor(k)) + "<a:ln><a:noFill/></a:ln></c:spPr><c:invertIfNegative val=\"0\"/>";
-			if (pizza)
-				for (int c = 0; c < nC; c++)
-					s += QString("<c:dPt><c:idx val=\"%1\"/><c:bubble3D val=\"0\"/><c:spPr>").arg(c) + preench(cor(c)) + "<a:ln w=\"19050\">" +
-					     preench(fundoDe(d_, Slide())) + "</a:ln></c:spPr></c:dPt>";
-			if (pizza) {
-				// O rótulo de cada fatia: claro no escuro, escuro no claro; sem
-				// casa decimal quando a porcentagem é inteira (como no Palco).
-				double total = 0;
-				for (int c = 0; c < nC; c++)
-					total += std::max(0.0, k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0);
-				s += "<c:dLbls>";
-				for (int c = 0; c < nC; c++) {
-					const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
-					const double pc = total > 0 ? std::max(0.0, v) / total * 100 : 0;
-					const bool inteiro = std::fabs(pc - std::round(pc)) < 0.05;
-					s += QString("<c:dLbl><c:idx val=\"%1\"/><c:numFmt formatCode=\"%2\" sourceLinked=\"0\"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>")
-					         .arg(c)
-					         .arg(inteiro ? "0%" : "0.0%") +
-					     txPr(letra * 0.95, cor(c).lightness() < 150 ? QColor(0xff, 0xff, 0xff) : QColor(0x1c, 0x1b, 0x19)) +
-					     QString("<c:dLblPos val=\"ctr\"/><c:showLegendKey val=\"0\"/><c:showVal val=\"0\"/><c:showCatName val=\"0\"/><c:showSerName val=\"0\"/>"
-					             "<c:showPercent val=\"%1\"/><c:showBubbleSize val=\"0\"/></c:dLbl>")
-					         .arg(pc > 4 ? 1 : 0);
-				}
-				s += "<c:numFmt formatCode=\"0%\" sourceLinked=\"0\"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>" +
-				     txPr(letra * 0.95, QColor(0xff, 0xff, 0xff)) +
-				     "<c:dLblPos val=\"ctr\"/><c:showLegendKey val=\"0\"/><c:showVal val=\"0\"/><c:showCatName val=\"0\"/><c:showSerName val=\"0\"/>"
-				     "<c:showPercent val=\"1\"/><c:showBubbleSize val=\"0\"/><c:showLeaderLines val=\"0\"/></c:dLbls>";
-			}
-			s += "<c:cat><c:strRef><c:f>Planilha1!$A$2:" + fimCat + "</c:f><c:strCache>" + QString("<c:ptCount val=\"%1\"/>").arg(nC);
-			for (int c = 0; c < nC; c++)
-				s += QString("<c:pt idx=\"%1\"><c:v>").arg(c) + esc(g.categorias[c]) + "</c:v></c:pt>";
-			s += "</c:strCache></c:strRef></c:cat>";
-			s += "<c:val><c:numRef><c:f>Planilha1!" + col + "2:" + col + QString::number(nC + 1) + "</c:f><c:numCache><c:formatCode>General</c:formatCode>" +
-			     QString("<c:ptCount val=\"%1\"/>").arg(nC);
-			for (int c = 0; c < nC; c++) {
-				const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
-				s += QString("<c:pt idx=\"%1\"><c:v>%2</c:v></c:pt>").arg(c).arg(QString::number(v, 'g', 15));
-			}
-			s += "</c:numCache></c:numRef></c:val>";
-			if (g.tipo == TipoGrafico::Linhas)
-				s += "<c:smooth val=\"0\"/>";
-			s += "</c:ser>";
-		}
-		if (pizza)
-			s += "<c:firstSliceAng val=\"0\"/></c:pieChart>";
-		else {
-			if (g.tipo == TipoGrafico::Linhas)
-				s += "<c:marker val=\"1\"/>";
-			else
-				s += "<c:gapWidth val=\"60\"/><c:overlap val=\"-10\"/>";
-			s += "<c:axId val=\"111111111\"/><c:axId val=\"222222222\"/>";
-			s += g.tipo == TipoGrafico::Linhas ? "</c:lineChart>" : "</c:barChart>";
-			const bool deitado = g.tipo == TipoGrafico::Barras;
-			const QString linhaEixo = "<c:spPr><a:ln w=\"15240\">" + preench(d_.tema.texto) + "</a:ln></c:spPr>";
-			s += QString("<c:catAx><c:axId val=\"111111111\"/><c:scaling><c:orientation val=\"%1\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"%2\"/>")
-			         .arg(deitado ? "maxMin" : "minMax", deitado ? "l" : "b") +
-			     "<c:numFmt formatCode=\"General\" sourceLinked=\"0\"/><c:majorTickMark val=\"none\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"low\"/>" +
-			     linhaEixo + txPr(letra * 0.9, d_.tema.apagado) +
-			     "<c:crossAx val=\"222222222\"/><c:crosses val=\"autoZero\"/><c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/></c:catAx>";
-			s += QString("<c:valAx><c:axId val=\"222222222\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"%1\"/>")
-			         .arg(deitado ? "b" : "l") +
-			     "<c:majorGridlines><c:spPr><a:ln w=\"9525\"><a:solidFill><a:srgbClr val=\"" + hex6(grade) +
-			     "\"><a:alpha val=\"28000\"/></a:srgbClr></a:solidFill></a:ln></c:spPr></c:majorGridlines>"
-			     "<c:numFmt formatCode=\"General\" sourceLinked=\"0\"/><c:majorTickMark val=\"none\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/>"
-			     "<c:spPr><a:ln><a:noFill/></a:ln></c:spPr>" +
-			     txPr(letra * 0.9, d_.tema.apagado) +
-			     QString("<c:crossAx val=\"111111111\"/><c:crosses val=\"%1\"/><c:crossBetween val=\"between\"/></c:valAx>").arg("autoZero");
-		}
-		s += "<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr></c:plotArea>";
-		if (g.legenda)
-			s += "<c:legend><c:legendPos val=\"b\"/><c:overlay val=\"0\"/>" + txPr(letra * 0.95, d_.tema.texto) + "</c:legend>";
-		s += "<c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/></c:chart>";
-		s += "<c:spPr>" + (o.preench.isValid() ? preench(o.preench) : QString("<a:noFill/>")) + "<a:ln><a:noFill/></a:ln></c:spPr>";
-		s += txPr(letra, d_.tema.texto);
-		s += "<c:externalData r:id=\"rId1\"><c:autoUpdate val=\"0\"/></c:externalData></c:chartSpace>";
-		return s;
-	}
+	QString graficoXml(const Objeto &o) const { return graficoOoxml(o.graf, estiloDoTema(d_), o.r.size(), o.preench); }
+	static QByteArray planilha(const DadosGrafico &g) { return planilhaDoGrafico(g); }
 
 	// --- a tabela ----------------------------------------------------------
 
@@ -1871,80 +1705,7 @@ private:
 	}
 
 public:
-	static bool lerGraficoOoxml(const No &x, DadosGrafico &g)
-	{
-		const No *area = x.achar("c:plotArea");
-		if (!area)
-			return false;
-		const No *tipo = nullptr;
-		for (const No &k : area->filhos)
-			if (k.nome.endsWith("Chart")) {
-				tipo = &k;
-				break;
-			}
-		if (!tipo)
-			return false;
-		g = DadosGrafico();
-		if (tipo->nome == "c:barChart" || tipo->nome == "c:bar3DChart") {
-			const No *dir = tipo->filho("c:barDir");
-			g.tipo = dir && dir->a("val") == "bar" ? TipoGrafico::Barras : TipoGrafico::Colunas;
-		} else if (tipo->nome == "c:pieChart" || tipo->nome == "c:pie3DChart" || tipo->nome == "c:doughnutChart")
-			g.tipo = TipoGrafico::Pizza;
-		else
-			g.tipo = TipoGrafico::Linhas;
-		if (const No *t = x.achar("c:title")) {
-			QString s;
-			for (const No *tx = t->achar("c:rich"); tx; tx = nullptr)
-				s = tx->textoTodo();
-			g.titulo = s.simplified();
-		}
-		g.legenda = x.achar("c:legend") != nullptr;
-		auto pontos = [](const No *n) {
-			QMap<int, QString> r;
-			if (!n)
-				return r;
-			for (const char *cache : {"c:strCache", "c:numCache", "c:strLit", "c:numLit"})
-				if (const No *c = n->achar(cache)) {
-					for (const No *pt : c->todos("c:pt"))
-						r.insert(pt->a("idx").toInt(), pt->filho("c:v") ? pt->filho("c:v")->textoTodo() : QString());
-					return r;
-				}
-			if (const No *ml = n->achar("c:multiLvlStrCache"))
-				if (const No *lv = ml->filho("c:lvl"))
-					for (const No *pt : lv->todos("c:pt"))
-						r.insert(pt->a("idx").toInt(), pt->filho("c:v") ? pt->filho("c:v")->textoTodo() : QString());
-			return r;
-		};
-		int nCat = 0;
-		for (const No *s : tipo->todos("c:ser")) {
-			const QMap<int, QString> cat = pontos(s->filho("c:cat"));
-			const QMap<int, QString> val = pontos(s->filho("c:val") ? s->filho("c:val") : s->filho("c:yVal"));
-			int n = 0;
-			for (auto it = val.cbegin(); it != val.cend(); ++it)
-				n = std::max(n, it.key() + 1);
-			for (auto it = cat.cbegin(); it != cat.cend(); ++it)
-				n = std::max(n, it.key() + 1);
-			if (g.categorias.isEmpty() && !cat.isEmpty())
-				for (int k = 0; k < n; k++)
-					g.categorias << cat.value(k);
-			nCat = std::max(nCat, n);
-			QString nome;
-			if (const No *tx = s->filho("c:tx"))
-				nome = (tx->achar("c:v") ? tx->achar("c:v")->textoTodo() : tx->achar("c:f") ? QString() : tx->textoTodo()).simplified();
-			g.series << (nome.isEmpty() ? QString("Série %1").arg(g.series.size() + 1) : nome);
-			std::vector<double> v;
-			for (int k = 0; k < n; k++)
-				v.push_back(val.value(k).toDouble());
-			g.valores.push_back(v);
-			if (g.tipo == TipoGrafico::Pizza)
-				break;
-		}
-		while (g.categorias.size() < nCat)
-			g.categorias << QString::number(g.categorias.size() + 1);
-		for (auto &v : g.valores)
-			v.resize(size_t(nCat), 0);
-		return !g.valores.empty();
-	}
+	static bool lerGraficoOoxml(const No &x, DadosGrafico &g) { return lerGraficoDoOffice(x, g); }
 
 private:
 	// As animações (p:timing): a sequência principal, um "par" por clique.

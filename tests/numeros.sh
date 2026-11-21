@@ -38,6 +38,12 @@ tem juros 'E6 =-VF(B5;B6;B4;B3) -> "R$ 13.928,96"'
 tem juros 'E44 =B44+C44+D44 -> "R$ 13.928,96"'
 tem notas 'F16 =MÉDIA(F5:F14) -> "6,85"'
 tem notas 'F19 =CONT.SE(G5:G14;"Aprovado") -> "7"'
+# O gráfico copiado (o que vai para o Páginas e o Palco), com os números de
+# verdade da planilha; e o que não existe dá erro.
+G='lume-grafico:linhas;PIB, inflação e juros|2015;2016;2017;2018;2019;2020;2021;2022;2023;2024|PIB (%);-3.5;-3.3;1.3;1.8;1.2;-3.3;4.8;3;3.2;3.4|IPCA (%);10.67;6.29;2.95;3.75;4.31;4.52;10.06;5.79;4.62;4.83|Selic (%);14.25;13.75;7;6.5;4.5;2;9.25;13.75;11.75;12.25'
+[ "$("$B" --copiar-grafico "$T/indicadores.xlsx" 1)" = "$G" ] || { echo "FALHOU: --copiar-grafico"; falhou=1; }
+[ "$("$B" --copiar-grafico "$T/indicadores.ods" 1)" = "$G" ] || { echo "FALHOU: --copiar-grafico .ods"; falhou=1; }
+if "$B" --copiar-grafico "$T/indicadores.xlsx" 9 >/dev/null 2>&1; then echo "FALHOU: --copiar-grafico de gráfico que não existe"; falhou=1; fi
 tem orcamento 'H9 =SOMASE($B$5:$B$16;"Receita";$D$5:$D$16) -> "R$ 5.550,00"'
 tem orcamento 'grafico pizza "Para onde foi o dinheiro" G4:H7'
 tem fluxo 'grafico colunas "Fluxo e acumulado" A5:C11'

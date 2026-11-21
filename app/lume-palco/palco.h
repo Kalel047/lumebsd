@@ -13,6 +13,8 @@
 
 #include <QMarginsF>
 
+#include "../comum/grafico.h"
+
 #include <QByteArray>
 #include <QColor>
 #include <QMap>
@@ -76,68 +78,7 @@ inline std::vector<Paragrafo> paragrafos(const QString &texto, bool marcador = f
 	return r;
 }
 
-// --- gráficos --------------------------------------------------------------
-
-enum class TipoGrafico { Colunas, Barras, Linhas, Pizza };
-
-struct DadosGrafico {
-	TipoGrafico tipo = TipoGrafico::Colunas;
-	QString titulo;
-	QStringList categorias;
-	QStringList series;
-	std::vector<std::vector<double>> valores; // [série][categoria]
-	bool legenda = true;
-};
-
-// Os dados em texto (vão no "texto alternativo" da imagem que representa o
-// gráfico no .pptx e no .odp, e voltam a ser um gráfico quando o Palco lê
-// o arquivo de novo):  tipo;título|cat1;cat2|série1;v;v|série2;v;v
-inline QString gravarDados(const DadosGrafico &g)
-{
-	static const char *nomes[] = {"colunas", "barras", "linhas", "pizza"};
-	auto limpa = [](QString s) { return s.replace('|', '/').replace(';', ','); };
-	QStringList partes;
-	partes << QString(nomes[int(g.tipo)]) + ";" + limpa(g.titulo) + (g.legenda ? "" : ";semlegenda");
-	QStringList cats;
-	for (const QString &c : g.categorias)
-		cats << limpa(c);
-	partes << cats.join(';');
-	for (int s = 0; s < g.series.size(); s++) {
-		QStringList l{limpa(g.series[s])};
-		for (int c = 0; c < g.categorias.size(); c++) {
-			const double v = s < int(g.valores.size()) && c < int(g.valores[s].size()) ? g.valores[s][c] : 0;
-			l << QString::number(v, 'g', 12);
-		}
-		partes << l.join(';');
-	}
-	return "lume-grafico:" + partes.join('|');
-}
-
-inline bool lerDados(const QString &txt, DadosGrafico &g)
-{
-	if (!txt.startsWith("lume-grafico:"))
-		return false;
-	const QStringList partes = txt.mid(13).split('|');
-	if (partes.size() < 2)
-		return false;
-	const QStringList cab = partes[0].split(';');
-	const QString t = cab.value(0);
-	g = DadosGrafico();
-	g.tipo = t == "barras" ? TipoGrafico::Barras : t == "linhas" ? TipoGrafico::Linhas : t == "pizza" ? TipoGrafico::Pizza : TipoGrafico::Colunas;
-	g.titulo = cab.value(1);
-	g.legenda = cab.value(2) != "semlegenda";
-	g.categorias = partes[1].split(';');
-	for (int i = 2; i < partes.size(); i++) {
-		const QStringList l = partes[i].split(';');
-		g.series << l.value(0);
-		std::vector<double> v;
-		for (int c = 1; c < l.size(); c++)
-			v.push_back(l[c].toDouble());
-		v.resize(size_t(g.categorias.size()), 0);
-		g.valores.push_back(v);
-	}
-	return true;
-}
+// Os dados dos gráficos (e o texto deles) estão em ../comum/grafico.h.
 
 // --- animações -------------------------------------------------------------
 //

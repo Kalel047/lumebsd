@@ -98,7 +98,7 @@ P
 "$B" --autoteste "$T/auto.pptx" > "$T/auto.txt"
 "$B" --autoteste "$T/auto.odp" > "$T/auto-odp.txt"
 cat > "$T/auto-esperado.txt" <<'E'
-palco 960x540, tema Lousa, 5 slides, 0 imagens, 1 gráficos, 1 tabelas, 1 vídeos, 3 animações
+palco 960x540, tema Lousa, 6 slides, 0 imagens, 2 gráficos, 1 tabelas, 1 vídeos, 3 animações
 slide 1 [Título]
   texto (título) 77,140 806x151 54pt
     [centro] Minha aula
@@ -129,7 +129,9 @@ slide 4 [Só o título] transição empurrar
     entra #1: voar da esquerda, depois da anterior, 0.8s
     sai #2: dissolver, ao clicar, 0.5s
   vídeo 600,400 320x120 mp4 (4 KB) sozinho repetir mudo
-slide 5 [Seção] transição empurrar (pulado)
+slide 5 [Em branco] transição empurrar
+  gráfico 192,108 576x324 linhas "PIB, inflação e juros" 3 séries x 10 categorias, soma 161.39
+slide 6 [Seção] transição empurrar (pulado)
   texto (título) 77,194 806x119
   texto (subtítulo) 77,324 806x65
 E
