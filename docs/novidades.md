@@ -1,3 +1,21 @@
+# LumeBSD 2.5 "Farol"
+
+O escritório do LumeBSD trabalhando junto, e testado contra arquivos de verdade do Word, do Excel e do PowerPoint.
+
+## Um gráfico dos Números no Páginas e no Palco, com os dados
+
+- **Copie um gráfico nos Números** (escolha o gráfico e Ctrl+C, ou "Copiar o gráfico" no botão direito) e **cole no Páginas ou no Palco**: ele chega como gráfico, com as séries, as categorias, o tipo e o título, e não como uma foto. Nos outros programas, cola como imagem.
+- **No Páginas**, o gráfico fica no texto, como uma imagem que anda com as linhas. Dois cliques nele abrem os dados: o tipo (colunas, barras, linhas, pizza), o título, a legenda e a tabela dos números, com linhas e colunas a mais ou a menos. **Inserir > Gráfico** (ou Gráfico, na barra) começa um do zero.
+- **Vai como gráfico de verdade para o Word e o LibreOffice**: no .docx, o gráfico do Word com a planilha dos dados embutida (a do "Editar dados"); no .odt, o objeto de gráfico do Writer. O LibreOffice abre e desenha os dois como gráficos, e o que ele grava volta para o Páginas como gráfico.
+- **No Palco**, o gráfico colado aparece no meio do slide, com as cores do tema; os dados se mudam no painel, como nos gráficos feitos no Palco.
+- No terminal: `lume-numeros --copiar-grafico indicadores.xlsx 1` mostra o que vai para a área de transferência.
+
+## Arquivos do Office de verdade
+
+- **Páginas**: listas numeradas que continuam de uma para a outra, com texto no meio (como o Word e o Google Docs gravam), saem com os números certos e vão e voltam pelo .docx e pelo .odt; a linha de cabeçalho de uma tabela se repete em cada página.
+- **Números**: as datas com o formato do arquivo (`d.m`, `mmm/aa` e outros) aparecem como no Excel, e não como um número; o formato vai e volta pelo .xlsx e pelo .ods.
+- **Palco**: as margens internas das caixas de texto (as do PowerPoint e do Google Slides) são lidas e gravadas, e o texto fica no mesmo lugar que no PowerPoint e no LibreOffice.
+
 # LumeBSD 2.4 "Farol"
 
 As apresentações do LumeBSD: o **Palco**, com a cara do Keynote. Com o Páginas (2.2) e os Números (2.3), fecha o escritório próprio: texto, planilha e apresentação, que abrem e salvam os formatos do Office e do LibreOffice.

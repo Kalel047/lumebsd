@@ -61,14 +61,26 @@ seminário, conjuntura econômica, reunião), leitores e gravadores próprios
 de `.pptx` e `.odp` (com a herança do mestre e do leiaute do PowerPoint),
 testados contra o LibreOffice e o python-pptx; PDF.
 
+## 2.5: o escritório junto
+
+O gráfico copiado nos Números cola no Páginas e no Palco com os dados (um
+formato próprio na área de transferência, `application/x-lume-grafico`, e
+uma imagem para os outros programas). O desenho e os gráficos de verdade
+do Office e do ODF ficam em `app/comum`, comuns aos três apps; o Páginas
+grava o gráfico no `.docx` (com a planilha embutida) e no `.odt` (o objeto
+de gráfico) e o lê dos dois. E o que arquivos de verdade do Word, do Excel e
+do PowerPoint mostraram: listas numeradas que continuam, a linha de
+cabeçalho que repete, os formatos de data do Excel, as margens internas das
+caixas de texto.
+
 ## 2.x
 
 
 - **Office com a estética do iWork**: o editor de texto saiu na 2.2 (o
   Páginas, `app/lume-paginas`), a planilha na 2.3 (os Números,
   `app/lume-numeros`) e as apresentações na 2.4 (o Palco,
-  `app/lume-palco`). O que falta nos três: colar um gráfico dos Números no
-  Palco e no Páginas mantendo os dados.
+  `app/lume-palco`); na 2.5, o gráfico dos Números colado no Páginas e no
+  Palco com os dados.
 - **MediaKit de baixa latência**: um servidor de mídia nosso sobre o OSS, com
   threads de tempo real e um grafo de nós como o do BeOS (alvo: uns 5 ms).
 - **Replicants**: pedaços vivos de um app na área de trabalho ou em outro app.

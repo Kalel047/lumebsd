@@ -49,6 +49,7 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-paginas/` | o Páginas (C++/Qt): o editor de texto, com leitores e gravadores de `.odt` e `.docx` e o PDF; também na linha de comando |
 | `app/lume-numeros/` | os Números (C++/Qt): a planilha, com o cálculo das fórmulas, os gráficos, leitores e gravadores de `.xlsx` e `.ods`, CSV e PDF; também na linha de comando |
 | `app/lume-palco/` | o Palco (C++/Qt): as apresentações, com temas, leiautes, gráficos, tabelas, animações, vídeo, transições, o modo de apresentação e a tela do apresentador, leitores e gravadores de `.pptx` e `.odp`, e PDF; também na linha de comando |
+| `app/comum/` | o que os apps do escritório dividem: `grafico.h` (os dados de um gráfico, o formato da área de transferência e o desenho) e `grafico-arquivos.h` (o gráfico de verdade do Office, com a planilha embutida, e o do ODF, para gravar e ler) |
 | `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
 | `app/lume-mercados/` | os Mercados do LumeBSD (C++/Qt, com o QtNetwork): o terminal de mercados; `main.cpp` e as partes ao lado (`base.h` a rede, o gráfico e a configuração, `ws.h` um cliente de WebSocket, `dados.h` as cotações e as contas, `relcvm.h` o Formulário de Referência, `sec.h` a SEC, `telas1.h` a `telas6.h` as funções), o mapa (Natural Earth) e as relações entre empresas (`lume-mercados-relacoes.tsv`) |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
@@ -786,6 +787,33 @@ usam:
   interoperabilidade com o LibreOffice foi conferida à mão nos dois
   sentidos (ele abre os dois formatos com o mesmo desenho, e o que ele
   grava volta com a mesma estrutura).
+
+## O gráfico entre os apps (2.5)
+
+Os Números, o Páginas e o Palco falam do mesmo gráfico. `app/comum/grafico.h`
+tem os dados (`DadosGrafico`: tipo, título, legenda, categorias e séries), o
+formato da área de transferência e o desenho (`desenharGrafico`, com as
+cores e a letra de quem desenha). Copiar um gráfico nos Números põe na área
+de transferência o tipo `application/x-lume-grafico`, um texto
+(`lume-grafico:tipo;título|categorias|série;valores|...`) com os números de
+verdade da planilha, e uma imagem para os outros programas; área e
+dispersão vão como linhas, que é o que o Páginas e o Palco desenham.
+
+`app/comum/grafico-arquivos.h` grava e lê o gráfico de verdade: o
+`c:chartSpace` do Office com a planilha embutida (o mesmo no `.pptx` e no
+`.docx`) e o objeto de gráfico do ODF (o mesmo no `.odp` e no `.odt`). Ele
+usa o `No`, o `ZipEscritor`, o `esc` e o `lerXml` de cada app, que o incluem
+depois de declarar os seus.
+
+No Páginas, o gráfico é um caractere de imagem do `QTextDocument` com os
+dados numa propriedade do formato; a imagem é desenhada de novo quando os
+dados ou o tamanho mudam. No `.docx` vai como `w:drawing` com `c:chart`
+(`word/charts/chartN.xml`, as relações e a planilha em `word/embeddings`); no
+`.odt`, como `draw:frame` com `draw:object` e a imagem de substituição. Os
+testes colam o gráfico dos indicadores no autoteste do Páginas e do Palco,
+levam o do Páginas por `.odt` -> `.docx` -> `.odt` e conferem o
+`lume-numeros --copiar-grafico`; o LibreOffice abre os dois formatos com o
+gráfico como gráfico, e o que ele grava volta igual.
 
 ## Ícone de rede
 
