@@ -5117,7 +5117,7 @@ int main(int argc, char **argv)
 		// LUME_FOTO_SLIDE (o número), LUME_FOTO_OBJETO (escolhe um objeto),
 		// LUME_FOTO_PAINEL (0 Formatar, 1 Transição, 2 Documento, 3 Animar),
 		// LUME_FOTO_MODO (apresentacao, apresentador), LUME_FOTO_PASSO (os
-		// cliques já dados no slide, na apresentação).
+		// cliques já dados no slide, na apresentação), LUME_FOTO_ESPERA (ms).
 		if (a.size() >= 5 && a[3] == "--modelo")
 			j.modelo(a[4]);
 		else if (a.size() >= 4 && a[3] != "--galeria")
@@ -5140,7 +5140,7 @@ int main(int argc, char **argv)
 		alvo->show();
 		if (alvo == &j && qEnvironmentVariableIsSet("LUME_FOTO_OBJETO"))
 			QTimer::singleShot(200, &app, [&] { j.escolherObjeto(qEnvironmentVariableIntValue("LUME_FOTO_OBJETO") - 1); });
-		QTimer::singleShot(900, &app, [&] {
+		QTimer::singleShot(qEnvironmentVariableIsSet("LUME_FOTO_ESPERA") ? qEnvironmentVariableIntValue("LUME_FOTO_ESPERA") : 900, &app, [&] {
 			alvo->grab().save(a[2]);
 			app.quit();
 		});
