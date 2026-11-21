@@ -324,6 +324,14 @@ integrar()
 		padrao_mime "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet application/vnd.oasis.opendocument.spreadsheet text/csv" \
 		    lume-numeros.desktop
 	fi
+	# O Palco (as apresentações, com os modelos de aula e seminário), no
+	# menu e como o programa dos .pptx e .odp (se ninguém já é).
+	if [ -x /usr/bin/lume-palco ]; then
+		instalar $A/lume-palco.desktop \
+		    $P/share/applications/lume-palco.desktop 0644
+		padrao_mime "application/vnd.openxmlformats-officedocument.presentationml.presentation application/vnd.oasis.opendocument.presentation" \
+		    lume-palco.desktop
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644

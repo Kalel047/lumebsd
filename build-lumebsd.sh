@@ -73,7 +73,7 @@ mk -DNO_ROOT DESTDIR="$STAGE" installworld distribution installkernel
 # 4b. Os apps (Atualizações e Programas do LumeBSD, Qt 6) e os efeitos do
 #     KWin (o filtro e-ink e as animações), compilados contra os pacotes do
 #     FreeBSD; o Qt e o KWin em si vêm com o desktop, não no pendrive
-"$TOP/ferramentas/montar" pacotes --sem-dependencias "$TOP/qt" qt6-base \
+"$TOP/ferramentas/montar" pacotes --sem-dependencias "$TOP/qt" qt6-base qt6-multimedia \
     kf6-kcoreaddons kf6-kconfig kf6-kglobalaccel plasma6-kwin plasma6-kwin-x11 \
     libepoxy libxcb xorgproto libdrm wayland libxkbcommon libglvnd mesa-libs \
     freetype2 png plasma6-kdecoration kf6-kwindowsystem

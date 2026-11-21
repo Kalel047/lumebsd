@@ -1,6 +1,23 @@
+# LumeBSD 2.4 "Farol"
+
+As apresentações do LumeBSD: o **Palco**, com a cara do Keynote. Com o Páginas (2.2) e os Números (2.3), fecha o escritório próprio: texto, planilha e apresentação, que abrem e salvam os formatos do Office e do LibreOffice.
+
+## Palco, as apresentações
+
+- **O slide no meio, os slides à esquerda e o painel à direita**, como no Keynote. O texto se escreve direto no slide (dois cliques), com negrito, itálico, cores, tamanhos, fontes, tópicos e níveis (Tab e Shift+Tab). As formas, as imagens e os gráficos se arrastam, mudam de tamanho e giram com o mouse, e guias aparecem quando algo se alinha com o meio ou a borda do slide ou de outro objeto. Os slides mudam de ordem arrastando na coluna da esquerda.
+- **Cinco temas** (Papel, Noite, Lousa, Mar e Terracota) e **oito leiautes** (título, título e tópicos, seção, duas colunas, só o título, citação, um número grande, em branco). Trocar o tema repinta a apresentação inteira.
+- **Gráficos** de colunas, barras, linhas e pizza, com os dados numa tabelinha no painel. Vão para o .pptx e o .odp como **gráficos de verdade**: o PowerPoint e o LibreOffice abrem e editam (no .pptx, com a planilha dos dados embutida, a do "Editar dados").
+- **Tabelas**: Tabela, na barra, com o tamanho. Dois cliques numa célula para escrever; Tab passa para a próxima (na última, cria uma linha); os fios entre as colunas e as linhas se arrastam. O cabeçalho e as linhas em faixas pegam as cores do tema; no painel, linhas e colunas a mais ou a menos e o fundo de cada célula. Os modelos de conjuntura e de reunião já vêm com uma.
+- **Animações**, no painel **Animar**: cada objeto entra e sai do slide (aparecer, dissolver, voar, ampliar, revelar), ao clicar, junto com a anterior ou depois dela, e um texto pode entrar um tópico por vez. A ordem se muda no painel, com uma prévia; com o painel aberto, o número de cada animação aparece no objeto.
+- **Vídeo**: Vídeo, na barra (ou arraste o arquivo para o slide). Toca no próprio slide com dois cliques; na apresentação, com um clique nele, ou sozinho quando o slide aparece, repetindo e sem som, se você quiser. A capa é o primeiro quadro (ou o quadro em que você pausar).
+- **Apresentar** (F5): em tela cheia, com as transições (dissolver, empurrar, cobrir, descobrir, ampliar, pelo preto); cada clique roda a próxima animação do slide. Com dois monitores, a **tela do apresentador** fica no seu: o slide, o que vem no próximo clique (ou o slide seguinte), as notas, o tempo e a hora. Número e Enter vão direto a um slide; B escurece a tela.
+- **Modelos para quem ensina, estuda e trabalha**: uma aula (na lousa, com exercícios numerados), um seminário (roteiro, duas colunas, citação, referências), a conjuntura econômica (PIB, IPCA e Selic de 2015 a 2024 em gráficos, e o juro real) e uma reunião (pauta, as contas numa pizza, os pontos para votar).
+- **Abre e salva .pptx e .odp**, os formatos do PowerPoint e do Impress, sem precisar de nenhum dos dois: o texto com a letra, as formas, as imagens, os gráficos, as tabelas, as animações, os vídeos, o fundo, as transições, os slides pulados e as notas vão e voltam. Lê os arquivos do PowerPoint com tudo que vem do mestre e do leiaute (posições, letras, cores do tema, faixas e logotipos), e os gráficos, as tabelas, as animações e os vídeos do PowerPoint e do LibreOffice. Exporta **PDF** (Ctrl+P).
+- No terminal: `lume-palco --converter aula.pptx aula.pdf`.
+
 # LumeBSD 2.3 "Farol"
 
-A planilha do LumeBSD: os **Números**, com a cara do Numbers do iWork e as fórmulas do Excel em português. Com o Páginas (2.2), é a segunda parte do escritório próprio; as apresentações vêm na 2.4.
+A planilha do LumeBSD: os **Números**, com a cara do Numbers do iWork e as fórmulas do Excel em português. Com o Páginas (2.2), é a segunda parte do escritório próprio.
 
 ## Números, a planilha
 
