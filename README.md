@@ -402,6 +402,14 @@ aplica de novo.
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
 
+### Os Números (2.3) na tela
+
+| | |
+|---|---|
+| ![A galeria de modelos dos Números](docs/capturas/numeros-1-galeria.png) | ![O orçamento pessoal, com o gráfico de pizza](docs/capturas/numeros-2-orcamento.png) |
+| ![O fluxo de caixa, com VPL e TIR, num .ods](docs/capturas/numeros-3-fluxo.png) | ![Um .xlsx de outro programa, com a primeira linha congelada](docs/capturas/numeros-4-excel.png) |
+| ![Os indicadores econômicos, com o tema escuro](docs/capturas/numeros-5-escuro.png) | |
+
 ### O Páginas (2.2) na tela
 
 | | |
