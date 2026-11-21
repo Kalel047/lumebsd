@@ -191,7 +191,9 @@ P
 	pp() { grep -qF -- "$1" "$T/pp.txt" || { echo "FALHOU: python-pptx sem: $1"; falhou=1; }; }
 	pp 'palco 720x540, tema Office Theme, 5 slides, 1 imagens, 1 gráficos, 1 tabelas, 1 vídeos, 0 animações'
 	pp '  vídeo 72,108 432x243 mp4 (4 KB) capa 200x100'
-	pp '  tabela 72,374 576x88 3x3 cabeçalho faixas colunas 192/192/192'
+	# (a altura das linhas depende da letra que substitui o Calibri)
+	pp '  tabela 72,374 576x'
+	pp ' 3x3 cabeçalho faixas colunas 192/192/192'
 	pp '    | {topo:0,0} | {topo:0,1} | {topo:0,2}'
 	pp '  texto (título) 54,168 612x116 44pt'
 	pp '  texto (tópicos) 36,126 648x356 32pt'
