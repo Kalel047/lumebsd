@@ -1,0 +1,154 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 21, 2026
+.Dt LUME-PALCO 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-palco
+.Nd Palco do LumeBSD: as apresentações, com temas, gráficos e transições
+.Sh SYNOPSIS
+.Nm
+.Op Ar arquivo
+.Nm
+.Fl -converter
+.Ar entrada saida
+.Nm
+.Fl -modelo
+.Ar nome
+.Op Ar saida
+.Nm
+.Fl -resumo
+.Ar arquivo
+.Nm
+.Fl -autoteste
+.Ar saida
+.Nm
+.Fl -foto
+.Ar saida.png
+.Op Ar arquivo | Fl -modelo Ar nome | Fl -galeria
+.Sh DESCRIPTION
+Um programa de apresentações com a cara do Keynote: os slides à esquerda
+(arraste para mudar a ordem), o slide no meio, onde o texto se escreve
+direto (clique duas vezes), as notas do apresentador embaixo e o painel à
+direita com três partes:
+.Bl -tag -width "Documento"
+.It Formatar
+a letra, o tamanho, as cores, o alinhamento, os tópicos e os níveis do
+texto; o preenchimento e a borda das formas; os dados do gráfico; a
+posição, o tamanho e o giro; o leiaute e o fundo do slide.
+.It Transição
+como o slide entra: dissolver, empurrar, cobrir, descobrir, ampliar ou
+pelo preto, com a duração e uma prévia.
+.It Documento
+o tema (Papel, Noite, Lousa, Mar e Terracota), o tamanho do slide
+.Pq 16:9 ou 4:3 ,
+o título e o autor.
+.El
+.Pp
+Os objetos se arrastam com o mouse; as alças mudam o tamanho e a de cima
+gira.
+Guias aparecem quando a borda ou o meio de um objeto se alinha com o slide
+ou com outro objeto (Alt desliga as guias; Shift mantém a direção, a
+proporção ou o ângulo de 15 em 15 graus).
+.Pp
+Ao abrir sem arquivo, uma galeria com os temas e os modelos:
+.Bl -tag -width "Conjuntura econômica"
+.It Aula
+objetivos, conteúdo, um exemplo, exercícios numerados e a tarefa de casa,
+no tema Lousa.
+.It Seminário
+roteiro, vantagens e desafios em duas colunas, citação, conclusão e
+referências.
+.It Conjuntura econômica
+o PIB, o IPCA e a Selic de 2015 a 2024 em gráficos (os mesmos dados do
+modelo Indicadores econômicos de
+.Xr lume-numeros 1 )
+e o juro real em destaque.
+.It Reunião
+pauta, as contas num gráfico de pizza, os pontos para votar.
+.El
+.Pp
+Abre e salva
+.Pa .pptx
+(PowerPoint; o padrão) e
+.Pa .odp
+(OpenDocument, o do Impress do LibreOffice), com leitores e gravadores
+próprios: vão e voltam os slides, os leiautes, o texto (com negrito,
+itálico, sublinhado, cores, tamanhos, fontes, alinhamento, tópicos e
+níveis), as formas, as imagens (com recorte), as linhas, o giro, o fundo
+(cor ou imagem), as transições, os slides pulados e as notas.
+Os gráficos vão como imagem, com os dados guardados junto (o Palco lê de
+volta como gráfico; os outros programas mostram a imagem).
+Lê também os gráficos feitos no PowerPoint e no LibreOffice, os enfeites do
+slide mestre e do leiaute, e as tabelas (como texto).
+Exporta PDF, um slide por página.
+O
+.Pa .ppt
+do PowerPoint antigo não abre: salve como
+.Pa .pptx
+no LibreOffice.
+.Sh APRESENTAR
+F5 começa do primeiro slide; Shift+F5, do slide escolhido.
+Com dois monitores, os slides vão para o segundo e a tela do apresentador
+(o slide, o seguinte, as notas, o tempo e a hora) fica no primeiro.
+Ensaiar mostra a tela do apresentador sozinha.
+.Bl -tag -width "número e Enter" -compact
+.It → espaço Enter
+o próximo slide (com a transição)
+.It ← Backspace
+o slide anterior
+.It número e Enter
+vai para o slide desse número
+.It Home, End
+o primeiro, o último
+.It B, W
+tela preta, tela branca
+.It Esc
+sai
+.El
+.Sh ATALHOS
+.Bl -tag -width "Ctrl+B, Ctrl+I, Ctrl+U" -compact
+.It Ctrl+M
+novo slide
+.It Ctrl+D
+duplica o objeto (ou o slide, se nenhum objeto estiver escolhido)
+.It Enter
+escreve no texto escolhido (Esc termina)
+.It Tab, Shift+Tab
+desce, sobe um nível de tópico (escrevendo)
+.It Setas
+movem o objeto (com Shift, de 10 em 10 pontos)
+.It Ctrl+B, Ctrl+I, Ctrl+U
+negrito, itálico, sublinhado
+.It Ctrl+Z, Ctrl+Shift+Z
+desfazer, refazer
+.It Ctrl+P
+exportar PDF
+.It F5, Shift+F5
+apresentar
+.El
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Fl -converter Ar entrada saida
+converte sem abrir a janela; o formato sai da extensão
+.Pq pptx, odp, pdf .
+.It Fl -modelo Ar nome Op Ar saida
+grava um dos modelos
+.Pq branco, aula, seminario, conjuntura, reuniao ;
+sem
+.Ar saida ,
+abre a janela com ele.
+.It Fl -resumo Ar arquivo
+mostra o conteúdo da apresentação (os testes comparam).
+.It Fl -autoteste Ar saida
+faz uma apresentação pelos caminhos da janela, grava e mostra o resumo.
+.It Fl -foto Ar saida.png
+fotografa a janela (para a documentação).
+.El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa ~/.config/LumeBSD/lume-palco.conf
+as apresentações recentes
+.El
+.Sh SEE ALSO
+.Xr lume-paginas 1 ,
+.Xr lume-numeros 1

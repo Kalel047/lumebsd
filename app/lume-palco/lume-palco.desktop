@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Stage
+Name[pt_BR]=Palco
+Name[pt]=Palco
+GenericName=Presentation
+GenericName[pt_BR]=Apresentações
+Comment=Slide presentations with themes, charts and transitions, presenter view with notes and timer; opens and saves .pptx and .odp
+Comment[pt_BR]=Apresentações de slides com temas, gráficos e transições, tela do apresentador com notas e relógio; abre e salva .pptx e .odp
+Exec=/usr/bin/lume-palco %f
+Icon=/usr/share/lume/app/lume-palco.svg
+Categories=Office;Presentation;Education;
+MimeType=application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.oasis.opendocument.presentation;
+Keywords=apresentação;apresentacao;slides;slide;powerpoint;pptx;odp;keynote;impress;aula;seminário;seminario;palestra;
+StartupNotify=true

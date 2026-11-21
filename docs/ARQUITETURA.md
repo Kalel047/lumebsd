@@ -48,6 +48,7 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-atributos/`, `usr.bin/lume-atributo/` | os atributos dos arquivos: a janela e a procura (Qt) e o `lume atributo` (C) |
 | `app/lume-paginas/` | o Páginas (C++/Qt): o editor de texto, com leitores e gravadores de `.odt` e `.docx` e o PDF; também na linha de comando |
 | `app/lume-numeros/` | os Números (C++/Qt): a planilha, com o cálculo das fórmulas, os gráficos, leitores e gravadores de `.xlsx` e `.ods`, CSV e PDF; também na linha de comando |
+| `app/lume-palco/` | o Palco (C++/Qt): as apresentações, com temas, leiautes, gráficos, transições, o modo de apresentação e a tela do apresentador, leitores e gravadores de `.pptx` e `.odp`, e PDF; também na linha de comando |
 | `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
 | `app/lume-mercados/` | os Mercados do LumeBSD (C++/Qt, com o QtNetwork): o terminal de mercados; `main.cpp` e as partes ao lado (`base.h` a rede, o gráfico e a configuração, `ws.h` um cliente de WebSocket, `dados.h` as cotações e as contas, `relcvm.h` o Formulário de Referência, `sec.h` a SEC, `telas1.h` a `telas6.h` as funções), o mapa (Natural Earth) e as relações entre empresas (`lume-mercados-relacoes.tsv`) |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
@@ -693,6 +694,70 @@ cabeçalhos, que os testes também usam:
   folha). A interoperabilidade com o LibreOffice foi conferida à mão (ele
   abre os dois formatos, com os gráficos, e devolve as mesmas fórmulas e
   valores) e com um `.xlsx` do openpyxl.
+
+## O Palco (apresentações)
+
+`app/lume-palco/`, Qt 6 sem moc. Um `main.cpp` (a janela, a apresentação e
+a tela do apresentador) e as partes em cabeçalhos, que os testes também
+usam:
+
+- **`palco.h`: o documento.** Uma lista de slides; cada slide tem objetos
+  (texto, formas, linhas, imagens, gráficos) com a posição em pontos sobre
+  um palco de 960 x 540 (16:9) ou 720 x 540 (4:3), as medidas do
+  PowerPoint. O texto é uma lista de parágrafos (nível, marcador ou número,
+  alinhamento) com trechos (negrito, itálico, sublinhado, cor, tamanho,
+  fonte). Uma cor ou fonte vazia quer dizer "a do tema", e por isso trocar o
+  tema repinta tudo. Os leiautes dizem onde ficam o título, o subtítulo e
+  os tópicos (os "papéis"); trocar o leiaute leva o texto para os lugares
+  novos, e o que não cabe vira um objeto livre.
+- **`desenho.h`: o slide no papel.** O mesmo desenho no editor, na
+  apresentação, nas miniaturas e no PDF. O texto vai por um
+  `QTextDocument` montado dez vezes maior, em pixels inteiros, e desenhado
+  na escala de 1/10: o tamanho da letra não depende da resolução de quem
+  desenha, e meio ponto ainda conta. A letra diminui para caber quando a
+  caixa pede (o `normAutofit` do PowerPoint). Os gráficos são desenhados à
+  mão (eixos com passos redondos, rótulos em português).
+- **`pptx.h` e `odp.h`: os formatos.** Os zips e o XML como no Páginas e
+  nos Números. Os gravadores escrevem cada caixa por extenso (posição,
+  letra, cor), para o slide sair igual em qualquer programa, e um pacote
+  completo: no `.pptx`, o mestre e os oito leiautes com os lugares, o tema
+  (com as cores e as fontes do tema do Palco), as notas e o mestre das
+  notas; no `.odp`, os estilos automáticos, as listas aninhadas, o mestre
+  com o fundo e os estilos de apresentação (`-title`, `-outline1`...), com o
+  leiaute e o tema guardados no `meta.xml`. O gráfico vai como imagem, com
+  os dados no texto alternativo (`lume-grafico:...`), que o Palco lê de
+  volta como gráfico. O leitor do `.pptx` segue a herança do PowerPoint (a
+  caixa do slide, o lugar no leiaute, o lugar no mestre, os estilos do
+  mestre e o `p:style` das formas) para a posição, a letra, as cores (do
+  esquema do tema, com `lumMod`, `lumOff`, `tint` e `shade`) e os
+  marcadores; traz as faixas e os logotipos do mestre e do leiaute para
+  cada slide, desfaz os grupos e lê os gráficos do PowerPoint (os valores
+  guardados no gráfico). O do `.odp` resolve os estilos com
+  `parent-style-name`, as fontes declaradas, as formas `ooxml-*` que o
+  LibreOffice escreve ao converter do PowerPoint e os gráficos embutidos
+  (a tabela de dados do objeto). Depois de ler, o que é igual ao do tema
+  volta a ser "o do tema"; num arquivo de fora, o tema é deduzido do que
+  os slides mais usam.
+- **A janela.** O slide num `QGraphicsView`: um item para o fundo, um para
+  cada objeto e um para as alças, as guias e a caixa de seleção. Os cliques
+  e o arrasto são tratados na janela (mover com guias, mudar o tamanho
+  também girado, girar de 15 em 15 com Shift, as pontas da linha). Para
+  escrever, um `QGraphicsTextItem` com o mesmo `QTextDocument` do desenho
+  fica por cima do objeto; ao terminar, o documento volta a ser parágrafos
+  e trechos. Desfazer guarda cópias do documento.
+- **A apresentação.** Um widget em tela cheia que desenha o slide numa
+  imagem do tamanho da tela (com a seguinte já pronta) e a transição num
+  `QVariantAnimation`. A tela do apresentador divide a mesma sessão e vai
+  para o outro monitor.
+- **Os testes.** `lume-palco --resumo` imprime o conteúdo (leiautes,
+  posições, texto com a letra, formas, gráficos, transições, notas);
+  `tests/palco.sh` grava cada modelo em `.pptx` e `.odp`, converte de um
+  para o outro e compara, confere as páginas do PDF, roda o `--autoteste`
+  (escreve no slide, formata um pedaço, muda de nível, põe forma e
+  gráfico, duplica, apaga, desfaz) e lê um `.pptx` do python-pptx. A
+  interoperabilidade com o LibreOffice foi conferida à mão nos dois
+  sentidos (ele abre os dois formatos com o mesmo desenho, e o que ele
+  grava volta com a mesma estrutura).
 
 ## Ícone de rede
 

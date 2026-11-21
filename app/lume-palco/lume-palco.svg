@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Palco do LumeBSD: um quadro de apresentação no cavalete, com um título e um gráfico (tema Papel). -->
+  <circle cx="32" cy="32" r="30" fill="#f2efe8" stroke="#222" stroke-width="2"/>
+  <path d="M32 43 v9 M25 52 l7-9 l7 9" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="13" y="15" width="38" height="28" fill="#fffdf8" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M18 21 h15" stroke="#222" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M18 26 h10 M18 30 h8" stroke="#6d685e" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="33" y="31" width="3.5" height="8" fill="#2f4b6e"/>
+  <rect x="38.5" y="27" width="3.5" height="12" fill="#b5652a"/>
+  <rect x="44" y="24" width="3.5" height="15" fill="#5b7a48"/>
+</svg>

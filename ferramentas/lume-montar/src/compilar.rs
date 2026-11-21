@@ -90,6 +90,7 @@ const APPS: &[(&str, &[&str])] = &[
                         "lume-mercados-relacoes.tsv"]),
     ("lume-paginas", &["lume-paginas.svg", "lume-paginas.desktop"]),
     ("lume-numeros", &["lume-numeros.svg", "lume-numeros.desktop"]),
+    ("lume-palco", &["lume-palco.svg", "lume-palco.desktop"]),
 ];
 
 pub const USO_APP: &str = "uso: lume-montar app STAGE QT6BASE.pkg
@@ -103,8 +104,8 @@ fn libs_app(nome: &str) -> &'static [&'static str] {
     match nome {
         "lume-rede" => &["-lcrypto"],
         "lume-mercados" => &["-lQt6Network"],
-        // Os .odt, .docx, .ods e .xlsx são zips: o zlib da base.
-        "lume-paginas" | "lume-numeros" => &["-lz"],
+        // Os .odt, .docx, .ods, .xlsx, .odp e .pptx são zips: o zlib da base.
+        "lume-paginas" | "lume-numeros" | "lume-palco" => &["-lz"],
         _ => &[],
     }
 }

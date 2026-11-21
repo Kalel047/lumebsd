@@ -1,0 +1,239 @@
+From b7c39ca1528d1323024f7159dc47cdeade152475 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 21 Nov 2026 12:41:13 -0300
+Subject: [PATCH] LumeBSD 2.4: o Palco no menu e na Ajuda
+
+---
+ sys/amd64/conf/LUME                                 | 2 +-
+ sys/conf/newvers.sh                                 | 2 +-
+ sys/sys/copyright.h                                 | 2 +-
+ usr.bin/login/motd.template                         | 2 +-
+ usr.bin/lume/lume.c                                 | 2 +-
+ usr.sbin/forja/forja.8                              | 2 +-
+ usr.sbin/forja/forja.sh                             | 2 +-
+ usr.sbin/lume-configurar/ajuda/compatibilidade.html | 2 +-
+ usr.sbin/lume-configurar/ajuda/index.html           | 1 +
+ usr.sbin/lume-configurar/ajuda/trocando.html        | 1 +
+ usr.sbin/lume-configurar/lume-configurar.sh         | 2 +-
+ usr.sbin/lume-configurar/lume-instalar.sh           | 6 +++---
+ usr.sbin/lume-configurar/lume-tema.sh               | 8 ++++++++
+ usr.sbin/lume-configurar/tema/metadata-noite.json   | 2 +-
+ usr.sbin/lume-configurar/tema/metadata.json         | 2 +-
+ 15 files changed, 24 insertions(+), 14 deletions(-)
+
+diff --git a/sys/amd64/conf/LUME b/sys/amd64/conf/LUME
+index f191c5e67..e452fad4e 100644
+--- a/sys/amd64/conf/LUME
++++ b/sys/amd64/conf/LUME
+@@ -1,5 +1,5 @@
+ #
+-# LUME -- kernel do LumeBSD 2.3 "Farol" para amd64.
++# LUME -- kernel do LumeBSD 2.4 "Farol" para amd64.
+ # Parte do GENERIC: todos os drivers e módulos, DTrace e ZFS.
+ # Os símbolos de depuração são gerados (o DTrace precisa deles para o CTF),
+ # mas não são instalados (WITHOUT_DEBUG_FILES no src.conf).
+diff --git a/sys/conf/newvers.sh b/sys/conf/newvers.sh
+index fbc083edb..c8bfdec35 100644
+--- a/sys/conf/newvers.sh
++++ b/sys/conf/newvers.sh
+@@ -50,7 +50,7 @@
+ #
+ 
+ TYPE="LumeBSD"
+-REVISION="2.3"
++REVISION="2.4"
+ BRANCH="FAROL"
+ # Versão do FreeBSD por baixo: o compilador mira nela (x86_64-unknown-freebsd15.1).
+ FREEBSD_REVISION="15.1"
+diff --git a/sys/sys/copyright.h b/sys/sys/copyright.h
+index 541bdd3a4..6f4851517 100644
+--- a/sys/sys/copyright.h
++++ b/sys/sys/copyright.h
+@@ -30,7 +30,7 @@
+ /* Add a FreeBSD vendor copyright here - or via CFLAGS */
+ #ifndef COPYRIGHT_Vendor
+ #define	COPYRIGHT_Vendor \
+-	"LumeBSD 2.3 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
++	"LumeBSD 2.4 \"Farol\" - an independent BSD distribution built on FreeBSD.\n"
+ #endif
+ 
+ /* FreeBSD */
+diff --git a/usr.bin/login/motd.template b/usr.bin/login/motd.template
+index 12a437fbd..621215c3a 100644
+--- a/usr.bin/login/motd.template
++++ b/usr.bin/login/motd.template
+@@ -1,5 +1,5 @@
+ 
+-   LumeBSD 2.3 "Farol"  -  luz firme sobre fundação BSD
++   LumeBSD 2.4 "Farol"  -  luz firme sobre fundação BSD
+ 
+    Este é o LumeBSD, uma distribuição BSD independente construída
+    a partir do código-fonte do FreeBSD.
+diff --git a/usr.bin/lume/lume.c b/usr.bin/lume/lume.c
+index 808c90980..c2b84033d 100644
+--- a/usr.bin/lume/lume.c
++++ b/usr.bin/lume/lume.c
+@@ -35,7 +35,7 @@
+ #include <unistd.h>
+ 
+ #define	LUME_NAME	"LumeBSD"
+-#define	LUME_VERSION	"2.3"
++#define	LUME_VERSION	"2.4"
+ #define	LUME_CODENAME	"Farol"
+ #define	LUME_MARCA	"/var/db/lume/configurado"
+ #define	LUME_ASSISTENTE	"/usr/sbin/lume-configurar"
+diff --git a/usr.sbin/forja/forja.8 b/usr.sbin/forja/forja.8
+index c316c1430..5a769c6df 100644
+--- a/usr.sbin/forja/forja.8
++++ b/usr.sbin/forja/forja.8
+@@ -80,7 +80,7 @@ segue com a que já existe.
+ A árvore de ports confere a versão do sistema; como o
+ .Xr uname 1
+ do LumeBSD diz
+-.Dq 2.3-FAROL ,
++.Dq 2.4-FAROL ,
+ a forja passa a ela a versão do FreeBSD por baixo
+ .Pq Va _OSRELEASE ,
+ tirada de
+diff --git a/usr.sbin/forja/forja.sh b/usr.sbin/forja/forja.sh
+index 7ff800b09..185794246 100644
+--- a/usr.sbin/forja/forja.sh
++++ b/usr.sbin/forja/forja.sh
+@@ -25,7 +25,7 @@ LOGS=/var/log/forja
+ PORTS=${PORTSDIR:-/usr/ports}
+ 
+ # Para a árvore de ports e os programas que ela compila, o sistema é o
+-# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 2.3-FAROL", que o
++# FreeBSD por baixo do LumeBSD: o uname diz "LumeBSD 2.4-FAROL", que o
+ # configure dos programas não conhece. A versão vem do kern.osreldate
+ # (1501000 -> 15.1-RELEASE); o uname(1) respeita UNAME_s e UNAME_r, e os
+ # ports repassam essas variáveis para cada compilação.
+diff --git a/usr.sbin/lume-configurar/ajuda/compatibilidade.html b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+index 9bcc9a619..08f30de08 100644
+--- a/usr.sbin/lume-configurar/ajuda/compatibilidade.html
++++ b/usr.sbin/lume-configurar/ajuda/compatibilidade.html
+@@ -47,7 +47,7 @@ lume compat linux ligar    # como root</code></pre>
+ <p>Enquanto isso, dois cliques num arquivo <code>.dmg</code> mostram o que fazer: o LumeBSD lê o nome do programa e procura nos <span class="menu">Programas do LumeBSD</span>. Muitos programas do Mac têm uma versão para Windows (que abre com o Wine), para Linux ou para a web; e para os da Apple há substitutos:</p>
+ <table>
+ <tr><th>No Mac</th><th>No LumeBSD</th></tr>
+-<tr><td>Pages, Numbers, Keynote</td><td>LibreOffice (abre os arquivos do Office; para os do iWork, exporte do iCloud em formato do Office)</td></tr>
++<tr><td>Pages, Numbers, Keynote</td><td>Páginas, Números e Palco (já vêm), ou o LibreOffice. Eles abrem os arquivos do Office; para os do iWork, exporte do iCloud em formato do Office</td></tr>
+ <tr><td>Pré-Visualização</td><td>Okular (já vem)</td></tr>
+ <tr><td>Fotos</td><td>digiKam</td></tr>
+ <tr><td>iMovie, Final Cut Pro</td><td>Kdenlive, Shotcut</td></tr>
+diff --git a/usr.sbin/lume-configurar/ajuda/index.html b/usr.sbin/lume-configurar/ajuda/index.html
+index 316f3c928..6c34d2236 100644
+--- a/usr.sbin/lume-configurar/ajuda/index.html
++++ b/usr.sbin/lume-configurar/ajuda/index.html
+@@ -17,6 +17,7 @@
+ <a class="cartao" href="programas.html"><b>Instalar programas</b><span>A loja, os kits por área (Exatas, Sociais aplicadas, Uso geral) e como achar o que você precisa.</span></a>
+ <a class="cartao" href="trocando.html#texto"><b>Escrever um documento</b><span>O Páginas: trabalho nas normas da ABNT, plano de aula, carta e currículo, em .docx, .odt e PDF.</span></a>
+ <a class="cartao" href="trocando.html#planilha"><b>Fazer uma planilha</b><span>O Números: orçamento, notas da turma, juros e fluxo de caixa, com fórmulas em português, em .xlsx, .ods e PDF.</span></a>
++<a class="cartao" href="trocando.html#apresentacao"><b>Fazer uma apresentação</b><span>O Palco: aula, seminário e conjuntura econômica, com temas, gráficos, transições e as notas do apresentador, em .pptx, .odp e PDF.</span></a>
+ <a class="cartao" href="trocando.html"><b>Vindo do Windows ou do Mac</b><span>O que usar no lugar do MATLAB, do Excel, do AutoCAD, do SPSS e de outros.</span></a>
+ <a class="cartao" href="compatibilidade.html"><b>Windows, Linux e Mac</b><span>Abrir um .exe (de 64 ou 32 bits), usar o Office e o Teams pela web, e o que fazer com um programa do Mac.</span></a>
+ <a class="cartao" href="tela.html"><b>A tela de papel</b><span>O filtro e-ink, o tema escuro, as abas de janelas, os atributos dos arquivos e as animações.</span></a>
+diff --git a/usr.sbin/lume-configurar/ajuda/trocando.html b/usr.sbin/lume-configurar/ajuda/trocando.html
+index 67b9121b2..387f90e3b 100644
+--- a/usr.sbin/lume-configurar/ajuda/trocando.html
++++ b/usr.sbin/lume-configurar/ajuda/trocando.html
+@@ -21,6 +21,7 @@
+ <tr><th>Você usava</th><th>No LumeBSD</th><th>Observação</th></tr>
+ <tr id="texto"><td>Word e Pages (texto)</td><td>Páginas (já vem no LumeBSD), ou o LibreOffice Writer</td><td>O Páginas abre e salva .docx e .odt, exporta PDF e tem modelos de trabalho acadêmico nas normas da ABNT, plano de aula, relatório, carta e currículo. Para mala direta, sumário automático e controle de alterações, o LibreOffice Writer.</td></tr>
+ <tr id="planilha"><td>Excel e Numbers (planilhas)</td><td>Números (já vem no LumeBSD), ou o LibreOffice Calc</td><td>O Números abre e salva .xlsx e .ods, abre .csv, exporta PDF e escreve as fórmulas em português, como o Excel (=SOMA, =PROCV, =VPL, =TIR). Tem gráficos e modelos de orçamento, notas da turma, juros compostos, fluxo de caixa e indicadores econômicos. Para tabelas dinâmicas e macros, o LibreOffice Calc.</td></tr>
++<tr id="apresentacao"><td>PowerPoint e Keynote (apresentações)</td><td>Palco (já vem no LumeBSD), ou o LibreOffice Impress</td><td>O Palco abre e salva .pptx e .odp e exporta PDF. Tem temas, gráficos, transições e a tela do apresentador (o próximo slide, as notas e o relógio) quando há um segundo monitor, e modelos de aula, seminário, conjuntura econômica e reunião. Para animações dentro do slide, tabelas e vídeo, o LibreOffice Impress.</td></tr>
+ <tr><td>Word, Excel, PowerPoint</td><td>LibreOffice, ou o Microsoft 365 na web</td><td>O LibreOffice abre e salva .docx, .xlsx e .pptx. Com as fontes do Office instaladas (kit Uso geral), a paginação fica igual. Macros VBA complexas e o Power Query só no Microsoft 365.</td></tr>
+ <tr><td>Outlook</td><td>Thunderbird, ou o Outlook na web</td><td>O e-mail institucional costuma funcionar nos dois.</td></tr>
+ <tr><td>OneNote, Notability</td><td>Xournal++, Joplin</td><td>O Xournal++ escreve por cima de PDFs.</td></tr>
+diff --git a/usr.sbin/lume-configurar/lume-configurar.sh b/usr.sbin/lume-configurar/lume-configurar.sh
+index 5b8888b50..93ad5d6ef 100644
+--- a/usr.sbin/lume-configurar/lume-configurar.sh
++++ b/usr.sbin/lume-configurar/lume-configurar.sh
+@@ -37,7 +37,7 @@ cabecalho()
+ {
+ 	echo
+ 	echo "  ============================================================"
+-	echo "     LumeBSD 2.3 \"Farol\"  -  assistente de configuração"
++	echo "     LumeBSD 2.4 \"Farol\"  -  assistente de configuração"
+ 	echo "  ============================================================"
+ 	echo
+ }
+diff --git a/usr.sbin/lume-configurar/lume-instalar.sh b/usr.sbin/lume-configurar/lume-instalar.sh
+index 43abb9cf6..88f777e5a 100644
+--- a/usr.sbin/lume-configurar/lume-instalar.sh
++++ b/usr.sbin/lume-configurar/lume-instalar.sh
+@@ -63,7 +63,7 @@ roda()
+     morrer "lume instalar roda a partir do pendrive do LumeBSD"
+ : > "$LOG"
+ 
+-printf "\n  ${NEGRITO}LumeBSD 2.3 \"Farol\" - instalação${FIM}\n\n"
++printf "\n  ${NEGRITO}LumeBSD 2.4 \"Farol\" - instalação${FIM}\n\n"
+ 
+ # --- 1. escolher o disco ------------------------------------------------
+ 
+@@ -275,7 +275,7 @@ case "$(sysctl -n hw.model 2>/dev/null)" in
+ *)	ucode=intel-ucode.bin; sensor=coretemp ;;
+ esac
+ cat > "$ALVO/boot/loader.conf" <<EOF
+-# LumeBSD 2.3 - notebook
++# LumeBSD 2.4 - notebook
+ zfs_load="YES"
+ aesni_load="YES"
+ geom_eli_load="YES"
+@@ -307,7 +307,7 @@ echo 'kern.corefile=/var/crash/%N.%P.core' >> "$ALVO/etc/sysctl.conf"
+ # Ports usados direto (sem a forja): a versão do FreeBSD por baixo.
+ cat >> "$ALVO/etc/make.conf" <<'EOF'
+ # LumeBSD: para a árvore de ports, o sistema é o FreeBSD por baixo. O uname
+-# diz "LumeBSD 2.3-FAROL", que o configure dos programas não conhece; a
++# diz "LumeBSD 2.4-FAROL", que o configure dos programas não conhece; a
+ # versão vem do kern.osreldate (1501000 -> 15.1-RELEASE).
+ .if !defined(_OSRELEASE)
+ _LUME_OSREL!=	/sbin/sysctl -n kern.osreldate
+diff --git a/usr.sbin/lume-configurar/lume-tema.sh b/usr.sbin/lume-configurar/lume-tema.sh
+index 1b3ebdfe8..9c961fee9 100644
+--- a/usr.sbin/lume-configurar/lume-tema.sh
++++ b/usr.sbin/lume-configurar/lume-tema.sh
+@@ -324,6 +324,14 @@ integrar()
+ 		padrao_mime "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet application/vnd.oasis.opendocument.spreadsheet text/csv" \
+ 		    lume-numeros.desktop
+ 	fi
++	# O Palco (as apresentações, com os modelos de aula e seminário), no
++	# menu e como o programa dos .pptx e .odp (se ninguém já é).
++	if [ -x /usr/bin/lume-palco ]; then
++		instalar $A/lume-palco.desktop \
++		    $P/share/applications/lume-palco.desktop 0644
++		padrao_mime "application/vnd.openxmlformats-officedocument.presentationml.presentation application/vnd.oasis.opendocument.presentation" \
++		    lume-palco.desktop
++	fi
+ 	# A Ajuda do LumeBSD, no menu.
+ 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
+ 	    $P/share/applications/lume-ajuda.desktop 0644
+diff --git a/usr.sbin/lume-configurar/tema/metadata-noite.json b/usr.sbin/lume-configurar/tema/metadata-noite.json
+index 948b75148..6962aacd7 100644
+--- a/usr.sbin/lume-configurar/tema/metadata-noite.json
++++ b/usr.sbin/lume-configurar/tema/metadata-noite.json
+@@ -5,7 +5,7 @@
+         "Id": "org.lumebsd.papel-noite",
+         "License": "BSD-2-Clause",
+         "Name": "Papel noite (LumeBSD)",
+-        "Version": "2.3"
++        "Version": "2.4"
+     },
+     "KPackageStructure": "Plasma/LookAndFeel",
+     "X-Plasma-APIVersion": "2"
+diff --git a/usr.sbin/lume-configurar/tema/metadata.json b/usr.sbin/lume-configurar/tema/metadata.json
+index 7846808ed..15a35d3ca 100644
+--- a/usr.sbin/lume-configurar/tema/metadata.json
++++ b/usr.sbin/lume-configurar/tema/metadata.json
+@@ -5,7 +5,7 @@
+         "Id": "org.lumebsd.papel",
+         "License": "BSD-2-Clause",
+         "Name": "Papel (LumeBSD)",
+-        "Version": "2.3"
++        "Version": "2.4"
+     },
+     "KPackageStructure": "Plasma/LookAndFeel",
+     "X-Plasma-APIVersion": "2"
+-- 
+2.43.0
+

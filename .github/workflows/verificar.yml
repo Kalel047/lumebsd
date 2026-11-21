@@ -148,6 +148,19 @@ jobs:
               -o lume-numeros $(pkg-config --libs Qt6Widgets) -lz
           sh tests/numeros.sh ./lume-numeros numeros-teste
 
+      # O Palco também: os modelos vão e voltam em .pptx e .odp, o PDF sai
+      # com uma página por slide, a edição pelos caminhos da janela dá o
+      # esperado, e um .pptx do python-pptx (como os do PowerPoint, com tudo
+      # herdado do mestre) é lido.
+      - name: Palco (ida e volta)
+        if: matrix.base == 'fixado'
+        run: |
+          sudo apt-get install -y -q python3-pptx || true
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
+              $(pkg-config --cflags Qt6Widgets) app/lume-palco/main.cpp \
+              -o lume-palco $(pkg-config --libs Qt6Widgets) -lz
+          sh tests/palco.sh ./lume-palco palco-teste
+
       # As contas dos Mercados (sem rede): títulos, correlação, Black-Scholes,
       # a leitura dos documentos da CVM e da SEC.
       - name: Mercados (contas)

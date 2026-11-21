@@ -1,6 +1,20 @@
+# LumeBSD 2.4 "Farol"
+
+As apresentações do LumeBSD: o **Palco**, com a cara do Keynote. Com o Páginas (2.2) e os Números (2.3), fecha o escritório próprio: texto, planilha e apresentação, que abrem e salvam os formatos do Office e do LibreOffice.
+
+## Palco, as apresentações
+
+- **O slide no meio, os slides à esquerda e o painel à direita**, como no Keynote. O texto se escreve direto no slide (dois cliques), com negrito, itálico, cores, tamanhos, fontes, tópicos e níveis (Tab e Shift+Tab). As formas, as imagens e os gráficos se arrastam, mudam de tamanho e giram com o mouse, e guias aparecem quando algo se alinha com o meio ou a borda do slide ou de outro objeto. Os slides mudam de ordem arrastando na coluna da esquerda.
+- **Cinco temas** (Papel, Noite, Lousa, Mar e Terracota) e **oito leiautes** (título, título e tópicos, seção, duas colunas, só o título, citação, um número grande, em branco). Trocar o tema repinta a apresentação inteira.
+- **Gráficos** de colunas, barras, linhas e pizza, com os dados numa tabelinha no painel.
+- **Apresentar** (F5): em tela cheia, com as transições (dissolver, empurrar, cobrir, descobrir, ampliar, pelo preto). Com dois monitores, a **tela do apresentador** fica no seu: o slide, o seguinte, as notas, o tempo e a hora. Número e Enter vão direto a um slide; B escurece a tela.
+- **Modelos para quem ensina, estuda e trabalha**: uma aula (na lousa, com exercícios numerados), um seminário (roteiro, duas colunas, citação, referências), a conjuntura econômica (PIB, IPCA e Selic de 2015 a 2024 em gráficos, e o juro real) e uma reunião (pauta, as contas numa pizza, os pontos para votar).
+- **Abre e salva .pptx e .odp**, os formatos do PowerPoint e do Impress, sem precisar de nenhum dos dois: o texto com a letra, as formas, as imagens, os gráficos, o fundo, as transições, os slides pulados e as notas vão e voltam. Lê os arquivos do PowerPoint com tudo que vem do mestre e do leiaute (posições, letras, cores do tema, faixas e logotipos), os gráficos do PowerPoint e do LibreOffice e as tabelas (como texto). Exporta **PDF** (Ctrl+P).
+- No terminal: `lume-palco --converter aula.pptx aula.pdf`.
+
 # LumeBSD 2.3 "Farol"
 
-A planilha do LumeBSD: os **Números**, com a cara do Numbers do iWork e as fórmulas do Excel em português. Com o Páginas (2.2), é a segunda parte do escritório próprio; as apresentações vêm na 2.4.
+A planilha do LumeBSD: os **Números**, com a cara do Numbers do iWork e as fórmulas do Excel em português. Com o Páginas (2.2), é a segunda parte do escritório próprio.
 
 ## Números, a planilha
 
