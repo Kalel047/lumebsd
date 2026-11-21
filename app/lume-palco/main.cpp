@@ -5063,6 +5063,11 @@ int main(int argc, char **argv)
 	}
 	if (semJanela && qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
 		qputenv("QT_QPA_PLATFORM", "offscreen");
+	// O vídeo pelo FFmpeg (o backend do Qt Multimedia que decodifica H.264;
+	// o GStreamer do FreeBSD não tem o gst-libav), se o plugin estiver lá.
+	if (qEnvironmentVariableIsEmpty("QT_MEDIA_BACKEND") &&
+	    QFileInfo::exists(QLibraryInfo::path(QLibraryInfo::PluginsPath) + "/multimedia/libffmpegmediaplugin.so"))
+		qputenv("QT_MEDIA_BACKEND", "ffmpeg");
 	QApplication app(argc, argv);
 	QTranslator qt;
 	if (qt.load(QLocale(), "qtbase", "_", QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
