@@ -316,6 +316,14 @@ integrar()
 		padrao_mime "application/vnd.oasis.opendocument.text application/vnd.openxmlformats-officedocument.wordprocessingml.document" \
 		    lume-paginas.desktop
 	fi
+	# O Números (a planilha, com os modelos de orçamento, notas e juros), no
+	# menu e como o programa dos .xlsx, .ods e .csv (se ninguém já é).
+	if [ -x /usr/bin/lume-numeros ]; then
+		instalar $A/lume-numeros.desktop \
+		    $P/share/applications/lume-numeros.desktop 0644
+		padrao_mime "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet application/vnd.oasis.opendocument.spreadsheet text/csv" \
+		    lume-numeros.desktop
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644

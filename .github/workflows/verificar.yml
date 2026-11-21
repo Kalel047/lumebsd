@@ -137,6 +137,17 @@ jobs:
               -o lume-paginas $(pkg-config --libs Qt6Widgets) -lz
           sh tests/paginas.sh ./lume-paginas paginas-teste
 
+      # O Números também: os modelos vão e voltam em .xlsx e .ods, as contas
+      # (VPL, TIR, VF, SOMASE) dão os valores conhecidos, o CSV e o PDF saem,
+      # e a edição pelos caminhos da janela dá o esperado.
+      - name: Números (ida e volta)
+        if: matrix.base == 'fixado'
+        run: |
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
+              $(pkg-config --cflags Qt6Widgets) app/lume-numeros/main.cpp \
+              -o lume-numeros $(pkg-config --libs Qt6Widgets) -lz
+          sh tests/numeros.sh ./lume-numeros numeros-teste
+
       # As contas dos Mercados (sem rede): títulos, correlação, Black-Scholes,
       # a leitura dos documentos da CVM e da SEC.
       - name: Mercados (contas)

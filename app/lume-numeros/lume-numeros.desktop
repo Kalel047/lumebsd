@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=LumeBSD Numbers
+Name[pt_BR]=Números
+Name[pt]=Números
+GenericName=Spreadsheet
+GenericName[pt_BR]=Planilha
+Comment=Spreadsheets with formulas in Portuguese and charts on the sheet: budgets, class grades, compound interest, cash flow (NPV, IRR); opens and saves .xlsx and .ods
+Comment[pt_BR]=Planilhas com fórmulas em português e gráficos sobre a folha: orçamento, notas da turma, juros compostos, fluxo de caixa (VPL, TIR); abre e salva .xlsx e .ods
+Exec=/usr/bin/lume-numeros %f
+Icon=/usr/share/lume/app/lume-numeros.svg
+Categories=Office;Spreadsheet;Finance;Education;
+MimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.oasis.opendocument.spreadsheet;text/csv;
+Keywords=planilha;tabela;excel;xlsx;ods;csv;numbers;calc;fórmula;formula;gráfico;grafico;orçamento;orcamento;notas;juros;vpl;tir;finanças;financas;
+StartupNotify=true

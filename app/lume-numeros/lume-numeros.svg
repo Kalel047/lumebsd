@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Números do LumeBSD: uma folha de planilha com a grade e três colunas de gráfico (tema Papel). -->
+  <circle cx="32" cy="32" r="30" fill="#f2efe8" stroke="#222" stroke-width="2"/>
+  <rect x="14" y="16" width="36" height="32" fill="#fffdf8" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/>
+  <rect x="14" y="16" width="36" height="7" fill="#e2dccd" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M26 16 v32 M38 16 v32" stroke="#222" stroke-width="1.1"/>
+  <path d="M14 31 h36 M14 39.5 h36" stroke="#222" stroke-width="1.1"/>
+  <rect x="19" y="36" width="4.5" height="9" fill="#2f4b6e"/>
+  <rect x="30" y="30" width="4.5" height="15" fill="#b5652a"/>
+  <rect x="41" y="26" width="4.5" height="19" fill="#5b7a48"/>
+</svg>

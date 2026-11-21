@@ -46,6 +46,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 | **Atributos nos arquivos** (2.0) | etiquetas, nota, comentário e atributos seus gravados no arquivo (`lume atributo`); editar no botão direito do Dolphin, procurar e salvar a consulta num `.consulta` |
 | **Mercados do LumeBSD** (2.2) | um terminal de mercados numa linha de comando (`PETR4 G`, `VALE3 REL`, `MUNDO`): cotações (cripto e ações dos EUA em tempo real), gráficos, ficha, balanços (CVM e SEC), triagem das companhias da B3, opções com volatilidade implícita, economia (Banco Central e Focus), câmbio, correlações, o ativo oposto, as relações entre empresas com os valores que elas declaram (contratos com partes relacionadas na CVM, clientes no relatório anual da SEC), aviões e navios no mapa, notícias, carteira, alertas, ordens (simulador e corretora Alpaca), conversa, Tesouro Direto e calculadora de títulos |
 | **Páginas** (2.2) | o editor de texto do LumeBSD, com a cara do Pages: a folha na tela página por página, o painel de formatação, modelos de trabalho acadêmico (ABNT), plano de aula, relatório, carta e currículo; abre e salva **.docx** e **.odt** e exporta PDF |
+| **Números** (2.3) | a planilha do LumeBSD, com a cara do Numbers: gráficos soltos sobre a folha, fórmulas como no Excel em português (`=SOMA`, `=PROCV`, `=VPL`, `=TIR`, cem funções), modelos de orçamento pessoal, notas da turma, juros compostos, fluxo de caixa e indicadores econômicos; abre e salva **.xlsx** e **.ods**, abre CSV e exporta PDF |
 | **Finanças do LumeBSD** (2.2) | um app de economia e finanças no menu: o orçamento do mês (planejado × realizado, a regra 50/30/20, a reserva de emergência e metas), juros e taxas (como na HP 12C), financiamento Price × SAC com o CET, VPL e TIR de projetos, correção pelo IPCA, IGP-M, Selic e CDI com os dados do Banco Central, e regressão por MQO com a estatística descritiva |
 | **Sem Python** (2.0) | o ícone de rede (`lume-rede`, C++) no lugar do networkmgr; as ferramentas de construção em Rust (`lume-montar`); o `lume-motor` virou biblioteca |
 | **Papel e tinta de verdade** (1.5) | o filtro e-ink ganhou o **grão do papel** (fibras paradas na tela) e a **viscosidade da tinta**: quando a tela muda, o conteúdo novo assenta sobre o anterior, sem piscar |
@@ -400,6 +401,14 @@ aplica de novo.
 |---|---|
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
+
+### Os Números (2.3) na tela
+
+| | |
+|---|---|
+| ![A galeria de modelos dos Números](docs/capturas/numeros-1-galeria.png) | ![O orçamento pessoal, com o gráfico de pizza](docs/capturas/numeros-2-orcamento.png) |
+| ![O fluxo de caixa, com VPL e TIR, num .ods](docs/capturas/numeros-3-fluxo.png) | ![Um .xlsx de outro programa, com a primeira linha congelada](docs/capturas/numeros-4-excel.png) |
+| ![Os indicadores econômicos, com o tema escuro](docs/capturas/numeros-5-escuro.png) | |
 
 ### O Páginas (2.2) na tela
 
