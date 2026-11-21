@@ -1,0 +1,139 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 21, 2026
+.Dt LUME-NUMEROS 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-numeros
+.Nd Números do LumeBSD: a planilha, com fórmulas em português e gráficos
+.Sh SYNOPSIS
+.Nm
+.Op Ar arquivo
+.Nm
+.Fl -converter
+.Ar entrada saida
+.Nm
+.Fl -modelo
+.Ar nome saida
+.Nm
+.Fl -resumo
+.Ar arquivo
+.Nm
+.Fl -autoteste
+.Ar saida
+.Nm
+.Fl -foto
+.Ar saida.png
+.Op Ar arquivo | Fl -modelo Ar nome | Fl -galeria
+.Sh DESCRIPTION
+Uma planilha com a cara do Numbers: a grade em papel claro, os gráficos
+soltos sobre a folha (arrastam e mudam de tamanho com o mouse), as folhas
+em abas embaixo e o painel à direita para formatar as células
+.Pq Formatar
+ou o gráfico escolhido.
+Ao abrir sem arquivo, uma galeria de modelos:
+.Bl -tag -width "Indicadores econômicos"
+.It Em branco
+uma folha vazia.
+.It Orçamento pessoal
+receitas e gastos por grupo, a regra 50/30/20 e um gráfico de pizza.
+.It Notas da turma
+as médias dos bimestres, a situação de cada aluno
+.Pq SE
+e quantos passaram
+.Pq CONT.SE .
+.It Juros compostos
+o saldo mês a mês de uma aplicação com aportes, conferido com
+.Fn VF .
+.It Fluxo de caixa
+.Fn VPL ,
+.Fn TIR
+e o payback de um projeto.
+.It Indicadores econômicos
+PIB, IPCA e Selic de 2015 a 2024, o juro real, a média, o desvio padrão
+e a correlação.
+.El
+.Pp
+As fórmulas se escrevem como no Excel em português
+.Pq =SOMA(A1:A10), =PROCV(...), =SE(...)
+com ponto e vírgula entre os argumentos e vírgula decimal; os nomes em
+inglês
+.Pq =SUM(...)
+também valem.
+São cem funções: contas, condições
+.Pq SE, SOMASE, CONT.SES ,
+procura
+.Pq PROCV, ÍNDICE, CORRESP ,
+estatística
+.Pq DESVPAD, CORREL, INCLINAÇÃO, PREVISÃO ,
+finanças
+.Pq VPL, TIR, PGTO, VP, VF, TAXA, NPER ,
+datas e texto.
+Uma fórmula que depende dela mesma dá
+.Li #CICLO! ;
+os outros erros são os do Excel
+.Pq #DIV/0!, #VALOR!, #REF!, #NOME?, #N/D .
+.Pp
+Abre e salva
+.Pa .xlsx
+(Excel; o padrão) e
+.Pa .ods
+(OpenDocument, o do LibreOffice), com leitores e gravadores próprios: vão
+e voltam as fórmulas (com os valores calculados), as várias folhas, os
+formatos de número (moeda, porcentagem, data, casas decimais), o negrito,
+o itálico, as cores, o preenchimento, as bordas, o alinhamento, as larguras
+e alturas, os painéis congelados e os gráficos (colunas, barras, linhas,
+área, pizza e dispersão).
+Abre e exporta
+.Pa .csv
+(com ponto e vírgula, como no Brasil) e exporta PDF.
+O
+.Pa .xls
+do Excel antigo não abre: salve como
+.Pa .xlsx
+no LibreOffice.
+.Sh ATALHOS
+.Bl -tag -width "Ctrl+B, Ctrl+I, Ctrl+U" -compact
+.It Enter, Tab
+confirma e vai para baixo, para o lado
+.It F2
+edita a célula
+.It Delete
+apaga o conteúdo (o formato fica)
+.It Ctrl+D, Ctrl+R
+preenche para baixo, para a direita (as fórmulas andam)
+.It Alt+=
+soma automática
+.It Ctrl+B, Ctrl+I, Ctrl+U
+negrito, itálico, sublinhado
+.It Ctrl+Z, Ctrl+Shift+Z
+desfazer, refazer
+.It Ctrl+P
+exportar PDF
+.El
+.Pp
+Com mais de uma célula escolhida, o rodapé mostra a soma, a média e a
+contagem.
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Fl -converter Ar entrada saida
+converte sem abrir a janela; o formato sai da extensão
+.Pq xlsx, ods, csv, pdf .
+.It Fl -modelo Ar nome saida
+grava um dos modelos
+.Pq branco, orcamento, notas, juros, fluxo, indicadores .
+.It Fl -resumo Ar arquivo
+mostra o conteúdo da planilha (os testes comparam).
+.It Fl -autoteste Ar saida
+edita uma planilha pelos caminhos da janela, grava e mostra o resumo.
+.It Fl -foto Ar saida.png
+fotografa a janela (para a documentação).
+.El
+.Sh FILES
+.Bl -tag -width indent
+.It Pa ~/.config/LumeBSD/lume-numeros.conf
+as planilhas recentes
+.El
+.Sh SEE ALSO
+.Xr lume-paginas 1 ,
+.Xr lume-financas 1 ,
+.Xr lume-mercados 1

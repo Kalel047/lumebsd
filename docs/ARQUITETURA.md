@@ -47,6 +47,7 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-janelas/` | as abas de janelas (o efeito `lume_abas`) e a decoração Papel (`org.lumebsd.papel`), para o KWin |
 | `app/lume-atributos/`, `usr.bin/lume-atributo/` | os atributos dos arquivos: a janela e a procura (Qt) e o `lume atributo` (C) |
 | `app/lume-paginas/` | o Páginas (C++/Qt): o editor de texto, com leitores e gravadores de `.odt` e `.docx` e o PDF; também na linha de comando |
+| `app/lume-numeros/` | os Números (C++/Qt): a planilha, com o cálculo das fórmulas, os gráficos, leitores e gravadores de `.xlsx` e `.ods`, CSV e PDF; também na linha de comando |
 | `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
 | `app/lume-mercados/` | os Mercados do LumeBSD (C++/Qt, com o QtNetwork): o terminal de mercados; `main.cpp` e as partes ao lado (`base.h` a rede, o gráfico e a configuração, `ws.h` um cliente de WebSocket, `dados.h` as cotações e as contas, `relcvm.h` o Formulário de Referência, `sec.h` a SEC, `telas1.h` a `telas6.h` as funções), o mapa (Natural Earth) e as relações entre empresas (`lume-mercados-relacoes.tsv`) |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
@@ -636,6 +637,62 @@ apps. As peças:
   na tabela). No CI ele compila para o Linux e roda os testes; a
   interoperabilidade com o LibreOffice foi conferida à mão (o LibreOffice
   abre o `.docx` e devolve o `.odt` com a mesma estrutura, e o contrário).
+
+## Os Números (planilha)
+
+`app/lume-numeros/`, Qt 6 sem moc. Um `main.cpp` (a janela) e as partes em
+cabeçalhos, que os testes também usam:
+
+- **`formulas.h`: as fórmulas.** Um analisador descendente (comparação, `&`,
+  soma, produto, potência, sinal e `%`) para uma árvore (`Expr`) com as
+  referências guardadas como linha e coluna, absolutas ou não, e o nome da
+  folha. Três dialetos de escrita e de leitura: o do Excel em português
+  (`=SOMA(A1;B2)`, vírgula decimal, o que a pessoa vê e digita), o do
+  arquivo `.xlsx` (`SUM(A1,B2)`, com o prefixo `_xlfn.` nas funções novas) e
+  o do ODF (`of:=SUM([.A1];[.B2])`). O catálogo traduz os cem nomes nos dois
+  sentidos (e aceita sem acento). Copiar, preencher, inserir ou apagar
+  linhas e renomear uma folha são transformações da árvore (`deslocada`,
+  `comLinhas`, `comFolhaRenomeada`), que viram `#REF!` quando a célula some.
+  O cálculo é preguiçoso e com memória: cada célula é calculada quando
+  alguém precisa dela, e uma que volta a si mesma dá `#CICLO!`. Os erros
+  ficam com o nome do Excel (`#VALUE!`) e aparecem em português (`#VALOR!`).
+  As datas são o número de série do Excel (dias desde 30/12/1899).
+- **`planilha.h`: o modelo.** A pasta (`Pasta`) com as folhas; cada folha
+  guarda só as células que existem, num `QHash` de `linha << 20 | coluna`,
+  as larguras e alturas que fogem do padrão, os painéis congelados e os
+  gráficos. Um gráfico é um intervalo (a 1ª linha com os nomes das séries,
+  a 1ª coluna com as categorias, quando é texto, anos ou períodos) e,
+  opcionalmente, a lista das colunas que são séries. O que se digita passa
+  por `interpretar`, que reconhece número, moeda, porcentagem, data e
+  fórmula como o Excel em português.
+- **`desenho.h`: o papel.** As células e os gráficos desenhados com
+  `QPainter`; é o mesmo desenho nas miniaturas da galeria, no PDF e nos
+  gráficos da janela.
+- **`arquivos.h`: os formatos.** Os zips pelo zlib da base (como no Páginas)
+  e o XML numa árvore pequena (`No`). O `.xlsx` vai com os estilos
+  (fontes, preenchimentos, bordas e os códigos de número; a moeda como
+  `[$R$-416]`, que o Excel e o LibreOffice reconhecem), as fórmulas com o
+  valor calculado, os textos compartilhados, as larguras, os painéis e os
+  gráficos em DrawingML (`xl/charts`). O `.ods`, com os estilos automáticos
+  de número e de célula e os gráficos como objetos (`Object N/content.xml`)
+  ligados à folha. Na leitura, os gráficos do LibreOffice vêm presos a uma
+  célula, e a largura padrão das colunas (a do Excel é menor, 64 px)
+  vale para a folha toda.
+- **A janela.** Um `QTableView` sobre um modelo que lê a pasta; o delegado
+  (`Pincel`) desenha cada célula inteira (fundo, grade, bordas e o texto,
+  que transborda para as vizinhas vazias, e `###` num número que não
+  cabe). Os gráficos são widgets por cima da área da tabela, que andam
+  com a rolagem. Os painéis congelados são três vistas por cima (o mesmo
+  modelo, a mesma seleção). Desfazer guarda cópias das folhas.
+- **Os testes.** `lume-numeros --resumo` imprime o conteúdo (fórmulas,
+  valores, formatos, larguras e gráficos); `tests/numeros.sh` grava cada
+  modelo em `.xlsx` e `.ods`, converte de um para o outro e compara,
+  confere as contas dos modelos (VPL, TIR, VF, SOMASE) e roda o
+  `--autoteste`, que edita pelos caminhos da janela (digitar, preencher,
+  formatar, copiar e colar, inserir linha, ordenar, gráfico, desfazer, outra
+  folha). A interoperabilidade com o LibreOffice foi conferida à mão (ele
+  abre os dois formatos, com os gráficos, e devolve as mesmas fórmulas e
+  valores) e com um `.xlsx` do openpyxl.
 
 ## Ícone de rede
 

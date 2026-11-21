@@ -1,3 +1,16 @@
+# LumeBSD 2.3 "Farol"
+
+A planilha do LumeBSD: os **Números**, com a cara do Numbers do iWork e as fórmulas do Excel em português. Com o Páginas (2.2), é a segunda parte do escritório próprio; as apresentações vêm na 2.4.
+
+## Números, a planilha
+
+- **A folha de papel e os gráficos soltos sobre ela**, como no Numbers: colunas, barras, linhas, área, pizza e dispersão, que se arrastam e mudam de tamanho com o mouse e acompanham os dados. À direita, o painel **Formatar** (moeda, porcentagem, data, casas decimais, negrito, itálico, cores, preenchimento, alinhamento e bordas) ou o do gráfico escolhido. Várias folhas, em abas embaixo.
+- **As fórmulas como no Excel em português**: `=SOMA(A1:A10)`, `=SE(B2>=6;"Aprovado";"Recuperação")`, `=PROCV(...)`, `=VPL(10%;B2:B6)`, com ponto e vírgula e vírgula decimal (os nomes em inglês também valem). Cem funções: contas, condições (SOMASE, CONT.SES), procura (PROCV, ÍNDICE, CORRESP), estatística (DESVPAD, CORREL, INCLINAÇÃO, PREVISÃO), finanças (VPL, TIR, PGTO, VP, VF, TAXA, NPER), datas e texto. As referências andam ao copiar, colar, preencher (Ctrl+D, Ctrl+R), inserir e apagar linhas e colunas.
+- **Modelos para quem estuda, ensina e cuida das contas**: orçamento pessoal (com a regra 50/30/20), notas da turma (médias e situação de cada aluno), juros compostos (o saldo mês a mês, conferido com o VF), fluxo de caixa (VPL, TIR e payback) e indicadores econômicos do Brasil (PIB, IPCA, Selic e o juro real, de 2015 a 2024).
+- **Abre e salva .xlsx e .ods**, os formatos do Excel e do LibreOffice, sem precisar de nenhum dos dois: as fórmulas (com os valores), as folhas, os formatos, as larguras, os painéis congelados e os gráficos vão e voltam. Abre e exporta **CSV** (com ponto e vírgula) e exporta **PDF** (Ctrl+P).
+- A **soma, a média e a contagem** do que está selecionado no rodapé; **Alt+=** soma a coluna de cima; ordenar do menor para o maior e o contrário; congelar as primeiras linhas e colunas (botão direito).
+- No terminal: `lume-numeros --converter notas.xlsx notas.pdf`.
+
 # LumeBSD 2.2 "Farol"
 
 Sobre o FreeBSD 15.1, com as correções de segurança de novembro (15.1-RELEASE-p7: OpenSSL 3.5.9, TCP, tmpfs, fdescfs, memória virtual e bsnmp). Três apps novos, feitos para o LumeBSD: o **Páginas** (editor de texto), as **Finanças** (economia e finanças pessoais) e os **Mercados** (um terminal de mercados). E o que a 2.0 deixou pela metade nas abas e nos atributos.

@@ -38,11 +38,27 @@ próprios de `.odt` e `.docx` (o zip pelo zlib da base, o XML pelo
 `QXmlStreamReader`), testados contra o LibreOffice nos dois sentidos; PDF
 com os números de página.
 
+## 2.3: a planilha
+
+Os **Números** (`app/lume-numeros`, C++/Qt sem moc): o analisador e o
+cálculo das fórmulas próprios (com os nomes do Excel em português e em
+inglês, e o dialeto do ODF), a grade sobre um `QTableView` com os gráficos
+por cima, os modelos (orçamento, notas, juros, fluxo de caixa,
+indicadores), leitores e gravadores próprios de `.xlsx` e `.ods` (com os
+gráficos), testados contra o LibreOffice nos dois sentidos; CSV e PDF.
+
+## 2.4: as apresentações
+
+O terceiro app do escritório, com a cara do Keynote: slides com temas do
+LumeBSD, transições, o modo de apresentação com as notas, e `.pptx` e
+`.odp`.
+
 ## 2.x
 
 
 - **Office com a estética do iWork**: o editor de texto saiu na 2.2 (o
-  Páginas, `app/lume-paginas`); depois a planilha e as apresentações.
+  Páginas, `app/lume-paginas`), a planilha na 2.3 (os Números,
+  `app/lume-numeros`); as apresentações vêm na 2.4.
 - **MediaKit de baixa latência**: um servidor de mídia nosso sobre o OSS, com
   threads de tempo real e um grafo de nós como o do BeOS (alvo: uns 5 ms).
 - **Replicants**: pedaços vivos de um app na área de trabalho ou em outro app.
