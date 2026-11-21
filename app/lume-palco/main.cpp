@@ -536,6 +536,9 @@ public:
 			if (aoQuadro)
 				aoQuadro();
 		});
+		connect(player_, &QMediaPlayer::errorOccurred, this, [](QMediaPlayer::Error, const QString &e) {
+			std::fprintf(stderr, "lume-palco: vídeo: %s\n", qPrintable(e));
+		});
 		connect(player_, &QMediaPlayer::playbackStateChanged, this, [this] {
 			if (aoQuadro)
 				aoQuadro();
