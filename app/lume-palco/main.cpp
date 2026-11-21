@@ -2,10 +2,12 @@
 //
 // lume-palco - "Palco do LumeBSD": as apresentações, com a cara do Keynote
 // (o do iWork) e o papel do LumeBSD. Os slides à esquerda, o palco no meio
-// (o texto se escreve direto no slide), as notas do apresentador embaixo e o
-// painel à direita para formatar, escolher a transição e o tema. Apresenta
-// em tela cheia, com transições, e com a tela do apresentador (o slide
-// seguinte, as notas e o relógio) quando há um segundo monitor.
+// (o texto se escreve direto no slide, e nas células das tabelas), as notas
+// do apresentador embaixo e o painel à direita para formatar, animar,
+// escolher a transição e o tema. Apresenta em tela cheia, com transições,
+// as animações um clique de cada vez, os vídeos (Qt Multimedia) e a tela do
+// apresentador (o próximo clique, as notas e o relógio) quando há um
+// segundo monitor.
 //
 //   .pptx  PowerPoint (o padrão)    .odp  OpenDocument (o do Impress)
 //   .pdf   exportar
@@ -33,6 +35,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QAudioOutput>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QCloseEvent>
@@ -56,6 +59,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QMediaPlayer>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
@@ -71,18 +75,25 @@
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QStyleFactory>
+#include <QSpinBox>
 #include <QTableWidget>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTranslator>
 #include <QVBoxLayout>
+#include <QUrl>
 #include <QVariantAnimation>
+#include <QVideoFrame>
+#include <QVideoSink>
 #include <QWheelEvent>
 #include <QWindow>
 
 #include <cstdio>
 #include <functional>
+#include <map>
+#include <memory>
 
 // --- cores -----------------------------------------------------------------
 
@@ -231,7 +242,12 @@ public:
 	{
 		p->save();
 		p->setClipRect(QRectF(0, 0, d_->larg, d_->alt));
-		desenharObjeto(*p, *d_, o(), !semTexto, true);
+		ComoDesenhar c;
+		c.comTexto = !semTexto;
+		c.dicas = true;
+		c.celulaSemTexto = celula;
+		c.quadroVideo = quadro && !quadro->isNull() ? quadro : nullptr;
+		desenharObjeto(*p, *d_, o(), c);
 		p->restore();
 	}
 	void mudou()
@@ -240,6 +256,8 @@ public:
 		update();
 	}
 	bool semTexto = false;
+	int celula = -1;                 // a célula da tabela em edição (sem o texto)
+	const QImage *quadro = nullptr;  // o quadro do vídeo tocando no editor
 
 private:
 	const Doc *d_;
@@ -262,7 +280,11 @@ public:
 			p->setPen(QPen(QColor(0xd6, 0x3a, 0x8f), 1 * k));
 			p->drawLine(g);
 		}
-		for (const auto &[r, giro, linha, alcas] : caixas) {
+		for (const Caixa &cx : caixas) {
+			const QRectF &r = cx.r;
+			const double giro = cx.giro;
+			const int linha = cx.linha;
+			const bool alcas = cx.alcas;
 			p->save();
 			p->translate(r.center());
 			p->rotate(giro);
@@ -272,13 +294,14 @@ public:
 				p->setPen(QPen(azul, 1.2 * k));
 				p->drawRect(r);
 			}
+			const bool girar = cx.girar;
 			if (alcas) {
 				const double h = 4.5 * k;
 				p->setPen(QPen(azul, 1.2 * k));
 				p->setBrush(Qt::white);
 				for (const QPointF &c : pontos(r, linha))
 					p->drawEllipse(c, h, h);
-				if (!linha) {
+				if (!linha && girar) {
 					const QPointF topo(r.center().x(), r.top());
 					const QPointF giroP(r.center().x(), r.top() - 22 * k);
 					p->drawLine(topo, giroP + QPointF(0, h));
@@ -292,6 +315,21 @@ public:
 			p->setPen(QPen(azul, 1 * k));
 			p->setBrush(QColor(0x2f, 0x6f, 0xd6, 30));
 			p->drawRect(banda);
+		}
+		// As marcas da ordem das animações (com o painel Animar aberto).
+		QFont f("IBM Plex Mono");
+		f.setPixelSize(std::max(1, int(std::lround(11 * k))));
+		f.setBold(true);
+		p->setFont(f);
+		const QFontMetricsF fm(f);
+		for (const auto &[pt, txt] : marcas) {
+			const double w = fm.horizontalAdvance(txt) + 10 * k, h = 17 * k;
+			const QRectF c(pt.x() - w / 2, pt.y() - h / 2, w, h);
+			p->setPen(Qt::NoPen);
+			p->setBrush(QColor(0xd6, 0x3a, 0x8f));
+			p->drawRoundedRect(c, h / 2, h / 2);
+			p->setPen(Qt::white);
+			p->drawText(c, Qt::AlignCenter, txt);
 		}
 	}
 	// As oito alças (ou as duas pontas de uma linha).
@@ -309,9 +347,11 @@ public:
 		double giro;
 		int linha; // 0 não; 1 de cima à esquerda para baixo à direita; 2 a outra diagonal
 		bool alcas;
+		bool girar = true; // a alça de girar (a tabela não gira)
 	};
 	std::vector<Caixa> caixas;
 	std::vector<QLineF> guias;
+	std::vector<std::pair<QPointF, QString>> marcas;
 	QRectF banda;
 
 private:
@@ -468,7 +508,74 @@ static void pintarTransicao(QPainter &p, const QImage &antes, const QImage &depo
 	p.setOpacity(1);
 }
 
-// O que a apresentação e a tela do apresentador dividem.
+// Um vídeo tocando (na apresentação ou no editor): o QMediaPlayer lê de um
+// arquivo temporário com os bytes do documento e entrega os quadros.
+class Tocador : public QObject
+{
+public:
+	Tocador(const QByteArray &dados, const QString &ext, bool mudo, bool repetir, QObject *pai) : QObject(pai)
+	{
+		arq_.setFileTemplate(QDir::tempPath() + "/lume-palco-XXXXXX." + (ext.isEmpty() ? QString("mp4") : ext));
+		if (arq_.open()) {
+			arq_.write(dados);
+			arq_.flush();
+		}
+		player_ = new QMediaPlayer(this);
+		sink_ = new QVideoSink(this);
+		// Sem som, sem a saída de áudio (nem abre o dispositivo).
+		if (!mudo) {
+			audio_ = new QAudioOutput(this);
+			player_->setAudioOutput(audio_);
+		}
+		player_->setVideoSink(sink_);
+		player_->setLoops(repetir ? QMediaPlayer::Infinite : 1);
+		connect(sink_, &QVideoSink::videoFrameChanged, this, [this](const QVideoFrame &f) {
+			const QImage img = f.toImage();
+			if (!img.isNull())
+				quadro = img;
+			if (aoQuadro)
+				aoQuadro();
+		});
+		connect(player_, &QMediaPlayer::playbackStateChanged, this, [this] {
+			if (aoQuadro)
+				aoQuadro();
+		});
+		player_->setSource(QUrl::fromLocalFile(arq_.fileName()));
+	}
+	void tocar() { player_->play(); }
+	void pausar() { player_->pause(); }
+	bool tocando() const { return player_->playbackState() == QMediaPlayer::PlayingState; }
+	void alternar() { tocando() ? pausar() : tocar(); }
+	// O primeiro quadro (para a capa): toca sem som e para no primeiro.
+	void primeiroQuadro(std::function<void(const QImage &)> f)
+	{
+		if (audio_)
+			audio_->setMuted(true);
+		auto *c = new QMetaObject::Connection;
+		*c = connect(sink_, &QVideoSink::videoFrameChanged, this, [this, f, c](const QVideoFrame &v) {
+			const QImage img = v.toImage();
+			if (img.isNull())
+				return;
+			disconnect(*c);
+			delete c;
+			player_->stop();
+			f(img);
+		});
+		player_->play();
+	}
+	QImage quadro;
+	std::function<void()> aoQuadro;
+
+private:
+	QTemporaryFile arq_;
+	QMediaPlayer *player_;
+	QVideoSink *sink_;
+	QAudioOutput *audio_ = nullptr;
+};
+
+// O que a apresentação e a tela do apresentador dividem. Em cada slide, as
+// animações andam em grupos: o grupo 0 roda sozinho quando o slide aparece;
+// cada clique roda o seguinte (palco.h, sequencia).
 struct Sessao {
 	const Doc *doc = nullptr;
 	std::vector<int> ordem; // os slides que aparecem
@@ -477,11 +584,54 @@ struct Sessao {
 	QElapsedTimer relogio;
 	QString digitos;
 	std::function<void(int de)> aoMudar; // de: o slide anterior (-1 sem transição)
+	std::function<void()> aoAnimar;      // começou um grupo de animações
 	std::function<void()> aoSair;
+	bool comTela = true;                 // há a tela da apresentação (senão, só o apresentador)
+	// O grupo de animações do slide e o tempo dele.
+	int grupo = 0;
+	bool esperando = true;               // o grupo ainda não começou (a transição está passando)
+	bool rodando = false;                // false: o grupo já terminou
+	QElapsedTimer tGrupo;
 
 	int slide() const { return ordem.empty() ? -1 : ordem[size_t(std::clamp(pos, 0, int(ordem.size()) - 1))]; }
 	int seguinte() const { return pos + 1 < int(ordem.size()) ? ordem[size_t(pos + 1)] : -1; }
-
+	std::vector<std::vector<Evento>> grupos() const
+	{
+		const int a = slide();
+		return a < 0 ? std::vector<std::vector<Evento>>(1) : sequencia(doc->slides[size_t(a)]);
+	}
+	double tempo() const
+	{
+		if (esperando)
+			return -1;
+		return rodando ? tGrupo.elapsed() / 1000.0 : 1e9;
+	}
+	bool animando() const
+	{
+		if (esperando || !rodando)
+			return false;
+		const auto g = grupos();
+		return grupo < int(g.size()) && tempo() < duracaoGrupo(g[size_t(grupo)]) + 0.05;
+	}
+	std::vector<EstadoObj> estado() const
+	{
+		const int a = slide();
+		return a < 0 ? std::vector<EstadoObj>() : estadoDoSlide(doc->slides[size_t(a)], grupo, tempo());
+	}
+	// O estado depois de tudo (para a imagem de um slide que sai).
+	std::vector<EstadoObj> estadoFinal(int i) const
+	{
+		const Slide &s = doc->slides[size_t(i)];
+		return estadoDoSlide(s, int(sequencia(s).size()) - 1, 1e9);
+	}
+	void comecarGrupo()
+	{
+		esperando = false;
+		rodando = true;
+		tGrupo.start();
+		if (aoAnimar)
+			aoAnimar();
+	}
 	void ir(int nova, bool comTransicao)
 	{
 		preto = branco = false;
@@ -493,9 +643,12 @@ struct Sessao {
 			return;
 		}
 		nova = std::max(0, nova);
+		const bool voltou = !fim && nova == pos - 1;
 		if (fim) {
 			fim = false;
 			pos = nova;
+			grupo = int(grupos().size()) - 1;
+			esperando = rodando = false;
 			if (aoMudar) aoMudar(-1);
 			return;
 		}
@@ -504,7 +657,36 @@ struct Sessao {
 		const int de = slide();
 		const bool avancou = nova == pos + 1;
 		pos = nova;
+		if (voltou) {
+			// Voltando, o slide aparece como terminou.
+			grupo = int(grupos().size()) - 1;
+			esperando = rodando = false;
+		} else {
+			grupo = 0;
+			esperando = true;
+			rodando = false;
+		}
 		if (aoMudar) aoMudar(comTransicao && avancou ? de : -1);
+	}
+	// O próximo passo: o próximo grupo de animações ou o próximo slide.
+	void avancar()
+	{
+		if (!fim && !preto && !branco && !esperando && grupo + 1 < int(grupos().size())) {
+			grupo++;
+			comecarGrupo();
+			return;
+		}
+		ir(pos + 1, true);
+	}
+	void voltar()
+	{
+		if (!fim && grupo > 0) {
+			grupo--;
+			esperando = rodando = false;
+			if (aoMudar) aoMudar(-1);
+			return;
+		}
+		ir(fim ? pos : pos - 1, false);
 	}
 	bool tecla(QKeyEvent *e)
 	{
@@ -525,10 +707,10 @@ struct Sessao {
 		digitos.clear();
 		switch (k) {
 		case Qt::Key_Right: case Qt::Key_Down: case Qt::Key_Space: case Qt::Key_PageDown: case Qt::Key_Return: case Qt::Key_Enter: case Qt::Key_N:
-			ir(pos + 1, true);
+			avancar();
 			return true;
 		case Qt::Key_Left: case Qt::Key_Up: case Qt::Key_PageUp: case Qt::Key_Backspace: case Qt::Key_P:
-			ir(fim ? pos : pos - 1, false);
+			voltar();
 			return true;
 		case Qt::Key_Home:
 			ir(0, false);
@@ -573,50 +755,137 @@ public:
 		});
 		connect(anim_, &QVariantAnimation::finished, this, [this] {
 			de_ = -1;
+			comecarSlide();
 			update();
 		});
 		cursor_ = new QTimer(this);
 		cursor_->setSingleShot(true);
 		connect(cursor_, &QTimer::timeout, this, [this] { setCursor(Qt::BlankCursor); });
+		// Os quadros das animações e dos vídeos.
+		quadros_ = new QTimer(this);
+		quadros_->setInterval(16);
+		connect(quadros_, &QTimer::timeout, this, [this] {
+			update();
+			if (!s_->animando() && !algumTocando())
+				quadros_->stop();
+		});
 	}
 	void mudou(int de)
 	{
 		anim_->stop();
 		de_ = de;
 		const int a = s_->slide();
+		prepararVideos();
 		if (de >= 0 && a >= 0) {
 			const Slide &sl = s_->doc->slides[size_t(a)];
 			if (sl.transicao != Transicao::Nenhuma) {
-				antes_ = imagem(de);
+				const auto fim = s_->estadoFinal(de);
+				antes_ = imagem(de, &fim, -1);
 				anim_->setDuration(std::clamp(int(sl.duracao * 1000), 150, 4000));
 				progresso_ = 0;
 				anim_->start();
-			} else
+			} else {
 				de_ = -1;
-		} else
+				comecarSlide();
+			}
+		} else {
 			de_ = -1;
+			if (s_->esperando)
+				comecarSlide();
+		}
 		// Já prepara o seguinte.
-		if (s_->seguinte() >= 0)
-			imagem(s_->seguinte());
+		if (s_->seguinte() >= 0) {
+			const auto e0 = estadoInicial(s_->seguinte());
+			imagem(s_->seguinte(), &e0, 0);
+		}
 		update();
 	}
-	QImage imagem(int i)
+	// Um grupo de animações começou: os quadros andam.
+	void animou()
+	{
+		quadros_->start();
+		update();
+	}
+	// Os vídeos que começam sozinhos (para as fotos, que não passam pelo começo do slide).
+	void tocarSozinhos()
+	{
+		const int a = s_->slide();
+		if (a < 0)
+			return;
+		for (auto &[k, t] : videos_)
+			if (s_->doc->slides[size_t(a)].objs[size_t(k)].sozinho)
+				t->tocar();
+		quadros_->start();
+	}
+
+protected:
+	std::vector<EstadoObj> estadoInicial(int i) const { return estadoDoSlide(s_->doc->slides[size_t(i)], 0, -1); }
+	// A imagem de um slide num estado (com cache por slide e grupo).
+	QImage imagem(int i, const std::vector<EstadoObj> *estado, int grupoChave)
 	{
 		const QSize t = size() * devicePixelRatioF();
-		const QString chave = QString("%1|%2x%3").arg(i).arg(t.width()).arg(t.height());
+		const QString chave = QString("%1|%2|%3x%4").arg(i).arg(grupoChave).arg(t.width()).arg(t.height());
 		auto it = cache_.constFind(chave);
 		if (it != cache_.cend())
 			return *it;
 		const Doc &d = *s_->doc;
 		const double k = std::min(t.width() / d.larg, t.height() / d.alt);
-		QImage img = imagemSlide(d, d.slides[size_t(i)], std::max(1, int(d.larg * k)));
-		if (cache_.size() > 12)
+		QImage img = imagemSlide(d, d.slides[size_t(i)], std::max(1, int(d.larg * k)), false, estado);
+		if (cache_.size() > 24)
 			cache_.clear();
 		cache_.insert(chave, img);
 		return img;
 	}
-
-protected:
+	void comecarSlide()
+	{
+		if (s_->esperando)
+			s_->comecarGrupo();
+		// Os vídeos que começam sozinhos.
+		const int a = s_->slide();
+		if (a >= 0 && !s_->fim)
+			for (auto &[k, t] : videos_)
+				if (s_->doc->slides[size_t(a)].objs[size_t(k)].sozinho)
+					t->tocar();
+		if (s_->animando() || algumTocando())
+			quadros_->start();
+	}
+	void prepararVideos()
+	{
+		const int a = s_->slide();
+		if (a == videosDe_)
+			return;
+		videos_.clear();
+		videosDe_ = a;
+		if (a < 0)
+			return;
+		const Slide &sl = s_->doc->slides[size_t(a)];
+		for (size_t k = 0; k < sl.objs.size(); k++) {
+			const Objeto &o = sl.objs[k];
+			if (o.tipo != Tipo::Video || !s_->doc->midias.contains(o.midia))
+				continue;
+			auto t = std::make_unique<Tocador>(s_->doc->midias.value(o.midia), QFileInfo(o.midia).suffix(), o.mudo, o.repetir, this);
+			t->aoQuadro = [this] {
+				if (!quadros_->isActive())
+					quadros_->start();
+			};
+			videos_[int(k)] = std::move(t);
+		}
+	}
+	bool algumTocando() const
+	{
+		for (const auto &[k, t] : videos_)
+			if (t->tocando())
+				return true;
+		return false;
+	}
+	QRect alvo() const
+	{
+		const Doc &d = *s_->doc;
+		const double k = std::min(width() / d.larg, height() / d.alt);
+		QRect r(0, 0, int(d.larg * k), int(d.alt * k));
+		r.moveCenter(rect().center());
+		return r;
+	}
 	void paintEvent(QPaintEvent *) override
 	{
 		QPainter p(this);
@@ -640,14 +909,21 @@ protected:
 		if (a < 0)
 			return;
 		const Doc &d = *s_->doc;
-		const double k = std::min(width() / d.larg, height() / d.alt);
-		QRect alvo(0, 0, int(d.larg * k), int(d.alt * k));
-		alvo.moveCenter(rect().center());
-		const QImage atual = imagem(a);
-		if (de_ >= 0 && anim_->state() == QAbstractAnimation::Running)
-			pintarTransicao(p, antes_, atual, d.slides[size_t(a)].transicao, progresso_, alvo);
-		else
-			p.drawImage(alvo, atual);
+		const QRect r = alvo();
+		const auto estado = s_->estado();
+		if (de_ >= 0 && anim_->state() == QAbstractAnimation::Running) {
+			pintarTransicao(p, antes_, imagem(a, &estado, -1 - s_->grupo), d.slides[size_t(a)].transicao, progresso_, r);
+		} else if (s_->animando() || !videos_.empty()) {
+			// Ao vivo: as animações andando ou os vídeos.
+			QHash<int, QImage> qs;
+			for (const auto &[k, t] : videos_)
+				if (!t->quadro.isNull())
+					qs.insert(k, t->quadro);
+			p.setRenderHint(QPainter::Antialiasing);
+			p.setRenderHint(QPainter::TextAntialiasing);
+			desenharSlide(p, d, d.slides[size_t(a)], r, false, &estado, &qs);
+		} else
+			p.drawImage(r, imagem(a, &estado, s_->esperando ? -1000 : s_->grupo));
 		if (!s_->digitos.isEmpty()) {
 			QFont f("IBM Plex Mono");
 			f.setPixelSize(std::max(16, height() / 24));
@@ -664,23 +940,48 @@ protected:
 			QWidget::keyPressEvent(e);
 		update();
 	}
+	// O vídeo sob o mouse (o número do objeto) ou -1.
+	int videoEm(QPoint pt) const
+	{
+		const int a = s_->slide();
+		if (a < 0 || s_->fim)
+			return -1;
+		const Doc &d = *s_->doc;
+		const QRect r = alvo();
+		const double k = r.width() / d.larg;
+		const QPointF ps((pt.x() - r.left()) / k, (pt.y() - r.top()) / k);
+		for (const auto &[i, t] : videos_)
+			if (d.slides[size_t(a)].objs[size_t(i)].r.contains(ps))
+				return i;
+		return -1;
+	}
 	void mousePressEvent(QMouseEvent *e) override
 	{
-		if (e->button() == Qt::LeftButton)
-			s_->ir(s_->pos + 1, true);
-		else if (e->button() == Qt::RightButton)
-			s_->ir(s_->pos - 1, false);
+		if (e->button() == Qt::LeftButton) {
+			// Um clique no vídeo toca (ou pausa); fora dele, avança.
+			const int v = videoEm(e->position().toPoint());
+			if (v >= 0) {
+				videos_[v]->alternar();
+				quadros_->start();
+				return;
+			}
+			s_->avancar();
+		} else if (e->button() == Qt::RightButton)
+			s_->voltar();
 	}
-	void mouseMoveEvent(QMouseEvent *) override
+	void mouseMoveEvent(QMouseEvent *e) override
 	{
-		setCursor(Qt::ArrowCursor);
+		setCursor(videoEm(e->position().toPoint()) >= 0 ? Qt::PointingHandCursor : Qt::ArrowCursor);
 		cursor_->start(1500);
 	}
 	void wheelEvent(QWheelEvent *e) override
 	{
 		acc_ += e->angleDelta().y();
 		if (std::abs(acc_) >= 120) {
-			s_->ir(acc_ < 0 ? s_->pos + 1 : s_->pos - 1, acc_ < 0);
+			if (acc_ < 0)
+				s_->avancar();
+			else
+				s_->voltar();
 			acc_ = 0;
 		}
 	}
@@ -689,15 +990,17 @@ protected:
 private:
 	Sessao *s_;
 	QVariantAnimation *anim_;
-	QTimer *cursor_;
+	QTimer *cursor_, *quadros_;
 	QHash<QString, QImage> cache_;
 	QImage antes_;
 	int de_ = -1;
 	double progresso_ = 1;
 	int acc_ = 0;
+	std::map<int, std::unique_ptr<Tocador>> videos_;
+	int videosDe_ = -2;
 };
 
-// A tela do apresentador: o slide, o seguinte, as notas e o tempo.
+// A tela do apresentador: o slide, o que vem a seguir, as notas e o tempo.
 class Apresentador : public QWidget
 {
 public:
@@ -708,8 +1011,26 @@ public:
 		auto *t = new QTimer(this);
 		connect(t, &QTimer::timeout, this, [this] { update(); });
 		t->start(500);
+		quadros_ = new QTimer(this);
+		quadros_->setInterval(33);
+		connect(quadros_, &QTimer::timeout, this, [this] {
+			update();
+			if (!s_->animando())
+				quadros_->stop();
+		});
 	}
-	void mudou() { update(); }
+	void mudou()
+	{
+		// Sem a tela da apresentação, quem começa as animações é este.
+		if (!s_->comTela && s_->esperando && !s_->fim)
+			s_->comecarGrupo();
+		update();
+	}
+	void animou()
+	{
+		quadros_->start();
+		update();
+	}
 
 protected:
 	void paintEvent(QPaintEvent *) override
@@ -739,29 +1060,43 @@ protected:
 		p.setFont(fonte("IBM Plex Sans", H / 34));
 		p.setPen(apagado);
 		const int a = s_->slide();
+		const int nGrupos = int(s_->grupos().size());
+		const int faltam = s_->fim ? 0 : nGrupos - 1 - s_->grupo;
 		QString cont = s_->fim ? "fim" : QString("slide %1 de %2").arg(s_->pos + 1).arg(s_->ordem.size());
+		if (faltam > 0) cont += faltam == 1 ? " · falta 1 clique neste slide" : QString(" · faltam %1 cliques neste slide").arg(faltam);
 		if (s_->preto) cont += " · tela preta (B)";
 		if (s_->branco) cont += " · tela branca (W)";
 		p.drawText(topo, Qt::AlignHCenter | Qt::AlignVCenter, cont);
-		// O slide atual (grande) e o seguinte (menor).
+		// O slide atual (grande) e o que vem a seguir (menor): o próximo
+		// clique deste slide ou o slide seguinte.
 		const int y0 = topo.bottom() + m / 2;
 		const int largA = int((W - 3 * m) * 0.62), largB = W - 3 * m - largA;
 		const QRect ra(m, y0, largA, int(largA * d.alt / d.larg));
 		const QRect rb(2 * m + largA, y0 + H / 30, largB, int(largB * d.alt / d.larg));
-		auto mostra = [&](int i, const QRect &r) {
+		auto mostra = [&](int i, const QRect &r, const std::vector<EstadoObj> *e) {
 			if (i < 0) {
 				p.setPen(QPen(apagado, 1, Qt::DashLine));
 				p.drawRect(r);
 				p.drawText(r, Qt::AlignCenter, "fim");
 				return;
 			}
-			p.drawImage(r, imagemSlide(d, d.slides[size_t(i)], r.width() * 2));
+			p.drawImage(r, imagemSlide(d, d.slides[size_t(i)], r.width() * 2, false, e));
 		};
-		mostra(s_->fim ? -1 : a, ra);
+		const auto agora = s_->estado();
+		mostra(s_->fim ? -1 : a, ra, &agora);
 		p.setFont(fonte("IBM Plex Sans", H / 40));
 		p.setPen(apagado);
-		p.drawText(QRect(rb.left(), y0, rb.width(), H / 30), Qt::AlignLeft | Qt::AlignVCenter, "A SEGUIR");
-		mostra(s_->fim ? -1 : s_->seguinte(), rb);
+		p.drawText(QRect(rb.left(), y0, rb.width(), H / 30), Qt::AlignLeft | Qt::AlignVCenter, faltam > 0 ? "NO PRÓXIMO CLIQUE" : "A SEGUIR");
+		if (faltam > 0) {
+			const auto prox = estadoDoSlide(d.slides[size_t(a)], s_->grupo + 1, 1e9);
+			mostra(a, rb, &prox);
+		} else {
+			const int seg2 = s_->fim ? -1 : s_->seguinte();
+			std::vector<EstadoObj> e0;
+			if (seg2 >= 0)
+				e0 = estadoDoSlide(d.slides[size_t(seg2)], 0, 1e9);
+			mostra(seg2, rb, &e0);
+		}
 		// As notas.
 		const QRect rn(rb.left(), rb.bottom() + m, rb.width(), H - rb.bottom() - 2 * m);
 		const QString notas = a >= 0 && !s_->fim ? d.slides[size_t(a)].notas : QString();
@@ -790,11 +1125,12 @@ protected:
 	void mousePressEvent(QMouseEvent *e) override
 	{
 		if (e->button() == Qt::LeftButton)
-			s_->ir(s_->pos + 1, true);
+			s_->avancar();
 	}
 
 private:
 	Sessao *s_;
+	QTimer *quadros_;
 };
 
 // --- a janela --------------------------------------------------------------
@@ -873,10 +1209,20 @@ public:
 		for (size_t i = 0; i < sessao_->ordem.size(); i++)
 			if (sessao_->ordem[i] == atual_)
 				sessao_->pos = int(i);
+		// O slide terminado (ou depois de LUME_FOTO_PASSO cliques).
+		const int grupos = int(sessao_->grupos().size());
+		sessao_->grupo = qEnvironmentVariableIsSet("LUME_FOTO_PASSO") ? std::clamp(qEnvironmentVariableIntValue("LUME_FOTO_PASSO"), 0, grupos - 1)
+		                                                                : grupos - 1;
+		sessao_->esperando = sessao_->rodando = false;
+		sessao_->comTela = !apresentador;
 		if (apresentador)
 			w = new Apresentador(sessao_.get());
-		else
-			w = new Apresentacao(sessao_.get());
+		else {
+			auto *ap = new Apresentacao(sessao_.get());
+			ap->mudou(-1);
+			ap->tocarSozinhos();
+			w = ap;
+		}
 		return sessao_.get();
 	}
 
@@ -905,8 +1251,12 @@ protected:
 					abrir(f);
 				return;
 			}
-			if (pilha_->currentIndex() == 1)
-				inserirImagem(f);
+			if (pilha_->currentIndex() == 1) {
+				if (QStringList{"mp4", "m4v", "mov", "webm", "mkv", "avi", "ogv", "mpg", "mpeg", "wmv"}.contains(ext))
+					inserirVideo(f);
+				else
+					inserirImagem(f);
+			}
 		}
 		if (e->mimeData()->hasImage() && pilha_->currentIndex() == 1)
 			inserirImagemDados(qvariant_cast<QImage>(e->mimeData()->imageData()));
@@ -1233,6 +1583,13 @@ private:
 			gr->addAction(n, this, [this, tt] { inserirGrafico(tt); });
 		}
 		botao("Gráfico", "office-chart-bar", nullptr, gr);
+		auto *tb = new QMenu(this);
+		for (const auto &[l, c] : std::vector<std::pair<int, int>>{{2, 2}, {3, 3}, {4, 3}, {4, 4}, {5, 4}, {6, 5}}) {
+			const int ll = l, cc = c;
+			tb->addAction(QString("%1 linhas × %2 colunas").arg(l).arg(c), this, [this, ll, cc] { inserirTabela(ll, cc); });
+		}
+		botao("Tabela", "insert-table", nullptr, tb);
+		botao("Vídeo", "video-x-generic", [this] { escolherVideo(); })->setToolTip("Um vídeo (toca na apresentação)");
 		auto *espaco = new QWidget;
 		espaco->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 		barra_->addWidget(espaco);
@@ -1258,10 +1615,13 @@ private:
 		bAp->setPopupMode(QToolButton::MenuButtonPopup);
 		connect(bAp, &QToolButton::clicked, this, [this] { apresentar(0, false); });
 		barra_->addSeparator();
-		const QStringList paineis{"Formatar", "Transição", "Documento"};
-		const QStringList icones{"format-text-bold", "transform-move", "document-properties"};
-		for (int i = 0; i < 3; i++) {
-			QToolButton *b = botao(paineis[i], icones[i], [this, i] { mostrarInspetor(i, true); });
+		// Os painéis, na ordem da barra (o índice é o da pilha do inspetor).
+		const QStringList paineis{"Formatar", "Animar", "Transição", "Documento"};
+		const QStringList icones{"format-text-bold", "media-playlist-shuffle", "transform-move", "document-properties"};
+		const int indice[] = {0, 3, 1, 2};
+		for (int j = 0; j < 4; j++) {
+			const int i = indice[j];
+			QToolButton *b = botao(paineis[j], icones[j], [this, i] { mostrarInspetor(i, true); });
 			b->setCheckable(true);
 			bPainel_[i] = b;
 		}
@@ -1529,7 +1889,14 @@ private:
 			fv->setContentsMargins(0, 0, 0, 0);
 			fv->setSpacing(6);
 			secao(fv, "Preenchimento e borda");
-			preench_ = botaoCor("Preenchimento", [this](QColor c) { mudarObjetos([c](Objeto &o) { if (o.tipo != Tipo::Imagem) o.preench = c; }); }, "Sem preenchimento");
+			preench_ = botaoCor("Preenchimento", [this](QColor c) {
+				mudarObjetos([c](Objeto &o) {
+					if (o.tipo == Tipo::Tabela)
+						for (Objeto &x : o.cel) x.preench = c;
+					else if (o.tipo != Tipo::Imagem)
+						o.preench = c;
+				});
+			}, "Sem preenchimento");
 			fv->addWidget(preench_);
 			auto *bh = new QHBoxLayout;
 			borda_ = botaoCor("Borda", [this](QColor c) {
@@ -1639,6 +2006,107 @@ private:
 		}
 		v->addWidget(secGrafico_);
 
+		// A tabela.
+		secTabela_ = new QWidget;
+		{
+			auto *tv = new QVBoxLayout(secTabela_);
+			tv->setContentsMargins(0, 0, 0, 0);
+			tv->setSpacing(6);
+			secao(tv, "Tabela");
+			auto *d = new QLabel("Dois cliques numa célula para escrever; Tab passa para a próxima (na última, cria uma linha).");
+			d->setObjectName("dica");
+			d->setWordWrap(true);
+			tv->addWidget(d);
+			auto *lh = new QHBoxLayout;
+			lh->setSpacing(4);
+			auto *ll = new QLabel("Linha");
+			ll->setFixedWidth(52);
+			lh->addWidget(ll);
+			alterna("+ Acima", "Uma linha acima da célula", lh, [this] { mexerTabela(0); }, false);
+			alterna("+ Abaixo", "Uma linha abaixo da célula", lh, [this] { mexerTabela(1); }, false);
+			alterna("Tirar", "Tirar a linha da célula", lh, [this] { mexerTabela(2); }, false);
+			tv->addLayout(lh);
+			auto *ch = new QHBoxLayout;
+			ch->setSpacing(4);
+			auto *lc = new QLabel("Coluna");
+			lc->setFixedWidth(52);
+			ch->addWidget(lc);
+			alterna("+ Esq.", "Uma coluna à esquerda da célula", ch, [this] { mexerTabela(3); }, false);
+			alterna("+ Dir.", "Uma coluna à direita da célula", ch, [this] { mexerTabela(4); }, false);
+			alterna("Tirar", "Tirar a coluna da célula", ch, [this] { mexerTabela(5); }, false);
+			tv->addLayout(ch);
+			auto *ig = new QPushButton("Colunas da mesma largura");
+			connect(ig, &QPushButton::clicked, this, [this] { mexerTabela(6); });
+			tv->addWidget(ig);
+			tCabecalho_ = new QCheckBox("A primeira linha é o cabeçalho");
+			connect(tCabecalho_, &QCheckBox::toggled, this, [this](bool b) {
+				if (atualizando_) return;
+				mudarTabela([b](Objeto &t) { t.cabecalho = b; });
+			});
+			tv->addWidget(tCabecalho_);
+			tFaixas_ = new QCheckBox("Linhas em faixas (uma sim, outra não)");
+			connect(tFaixas_, &QCheckBox::toggled, this, [this](bool b) {
+				if (atualizando_) return;
+				mudarTabela([b](Objeto &t) { t.faixas = b; });
+			});
+			tv->addWidget(tFaixas_);
+			tFundo_ = botaoCor("Fundo da célula", [this](QColor c) {
+				// Editando: só a célula; senão, todas.
+				const int cel = edCel_;
+				mudarTabela([c, cel](Objeto &t) {
+					for (int i = 0; i < int(t.cel.size()); i++)
+						if (cel < 0 || i == cel)
+							t.cel[size_t(i)].preench = c;
+				});
+			}, "A do tema");
+			tv->addWidget(tFundo_);
+		}
+		v->addWidget(secTabela_);
+
+		// O vídeo.
+		secVideo_ = new QWidget;
+		{
+			auto *vv = new QVBoxLayout(secVideo_);
+			vv->setContentsMargins(0, 0, 0, 0);
+			vv->setSpacing(6);
+			secao(vv, "Vídeo");
+			auto *vh = new QHBoxLayout;
+			auto *tocar = new QPushButton("▶ Tocar aqui");
+			connect(tocar, &QPushButton::clicked, this, [this] { if (!sel_.empty()) previaVideo(sel_[0]); });
+			auto *capa = new QPushButton("Quadro como capa");
+			capa->setToolTip("A imagem que aparece antes de o vídeo tocar: o quadro em que ele está pausado aqui");
+			connect(capa, &QPushButton::clicked, this, [this] { capaDoQuadro(); });
+			vh->addWidget(tocar);
+			vh->addWidget(capa, 1);
+			vv->addLayout(vh);
+			vSozinho_ = new QCheckBox("Começar sozinho quando o slide aparecer");
+			connect(vSozinho_, &QCheckBox::toggled, this, [this](bool b) {
+				if (atualizando_) return;
+				mudarObjetos([b](Objeto &o) { if (o.tipo == Tipo::Video) o.sozinho = b; });
+			});
+			vv->addWidget(vSozinho_);
+			vRepetir_ = new QCheckBox("Repetir até mudar de slide");
+			connect(vRepetir_, &QCheckBox::toggled, this, [this](bool b) {
+				if (atualizando_) return;
+				mudarObjetos([b](Objeto &o) { if (o.tipo == Tipo::Video) o.repetir = b; });
+			});
+			vv->addWidget(vRepetir_);
+			vMudo_ = new QCheckBox("Sem som");
+			connect(vMudo_, &QCheckBox::toggled, this, [this](bool b) {
+				if (atualizando_) return;
+				mudarObjetos([b](Objeto &o) { if (o.tipo == Tipo::Video) o.mudo = b; });
+			});
+			vv->addWidget(vMudo_);
+			auto *tv = new QPushButton("Trocar o vídeo…");
+			connect(tv, &QPushButton::clicked, this, [this] { trocarVideo(); });
+			vv->addWidget(tv);
+			auto *d = new QLabel("Na apresentação, um clique no vídeo toca e pausa. Para abrir no PowerPoint, prefira MP4.");
+			d->setObjectName("dica");
+			d->setWordWrap(true);
+			vv->addWidget(d);
+		}
+		v->addWidget(secVideo_);
+
 		// Organizar (qualquer objeto).
 		secOrganizar_ = new QWidget;
 		{
@@ -1673,7 +2141,11 @@ private:
 						case 0: o.r.moveLeft(v); break;
 						case 1: o.r.moveTop(v); break;
 						case 2: o.r.setWidth(v); break;
-						case 3: o.r.setHeight(v); break;
+						case 3:
+							if (o.tipo == Tipo::Tabela && o.r.height() > 0)
+								for (double &h : o.alts) h *= v / o.r.height();
+							o.r.setHeight(v);
+							break;
 						default: o.giro = std::fmod(v + 360, 360); break;
 						}
 					});
@@ -1817,6 +2289,376 @@ private:
 		});
 		v->addWidget(dAutor_);
 		v->addStretch();
+
+		// 3: Animar.
+		pagina("Animar", v);
+		auto *al = new QLabel("Como cada objeto entra e sai do slide. Na apresentação, cada clique roda o passo seguinte.");
+		al->setObjectName("dica");
+		al->setWordWrap(true);
+		v->addWidget(al);
+		aVazio_ = new QLabel("Clique num objeto do slide para animá-lo.");
+		aVazio_->setObjectName("vazio");
+		aVazio_->setWordWrap(true);
+		v->addWidget(aVazio_);
+		aCorpo_ = new QWidget;
+		{
+			auto *cv = new QVBoxLayout(aCorpo_);
+			cv->setContentsMargins(0, 0, 0, 0);
+			cv->setSpacing(6);
+			for (int q = 0; q < 2; q++) {
+				secao(cv, q == 0 ? "Entrada" : "Saída");
+				aEf_[q] = new QComboBox;
+				for (const QString &n : nomesEfeito())
+					aEf_[q]->addItem(n == "Nenhum" ? (q == 0 ? "Nenhuma (já está no slide)" : "Nenhuma (fica no slide)") : n);
+				cv->addWidget(aEf_[q]);
+				auto *g = new QGridLayout;
+				g->setHorizontalSpacing(6);
+				g->setVerticalSpacing(4);
+				aDir_[q] = new QComboBox;
+				aDir_[q]->addItems(q == 0 ? QStringList{"De baixo", "Da esquerda", "Da direita", "De cima"}
+				                          : QStringList{"Para baixo", "Para a esquerda", "Para a direita", "Para cima"});
+				aIni_[q] = new QComboBox;
+				aIni_[q]->addItems({"Ao clicar", "Junto com a anterior", "Depois da anterior"});
+				aDur_[q] = numero(0.1, 10, 0.1, " s", 1);
+				g->addWidget(new QLabel("Começa"), 0, 0);
+				g->addWidget(aIni_[q], 0, 1);
+				g->addWidget(new QLabel("Direção"), 1, 0);
+				g->addWidget(aDir_[q], 1, 1);
+				g->addWidget(new QLabel("Duração"), 2, 0);
+				g->addWidget(aDur_[q], 2, 1);
+				g->setColumnStretch(1, 1);
+				cv->addLayout(g);
+				if (q == 0) {
+					aPar_ = new QCheckBox("Um parágrafo (tópico) por vez");
+					cv->addWidget(aPar_);
+					connect(aPar_, &QCheckBox::toggled, this, [this](bool b) {
+						if (atualizando_) return;
+						mudarAnimacao(0, [b](Animacao &a) { a.porParagrafo = b; });
+					});
+				}
+				connect(aEf_[q], qOverload<int>(&QComboBox::activated), this, [this, q](int i) {
+					mudarAnimacao(q, [i](Animacao &a) { a.ef = Efeito(i); });
+				});
+				connect(aDir_[q], qOverload<int>(&QComboBox::activated), this, [this, q](int i) {
+					mudarAnimacao(q, [i](Animacao &a) { a.dir = i; });
+				});
+				connect(aIni_[q], qOverload<int>(&QComboBox::activated), this, [this, q](int i) {
+					mudarAnimacao(q, [i](Animacao &a) { a.inicio = i; });
+				});
+				connect(aDur_[q], qOverload<double>(&QDoubleSpinBox::valueChanged), this, [this, q](double d) {
+					if (atualizando_) return;
+					mudarAnimacao(q, [d](Animacao &a) { a.dur = d; });
+				});
+			}
+		}
+		v->addWidget(aCorpo_);
+		secao(v, "A ordem neste slide");
+		aOrdem_ = new QListWidget;
+		aOrdem_->setObjectName("ordem");
+		aOrdem_->setMinimumHeight(140);
+		connect(aOrdem_, &QListWidget::itemClicked, this, [this](QListWidgetItem *it) {
+			const int k = it->data(Qt::UserRole).toInt();
+			if (k >= 0 && k < int(slide().objs.size()) && !(sel_.size() == 1 && sel_[0] == k)) {
+				terminarEdicao();
+				sel_ = {k};
+				atualizarSelecao();
+				atualizarInspetor();
+			}
+		});
+		v->addWidget(aOrdem_);
+		auto *oh = new QHBoxLayout;
+		auto *subir = new QPushButton("Mais cedo");
+		connect(subir, &QPushButton::clicked, this, [this] { moverAnimacao(-1); });
+		auto *descer = new QPushButton("Mais tarde");
+		connect(descer, &QPushButton::clicked, this, [this] { moverAnimacao(1); });
+		oh->addWidget(subir);
+		oh->addWidget(descer);
+		v->addLayout(oh);
+		aPrevia_ = new QLabel;
+		aPrevia_->setObjectName("previa");
+		aPrevia_->setFixedSize(256, 144);
+		v->addSpacing(10);
+		v->addWidget(aPrevia_, 0, Qt::AlignHCenter);
+		auto *verA = new QPushButton("Ver o slide de novo");
+		connect(verA, &QPushButton::clicked, this, [this] { previaAnimacao(); });
+		v->addWidget(verA);
+		v->addStretch();
+		aTempo_ = new QTimer(this);
+		aTempo_->setInterval(33);
+		connect(aTempo_, &QTimer::timeout, this, [this] { quadroDaPrevia(); });
+	}
+
+	// --- as animações ---
+	// As animações do slide em ordem: (objeto, saída?).
+	std::vector<std::pair<int, bool>> listaAnimacoes()
+	{
+		std::vector<std::tuple<int, int, bool>> l;
+		for (int k = 0; k < int(slide().objs.size()); k++) {
+			const Objeto &o = obj(k);
+			if (o.entrada.tem()) l.push_back({o.entrada.ordem, k, false});
+			if (o.saida.tem()) l.push_back({o.saida.ordem, k, true});
+		}
+		std::stable_sort(l.begin(), l.end());
+		std::vector<std::pair<int, bool>> r;
+		for (const auto &[o, k, sai] : l)
+			r.push_back({k, sai});
+		return r;
+	}
+	int proximaOrdem()
+	{
+		int n = 0;
+		for (const Objeto &o : slide().objs) {
+			if (o.entrada.tem()) n = std::max(n, o.entrada.ordem + 1);
+			if (o.saida.tem()) n = std::max(n, o.saida.ordem + 1);
+		}
+		return n;
+	}
+	// Uma mudança na entrada (0) ou na saída (1) dos objetos selecionados.
+	void mudarAnimacao(int q, const std::function<void(Animacao &)> &f)
+	{
+		if (sel_.empty() || atualizando_)
+			return;
+		terminarEdicao();
+		guardar();
+		for (int k : sel_) {
+			Animacao &a = q == 0 ? obj(k).entrada : obj(k).saida;
+			const bool tinha = a.tem();
+			f(a);
+			if (!tinha && a.tem()) {
+				// Uma animação nova vai para o fim da fila.
+				a.ordem = proximaOrdem();
+				if (a.dur <= 0) a.dur = 0.5;
+			}
+		}
+		// A ordem volta a ser 0, 1, 2...
+		const auto l = listaAnimacoes();
+		for (size_t i = 0; i < l.size(); i++)
+			(l[i].second ? obj(l[i].first).saida : obj(l[i].first).entrada).ordem = int(i);
+		atualizarSelecao();
+		atualizarInspetor();
+		atualizarMiniatura(atual_);
+		marcarMudanca(false);
+		previaAnimacao();
+	}
+	void moverAnimacao(int d)
+	{
+		auto l = listaAnimacoes();
+		const int i = aOrdem_->currentRow();
+		const int j = i + d;
+		if (i < 0 || j < 0 || j >= int(l.size()))
+			return;
+		guardar();
+		std::swap(l[size_t(i)], l[size_t(j)]);
+		for (size_t n = 0; n < l.size(); n++)
+			(l[n].second ? obj(l[n].first).saida : obj(l[n].first).entrada).ordem = int(n);
+		atualizarSelecao();
+		atualizarInspetor();
+		aOrdem_->setCurrentRow(j);
+		marcarMudanca(false);
+	}
+	// A prévia: o slide inteiro, um clique a cada meio segundo depois do anterior.
+	void previaAnimacao()
+	{
+		if (!aPrevia_ || doc_.slides.empty())
+			return;
+		aRelogio_.start();
+		aTempo_->start();
+		quadroDaPrevia();
+	}
+	void quadroDaPrevia()
+	{
+		if (doc_.slides.empty())
+			return;
+		const auto g = sequencia(slide());
+		double t = aRelogio_.elapsed() / 1000.0;
+		int grupo = 0;
+		for (; grupo < int(g.size()); grupo++) {
+			const double d = duracaoGrupo(g[size_t(grupo)]) + (grupo + 1 < int(g.size()) ? 0.5 : 0);
+			if (t < d || grupo + 1 == int(g.size()))
+				break;
+			t -= d;
+		}
+		const auto e = estadoDoSlide(slide(), grupo, t);
+		aPrevia_->setPixmap(QPixmap::fromImage(imagemSlide(doc_, slide(), aPrevia_->width(), false, &e)));
+		if (grupo + 1 >= int(g.size()) && t > duracaoGrupo(g.back()) + 0.1)
+			aTempo_->stop();
+	}
+
+	// --- a tabela ---
+	// Uma mudança na tabela selecionada (ou na da célula em edição).
+	void mudarTabela(const std::function<void(Objeto &)> &f)
+	{
+		const int k = editor_ && edCel_ >= 0 ? edObj_ : (umObjeto() && umObjeto()->tipo == Tipo::Tabela ? sel_[0] : -1);
+		if (k < 0)
+			return;
+		const int cel = edCel_;
+		terminarEdicao();
+		guardar();
+		f(obj(k));
+		arrumarTabela(doc_, obj(k));
+		itens_[size_t(k)]->mudou();
+		atualizarSelecao();
+		marcarMudanca();
+		if (cel >= 0 && cel < int(obj(k).cel.size()))
+			editar(k, QPointF(), false, cel);
+		else
+			atualizarInspetor();
+	}
+	// 0 linha acima, 1 linha abaixo, 2 tira a linha, 3 coluna à esquerda,
+	// 4 à direita, 5 tira a coluna, 6 colunas iguais.
+	void mexerTabela(int op)
+	{
+		const int k = editor_ && edCel_ >= 0 ? edObj_ : (umObjeto() && umObjeto()->tipo == Tipo::Tabela ? sel_[0] : -1);
+		if (k < 0)
+			return;
+		const int cel = edCel_;
+		terminarEdicao();
+		guardar();
+		Objeto &t = obj(k);
+		const int l = cel >= 0 ? cel / t.cols : t.lins - 1, c = cel >= 0 ? cel % t.cols : t.cols - 1;
+		int nl = l, nc = c;
+		switch (op) {
+		case 0: tabelaLinha(t, l, false); nl = l; break;
+		case 1: tabelaLinha(t, l + 1, false); nl = l + 1; break;
+		case 2: tabelaLinha(t, l, true); nl = std::min(l, t.lins - 1); break;
+		case 3: tabelaColuna(t, c, false); nc = c; break;
+		case 4: tabelaColuna(t, c + 1, false); nc = c + 1; break;
+		case 5: tabelaColuna(t, c, true); nc = std::min(c, t.cols - 1); break;
+		default:
+			for (double &w : t.largs)
+				w = t.r.width() / t.cols;
+		}
+		arrumarTabela(doc_, t);
+		itens_[size_t(k)]->mudou();
+		sel_ = {k};
+		atualizarSelecao();
+		marcarMudanca();
+		if (cel >= 0)
+			editar(k, QPointF(), false, nl * t.cols + nc);
+		else
+			atualizarInspetor();
+	}
+	void inserirTabela(int lins, int cols)
+	{
+		const double w = doc_.larg * 0.7;
+		QRectF r(0, 0, w, lins * 36.0);
+		r.moveCenter(QPointF(doc_.larg / 2, doc_.alt * 0.58));
+		Objeto t = novaTabela(lins, cols, r, 18);
+		for (int c = 0; c < t.cols; c++)
+			t.celula(0, c).negrito = true;
+		arrumarTabela(doc_, t);
+		const int k = acrescentar(t);
+		editar(k, QPointF(), false, 0);
+	}
+
+	// --- o vídeo ---
+	static QString filtroVideos() { return "Vídeos (*.mp4 *.m4v *.mov *.webm *.mkv *.avi *.ogv *.mpg *.mpeg *.wmv)"; }
+	void escolherVideo()
+	{
+		const QString f = QFileDialog::getOpenFileName(this, "Inserir vídeo", QDir::homePath(), filtroVideos());
+		if (!f.isEmpty())
+			inserirVideo(f);
+	}
+	void inserirVideo(const QString &arq)
+	{
+		QFile f(arq);
+		if (!f.open(QIODevice::ReadOnly))
+			return;
+		const QByteArray b = f.readAll();
+		if (b.isEmpty())
+			return;
+		Objeto o;
+		o.tipo = Tipo::Video;
+		o.midia = doc_.guardarMidia(b, QFileInfo(arq).suffix().toLower());
+		o.r = QRectF(0, 0, doc_.larg * 0.6, doc_.larg * 0.6 * 9 / 16);
+		o.r.moveCenter(centroLivre(o.r.size()));
+		acrescentar(o);
+		buscarCapa(o.midia);
+	}
+	// A capa: o primeiro quadro do vídeo (quando chegar), nos objetos com esse vídeo.
+	void buscarCapa(const QString &midia)
+	{
+		auto *t = new Tocador(doc_.midias.value(midia), QFileInfo(midia).suffix(), true, false, this);
+		t->primeiroQuadro([this, t, midia](const QImage &img) {
+			QByteArray png;
+			QBuffer buf(&png);
+			buf.open(QIODevice::WriteOnly);
+			img.save(&buf, "PNG");
+			const QString capa = doc_.guardarMidia(png, "png");
+			for (Slide &s : doc_.slides)
+				for (Objeto &o : s.objs)
+					if (o.tipo == Tipo::Video && o.midia == midia && o.capa.isEmpty()) {
+						o.capa = capa;
+						// A moldura com a proporção do vídeo (largura igual).
+						if (img.width() > 0) {
+							const QPointF c = o.r.center();
+							o.r.setHeight(o.r.width() * img.height() / img.width());
+							o.r.moveCenter(c);
+						}
+					}
+			refazerCena();
+			atualizarMiniaturas();
+			t->deleteLater();
+		});
+	}
+	void trocarVideo()
+	{
+		const Objeto *o = umObjeto();
+		if (!o || o->tipo != Tipo::Video)
+			return;
+		const QString f = QFileDialog::getOpenFileName(this, "Trocar o vídeo", QDir::homePath(), filtroVideos());
+		if (f.isEmpty())
+			return;
+		QFile arq(f);
+		if (!arq.open(QIODevice::ReadOnly))
+			return;
+		const QByteArray b = arq.readAll();
+		const QString m = doc_.guardarMidia(b, QFileInfo(f).suffix().toLower());
+		mudarObjetos([m](Objeto &x) {
+			if (x.tipo != Tipo::Video) return;
+			x.midia = m;
+			x.capa.clear();
+		});
+		doc_.limparMidias();
+		buscarCapa(m);
+	}
+	// Toca (ou pausa) o vídeo no próprio slide do editor.
+	void previaVideo(int k)
+	{
+		if (k < 0 || k >= int(slide().objs.size()) || obj(k).tipo != Tipo::Video)
+			return;
+		auto it = tocadores_.find(k);
+		if (it != tocadores_.end()) {
+			it->second->alternar();
+			return;
+		}
+		const Objeto &o = obj(k);
+		auto t = std::make_unique<Tocador>(doc_.midias.value(o.midia), QFileInfo(o.midia).suffix(), o.mudo, o.repetir, this);
+		t->aoQuadro = [this, k] {
+			if (k < int(itens_.size()))
+				itens_[size_t(k)]->update();
+		};
+		itens_[size_t(k)]->quadro = &t->quadro;
+		t->tocar();
+		tocadores_[k] = std::move(t);
+	}
+	void capaDoQuadro()
+	{
+		if (sel_.size() != 1)
+			return;
+		auto it = tocadores_.find(sel_[0]);
+		if (it == tocadores_.end() || it->second->quadro.isNull()) {
+			statusBar()->showMessage("Toque o vídeo aqui (▶) e pause no quadro que quer como capa.", 5000);
+			return;
+		}
+		QByteArray png;
+		QBuffer buf(&png);
+		buf.open(QIODevice::WriteOnly);
+		it->second->quadro.save(&buf, "PNG");
+		const QString capa = doc_.guardarMidia(png, "png");
+		mudarObjetos([capa](Objeto &o) { if (o.tipo == Tipo::Video) o.capa = capa; });
+		doc_.limparMidias();
+		atualizarMiniatura(atual_);
 	}
 
 	void mostrarInspetor(int i, bool alternar = false)
@@ -1829,8 +2671,11 @@ private:
 			if (i == 1)
 				previa();
 		}
-		for (int k = 0; k < 3; k++)
+		for (int k = 0; k < 4; k++)
 			bPainel_[k]->setChecked(inspetor_->isVisible() && inspetor_->currentIndex() == k);
+		if (i == 3)
+			previaAnimacao();
+		atualizarSelecao();
 	}
 
 	static QImage miniaturaLeiaute(Layout l)
@@ -1866,7 +2711,21 @@ private:
 	Objeto &obj(int i) { return slide().objs[size_t(i)]; }
 	const Objeto *umObjeto() { return sel_.size() == 1 ? &obj(sel_[0]) : nullptr; }
 	bool editando() const { return editor_ != nullptr; }
-	Objeto &objetoEditado() { return obj(edObj_); }
+	Objeto &objetoEditado()
+	{
+		Objeto &o = obj(edObj_);
+		return edCel_ >= 0 && edCel_ < int(o.cel.size()) ? o.cel[size_t(edCel_)] : o;
+	}
+	// O texto que representa um objeto no inspetor (a primeira célula da tabela).
+	static const Objeto *textoDe(const Objeto *o) { return o && o->tipo == Tipo::Tabela && !o->cel.empty() ? &o->cel.front() : o; }
+	void ajustarTabelas()
+	{
+		if (doc_.slides.empty())
+			return;
+		for (Objeto &o : slide().objs)
+			if (o.tipo == Tipo::Tabela)
+				arrumarTabela(doc_, o);
+	}
 
 	void carregar(const Doc &d)
 	{
@@ -2008,6 +2867,7 @@ private:
 	{
 		if (editor_)
 			terminarEdicao();
+		ajustarTabelas();
 		itens_.clear();
 		for (QGraphicsItem *it : cena_->items())
 			if (it != selecao_) {
@@ -2025,6 +2885,8 @@ private:
 			cena_->addItem(it);
 			itens_.push_back(it);
 		}
+		// Os vídeos tocando no editor param (os objetos mudaram).
+		tocadores_.clear();
 		sel_.erase(std::remove_if(sel_.begin(), sel_.end(), [this](int k) { return k >= int(slide().objs.size()); }), sel_.end());
 		atualizarSelecao();
 		cena_->update();
@@ -2036,7 +2898,17 @@ private:
 		for (int k : sel_) {
 			const Objeto &o = obj(k);
 			const int linha = o.tipo == Tipo::Linha ? (o.viraV != o.viraH ? 2 : 1) : 0;
-			selecao_->caixas.push_back({o.r, o.giro, linha, sel_.size() == 1 && !editando()});
+			selecao_->caixas.push_back({o.r, o.giro, linha, sel_.size() == 1 && !editando(), o.tipo != Tipo::Tabela});
+		}
+		// Com o painel Animar aberto, o número de cada animação no objeto.
+		selecao_->marcas.clear();
+		if (inspetor_ && inspetor_->isVisible() && inspetor_->currentIndex() == 3) {
+			const auto l = listaAnimacoes();
+			QMap<int, QStringList> por;
+			for (size_t i = 0; i < l.size(); i++)
+				por[l[i].first] << QString::number(i + 1);
+			for (auto it = por.cbegin(); it != por.cend(); ++it)
+				selecao_->marcas.push_back({obj(it.key()).r.topLeft(), it.value().join("·")});
 		}
 		selecao_->update();
 		cena_->update();
@@ -2085,19 +2957,34 @@ private:
 		marcarMudanca(false);
 	}
 
+	// Uma mudança no texto: nos objetos com texto e nas células das tabelas.
+	void mudarTextos(const std::function<void(Objeto &)> &f)
+	{
+		mudarObjetos([&f](Objeto &o) {
+			if (o.tipo == Tipo::Tabela)
+				for (Objeto &c : o.cel)
+					f(c);
+			else
+				f(o);
+		});
+	}
+
 	void mudarObjetos(const std::function<void(Objeto &)> &f)
 	{
 		if (sel_.empty())
 			return;
 		guardar();
-		for (int k : sel_)
+		for (int k : sel_) {
 			f(obj(k));
+			if (obj(k).tipo == Tipo::Tabela)
+				arrumarTabela(doc_, obj(k));
+		}
 		for (int k : sel_)
 			itens_[size_t(k)]->mudou();
 		if (editor_) {
-			const int e = edObj_;
+			const int e = edObj_, c = edCel_;
 			terminarEdicao();
-			editar(e);
+			editar(e, QPointF(), false, c);
 		}
 		atualizarSelecao();
 		atualizarInspetor();
@@ -2169,12 +3056,21 @@ private:
 					return 10 + k;
 			return -1;
 		}
-		if (QLineF(QPointF(o.r.center().x(), o.r.top() - 22 * px1()), l).length() <= tol)
+		if (o.tipo != Tipo::Tabela && QLineF(QPointF(o.r.center().x(), o.r.top() - 22 * px1()), l).length() <= tol)
 			return 8;
 		const auto pts = ItemSelecao::pontos(o.r, 0);
 		for (int k = 0; k < 8; k++)
 			if (QLineF(pts[size_t(k)], l).length() <= tol)
 				return k;
+		// Na tabela: os fios entre as colunas (20+) e entre as linhas (60+).
+		if (o.tipo == Tipo::Tabela && o.r.contains(l) && int(o.cel.size()) == o.lins * o.cols) {
+			for (int c = 1; c < o.cols; c++)
+				if (std::fabs(l.x() - o.celula(0, c).r.left()) <= tol * 0.6)
+					return 20 + c;
+			for (int r = 1; r < o.lins; r++)
+				if (std::fabs(l.y() - o.celula(r, 0).r.top()) <= tol * 0.6)
+					return 60 + r;
+		}
 		return -1;
 	}
 
@@ -2185,7 +3081,14 @@ private:
 			const Objeto &o = objetoEditado();
 			if (o.r.adjusted(-4, -4, 4, 4).contains(paraLocal(o, p)))
 				return false;
+			// Outra célula da mesma tabela: escreve nela.
+			const int k0 = edObj_;
+			const bool eraCelula = edCel_ >= 0;
 			terminarEdicao();
+			if (eraCelula && e->button() == Qt::LeftButton && k0 < int(slide().objs.size()) && obj(k0).r.contains(p)) {
+				editar(k0, p);
+				return true;
+			}
 		}
 		if (e->button() != Qt::LeftButton) {
 			const int k = objetoEm(p);
@@ -2200,7 +3103,7 @@ private:
 		arrasto_.inicio = p;
 		const int alca = alcaEm(p);
 		if (alca >= 0) {
-			arrasto_.modo = alca == 8 ? Arrasto::Girar : alca >= 10 ? Arrasto::Ponta : Arrasto::Tamanho;
+			arrasto_.modo = alca == 8 ? Arrasto::Girar : alca >= 60 ? Arrasto::LinhaTab : alca >= 20 ? Arrasto::Coluna : alca >= 10 ? Arrasto::Ponta : Arrasto::Tamanho;
 			arrasto_.alca = alca;
 			arrasto_.originais = {obj(sel_[0])};
 			guardar();
@@ -2277,6 +3180,8 @@ private:
 			// O cursor conforme o que está embaixo.
 			const int a = alcaEm(p);
 			if (a == 8) tela_->viewport()->setCursor(Qt::CrossCursor);
+			else if (a >= 60) tela_->viewport()->setCursor(Qt::SplitVCursor);
+			else if (a >= 20) tela_->viewport()->setCursor(Qt::SplitHCursor);
 			else if (a >= 10) tela_->viewport()->setCursor(Qt::SizeAllCursor);
 			else if (a >= 0) {
 				static const Qt::CursorShape c[] = {Qt::SizeFDiagCursor, Qt::SizeVerCursor, Qt::SizeBDiagCursor, Qt::SizeHorCursor,
@@ -2349,6 +3254,35 @@ private:
 			const QPointF c = paraCena(o0, r.center());
 			r.moveCenter(c);
 			o.r = r;
+			if (o0.tipo == Tipo::Tabela && o0.r.width() > 0 && o0.r.height() > 0 && int(o0.cel.size()) == o0.lins * o0.cols) {
+				// A tabela: as colunas e as linhas na mesma proporção.
+				const double kx = r.width() / o0.r.width(), ky = r.height() / o0.r.height();
+				for (int i = 0; i < o.cols; i++)
+					o.largs[size_t(i)] = o0.largs[size_t(i)] * kx;
+				for (int i = 0; i < o.lins; i++)
+					o.alts[size_t(i)] = std::max(8.0, o0.celula(i, 0).r.height() * ky);
+				arrumarTabela(doc_, o);
+			}
+			itens_[size_t(sel_[0])]->mudou();
+			break;
+		}
+		case Arrasto::Coluna: {
+			Objeto &o = obj(sel_[0]);
+			const int i = arrasto_.alca - 20;
+			const double esq = o.celula(0, i - 1).r.left(), dir = o.celula(0, i).r.right();
+			const double x = std::clamp(p.x(), esq + 16, dir - 16);
+			o.largs[size_t(i - 1)] = x - esq;
+			o.largs[size_t(i)] = dir - x;
+			arrumarTabela(doc_, o);
+			itens_[size_t(sel_[0])]->mudou();
+			break;
+		}
+		case Arrasto::LinhaTab: {
+			Objeto &o = obj(sel_[0]);
+			const int i = arrasto_.alca - 60;
+			const double topo = o.celula(i - 1, 0).r.top();
+			o.alts[size_t(i - 1)] = std::max(10.0, p.y() - topo);
+			arrumarTabela(doc_, o);
 			itens_[size_t(sel_[0])]->mudou();
 			break;
 		}
@@ -2404,7 +3338,8 @@ private:
 		if (editor_)
 			return false;
 		const bool mudou = (arrasto_.modo == Arrasto::Mover && arrasto_.mexeu) || arrasto_.modo == Arrasto::Tamanho ||
-		                   arrasto_.modo == Arrasto::Girar || arrasto_.modo == Arrasto::Ponta;
+		                   arrasto_.modo == Arrasto::Girar || arrasto_.modo == Arrasto::Ponta || arrasto_.modo == Arrasto::Coluna ||
+		                   arrasto_.modo == Arrasto::LinhaTab;
 		arrasto_.modo = Arrasto::Nada;
 		selecao_->guias.clear();
 		selecao_->banda = QRectF();
@@ -2422,8 +3357,10 @@ private:
 		const int k = objetoEm(p);
 		if (k < 0)
 			return true;
-		if (obj(k).aceitaTexto())
+		if (obj(k).aceitaTexto() || obj(k).tipo == Tipo::Tabela)
 			editar(k, p);
+		else if (obj(k).tipo == Tipo::Video)
+			previaVideo(k);
 		else if (obj(k).tipo == Tipo::Grafico) {
 			mostrarInspetor(0);
 			dados_->setFocus();
@@ -2434,15 +3371,37 @@ private:
 	}
 
 	// --- o texto ---
-	void editar(int k, QPointF onde = QPointF(), bool tudo = false)
+	// A célula da tabela sob um ponto (-1: nenhuma).
+	static int celulaEm(const Objeto &t, QPointF p)
+	{
+		for (int i = 0; i < int(t.cel.size()); i++)
+			if (t.cel[size_t(i)].r.contains(p))
+				return i;
+		return -1;
+	}
+
+	void editar(int k, QPointF onde = QPointF(), bool tudo = false, int cel = -1)
 	{
 		terminarEdicao();
-		if (k < 0 || k >= int(slide().objs.size()) || !obj(k).aceitaTexto())
+		if (k < 0 || k >= int(slide().objs.size()))
 			return;
+		if (obj(k).tipo == Tipo::Tabela) {
+			Objeto &t = obj(k);
+			arrumarTabela(doc_, t);
+			if (cel < 0 && !onde.isNull())
+				cel = celulaEm(t, onde);
+			if (cel < 0 || cel >= int(t.cel.size()))
+				cel = 0;
+		} else {
+			cel = -1;
+			if (!obj(k).aceitaTexto())
+				return;
+		}
 		antesEdicao_ = doc_;
 		edObj_ = k;
+		edCel_ = cel;
 		sel_ = {k};
-		Objeto &o = obj(k);
+		Objeto &o = objetoEditado();
 		edEscala_ = escalaQueCabe(doc_, o);
 		editor_ = new EditorTexto;
 		if (o.pars.empty())
@@ -2454,10 +3413,20 @@ private:
 		editor_->setZValue(500);
 		editor_->aoSair = [this] { QTimer::singleShot(0, this, [this] { terminarEdicao(); }); };
 		editor_->aoMexer = [this] { atualizarInspetor(); };
-		editor_->aoNivel = [this](int d) { nivel(d); };
-		connect(editor_->document(), &QTextDocument::contentsChanged, this, [this] { posicionarEditor(); });
+		editor_->aoNivel = [this](int d) {
+			if (edCel_ >= 0)
+				irCelula(d);
+			else
+				nivel(d);
+		};
+		connect(editor_->document(), &QTextDocument::contentsChanged, this, [this] {
+			if (edCel_ >= 0)
+				crescerCelula();
+			posicionarEditor();
+		});
 		cena_->addItem(editor_);
-		itens_[size_t(k)]->semTexto = true;
+		itens_[size_t(k)]->semTexto = cel < 0;
+		itens_[size_t(k)]->celula = cel;
 		itens_[size_t(k)]->update();
 		posicionarEditor();
 		tela_->editando = true;
@@ -2502,21 +3471,27 @@ private:
 		EditorTexto *ed = editor_;
 		editor_ = nullptr;
 		tela_->editando = false;
-		const int k = edObj_;
+		const int k = edObj_, cel = edCel_;
 		edObj_ = -1;
+		edCel_ = -1;
 		ed->disconnect(this);
 		ed->document()->disconnect(this);
 		if (k >= 0 && k < int(slide().objs.size())) {
-			Objeto &o = obj(k);
+			Objeto &dono = obj(k);
+			const bool ehCel = cel >= 0 && cel < int(dono.cel.size());
+			Objeto &o = ehCel ? dono.cel[size_t(cel)] : dono;
 			std::vector<Paragrafo> novo = lerDocumento(*ed->document(), doc_, o, edEscala_);
 			const QString antes = Objeto(o).texto();
 			o.pars = novo;
 			bool igual = antes == o.texto();
 			if (igual) {
 				// O texto é o mesmo; a letra pode ter mudado.
-				const Objeto &velho = antesEdicao_.slides[size_t(atual_)].objs[size_t(k)];
+				const Objeto &velhoDono = antesEdicao_.slides[size_t(atual_)].objs[size_t(k)];
+				const Objeto &velho = ehCel && cel < int(velhoDono.cel.size()) ? velhoDono.cel[size_t(cel)] : velhoDono;
 				igual = resumoDe(velho) == resumoDe(o);
 			}
+			if (ehCel)
+				arrumarTabela(doc_, dono);
 			if (!igual) {
 				antes_.push_back({antesEdicao_, atual_});
 				if (antes_.size() > 100)
@@ -2525,7 +3500,7 @@ private:
 				marcarMudanca();
 			}
 			// Uma caixa de texto livre que ficou vazia some.
-			if (o.tipo == Tipo::Texto && o.papel == Papel::Livre && !o.temTexto()) {
+			if (!ehCel && o.tipo == Tipo::Texto && o.papel == Papel::Livre && !o.temTexto()) {
 				slide().objs.erase(slide().objs.begin() + k);
 				sel_.clear();
 				cena_->removeItem(ed);
@@ -2535,6 +3510,7 @@ private:
 				return;
 			}
 			itens_[size_t(k)]->semTexto = false;
+			itens_[size_t(k)]->celula = -1;
 			itens_[size_t(k)]->mudou();
 		}
 		cena_->removeItem(ed);
@@ -2542,6 +3518,39 @@ private:
 		atualizarSelecao();
 		atualizarInspetor();
 		tela_->setFocus();
+	}
+
+	// A linha da célula em edição cresce com o texto (a tabela toda se arruma).
+	void crescerCelula()
+	{
+		if (!editor_ || edCel_ < 0)
+			return;
+		Objeto &t = obj(edObj_);
+		Objeto &c = t.cel[size_t(edCel_)];
+		c.pars = lerDocumento(*editor_->document(), doc_, c, edEscala_);
+		arrumarTabela(doc_, t);
+		itens_[size_t(edObj_)]->mudou();
+		atualizarSelecao();
+	}
+
+	// Tab: a próxima célula (Shift+Tab, a anterior); no fim, uma linha nova.
+	void irCelula(int d)
+	{
+		const int k = edObj_;
+		int c = edCel_ + d;
+		terminarEdicao();
+		if (k < 0)
+			return;
+		Objeto &t = obj(k);
+		if (c >= int(t.cel.size())) {
+			guardar();
+			tabelaLinha(t, t.lins, false);
+			arrumarTabela(doc_, t);
+			itens_[size_t(k)]->mudou();
+			marcarMudanca();
+		}
+		c = std::clamp(c, 0, int(t.cel.size()) - 1);
+		editar(k, QPointF(), true, c);
 	}
 
 	static QString resumoDe(const Objeto &o)
@@ -2584,7 +3593,7 @@ private:
 			atualizarInspetor();
 			return;
 		}
-		mudarObjetos([&](Objeto &o) {
+		mudarTextos([&](Objeto &o) {
 			if (!o.aceitaTexto()) return;
 			for (Paragrafo &p : o.pars)
 				for (Trecho &t : p.trechos)
@@ -2607,7 +3616,7 @@ private:
 			posicionarEditor();
 			return;
 		}
-		mudarObjetos([v](Objeto &o) {
+		mudarTextos([v](Objeto &o) {
 			if (!o.aceitaTexto()) return;
 			// Os trechos com tamanho próprio mudam na mesma proporção.
 			const double k = v / std::max(1.0, o.tamanho);
@@ -2632,7 +3641,7 @@ private:
 			atualizarInspetor();
 			return;
 		}
-		const Objeto *o = umObjeto();
+		const Objeto *o = textoDe(umObjeto());
 		if (!o && sel_.empty())
 			return;
 		bool liga = true;
@@ -2643,7 +3652,7 @@ private:
 					todos = todos && (qual == 0 ? (t.negrito || o->negrito) : qual == 1 ? (t.italico || o->italico) : t.sublinhado);
 			liga = !todos || !o->temTexto();
 		}
-		mudarObjetos([qual, liga](Objeto &x) {
+		mudarTextos([qual, liga](Objeto &x) {
 			if (!x.aceitaTexto()) return;
 			if (qual == 0) x.negrito = liga;
 			if (qual == 1) x.italico = liga;
@@ -2683,7 +3692,7 @@ private:
 			atualizarInspetor();
 			return;
 		}
-		mudarObjetos([a](Objeto &o) {
+		mudarTextos([a](Objeto &o) {
 			for (Paragrafo &p : o.pars)
 				p.alin = a;
 		});
@@ -2691,7 +3700,18 @@ private:
 
 	void alinharVertical(int a)
 	{
-		mudarObjetos([a](Objeto &o) { o.vAlin = a; });
+		if (editor_ && edCel_ >= 0) {
+			// Só a célula em edição.
+			const int k = edObj_, c = edCel_;
+			terminarEdicao();
+			guardar();
+			obj(k).cel[size_t(c)].vAlin = a;
+			itens_[size_t(k)]->mudou();
+			marcarMudanca();
+			editar(k, QPointF(), false, c);
+			return;
+		}
+		mudarTextos([a](Objeto &o) { o.vAlin = a; });
 	}
 
 	void listar(int tipo)
@@ -2712,12 +3732,12 @@ private:
 			reescreverEditor(pars, b0, b1);
 			return;
 		}
-		const Objeto *o = umObjeto();
+		const Objeto *o = textoDe(umObjeto());
 		bool ja = o != nullptr;
 		if (o)
 			for (const Paragrafo &p : o->pars)
 				ja = ja && (tipo == 1 ? p.marcador : p.numerado);
-		mudarObjetos([tipo, ja](Objeto &x) {
+		mudarTextos([tipo, ja](Objeto &x) {
 			if (!x.aceitaTexto()) return;
 			for (Paragrafo &p : x.pars) {
 				p.marcador = !ja && tipo == 1;
@@ -2738,7 +3758,7 @@ private:
 			reescreverEditor(pars, b0, b1);
 			return;
 		}
-		mudarObjetos([d](Objeto &o) {
+		mudarTextos([d](Objeto &o) {
 			for (Paragrafo &p : o.pars)
 				p.nivel = std::clamp(p.nivel + d, 0, 4);
 		});
@@ -2769,14 +3789,17 @@ private:
 		if (!secTexto_ || atual_ < 0 || doc_.slides.empty())
 			return;
 		atualizando_ = true;
-		const Objeto *o = editor_ ? &objetoEditado() : umObjeto();
-		bool texto = false, forma = false, imagem = false, grafico = false;
+		const Objeto *dono = editor_ ? &obj(edObj_) : umObjeto();
+		const Objeto *o = editor_ ? &objetoEditado() : textoDe(umObjeto());
+		bool texto = false, forma = false, imagem = false, grafico = false, tabela = false, video = false;
 		for (int k : sel_) {
 			const Objeto &x = obj(k);
-			texto = texto || x.aceitaTexto();
-			forma = forma || x.forma() || x.tipo == Tipo::Imagem;
+			texto = texto || x.aceitaTexto() || x.tipo == Tipo::Tabela;
+			forma = forma || x.forma() || x.tipo == Tipo::Imagem || x.tipo == Tipo::Tabela || x.tipo == Tipo::Video;
 			imagem = imagem || x.tipo == Tipo::Imagem;
 			grafico = grafico || x.tipo == Tipo::Grafico;
+			tabela = tabela || x.tipo == Tipo::Tabela;
+			video = video || x.tipo == Tipo::Video;
 		}
 		if (editor_)
 			texto = true;
@@ -2785,7 +3808,64 @@ private:
 		secForma_->setVisible(forma && !editor_);
 		secImagem_->setVisible(imagem && sel_.size() == 1 && !editor_);
 		secGrafico_->setVisible(grafico && sel_.size() == 1 && !editor_);
+		secTabela_->setVisible(tabela && sel_.size() == 1);
+		secVideo_->setVisible(video && sel_.size() == 1 && !editor_);
 		secOrganizar_->setVisible(!sel_.empty() && !editor_);
+		if (dono && dono->tipo == Tipo::Tabela) {
+			tCabecalho_->setChecked(dono->cabecalho);
+			tFaixas_->setChecked(dono->faixas);
+			const Objeto *c = editor_ && edCel_ >= 0 ? &objetoEditado() : nullptr;
+			pintarAmostra(tFundo_, c ? c->fundoCel : QColor());
+		}
+		if (dono && dono->tipo == Tipo::Video && !editor_) {
+			vSozinho_->setChecked(dono->sozinho);
+			vRepetir_->setChecked(dono->repetir);
+			vMudo_->setChecked(dono->mudo);
+		}
+		// O painel Animar.
+		{
+			const Objeto *a = sel_.size() == 1 ? &obj(sel_[0]) : nullptr;
+			aVazio_->setVisible(!a);
+			aCorpo_->setVisible(a != nullptr);
+			if (a)
+				for (int q = 0; q < 2; q++) {
+					const Animacao &x = q == 0 ? a->entrada : a->saida;
+					aEf_[q]->setCurrentIndex(int(x.ef));
+					aDir_[q]->setCurrentIndex(std::clamp(x.dir, 0, 3));
+					aIni_[q]->setCurrentIndex(std::clamp(x.inicio, 0, 2));
+					aDur_[q]->setValue(x.dur);
+					const bool tem = x.tem();
+					aDir_[q]->setEnabled(tem && (x.ef == Efeito::Voar || x.ef == Efeito::Revelar));
+					aIni_[q]->setEnabled(tem);
+					aDur_[q]->setEnabled(tem && x.ef != Efeito::Aparecer);
+					if (q == 0) {
+						int pars = 0;
+						for (const Paragrafo &p : a->pars)
+							pars += !p.texto().trimmed().isEmpty();
+						aPar_->setChecked(x.porParagrafo);
+						aPar_->setEnabled(tem && a->aceitaTexto() && pars > 1);
+					}
+				}
+			aOrdem_->clear();
+			const auto l = listaAnimacoes();
+			for (size_t i = 0; i < l.size(); i++) {
+				const Objeto &x = obj(l[i].first);
+				const Animacao &an = l[i].second ? x.saida : x.entrada;
+				QString nome = x.temTexto() ? x.texto().section('\n', 0, 0).left(28) : nomeTipo(x);
+				if (nome.trimmed().isEmpty()) nome = nomeTipo(x);
+				static const char *ini[] = {"", " · com a anterior", " · depois"};
+				auto *it = new QListWidgetItem(QString("%1. %2 %3: %4%5")
+				                                   .arg(i + 1)
+				                                   .arg(l[i].second ? "Sai" : "Entra")
+				                                   .arg(nomesEfeito().value(int(an.ef)).toLower())
+				                                   .arg(nome)
+				                                   .arg(ini[std::clamp(an.inicio, 0, 2)]));
+				it->setData(Qt::UserRole, l[i].first);
+				aOrdem_->addItem(it);
+				if (a && &x == a)
+					aOrdem_->setCurrentItem(it);
+			}
+		}
 		quadroVazio_->setVisible(sel_.empty() && !editor_);
 		quadroVazio_->setText(QString("Slide %1 de %2. Clique num objeto para formatá-lo; clique duas vezes num texto para escrever.")
 		                          .arg(atual_ + 1)
@@ -2841,8 +3921,9 @@ private:
 			numerado_->setChecked(num);
 			encolher_->setChecked(o->encolher);
 		}
-		if (o && !editor_) {
-			pintarAmostra(preench_, o->tipo == Tipo::Imagem ? QColor() : o->preench);
+		if (dono && !editor_) {
+			o = dono;
+			pintarAmostra(preench_, o->tipo == Tipo::Imagem || o->tipo == Tipo::Tabela ? QColor() : o->preench);
 			pintarAmostra(borda_, o->espBorda > 0 ? o->borda : QColor());
 			espBorda_->setValue(o->espBorda);
 			px_->setValue(o->r.x());
@@ -2859,6 +3940,7 @@ private:
 		}
 		for (QDoubleSpinBox *s : {px_, py_, pw_, ph_, giro_})
 			s->setEnabled(sel_.size() == 1);
+		giro_->setEnabled(sel_.size() == 1 && obj(sel_[0]).tipo != Tipo::Tabela);
 		// A transição e o documento.
 		transicao_->setCurrentIndex(int(slide().transicao));
 		duracao_->setValue(slide().duracao);
@@ -3151,8 +4233,9 @@ private:
 		midiasCopiadas_.clear();
 		for (int k : sel_) {
 			recorte_.push_back(obj(k));
-			if (!obj(k).midia.isEmpty())
-				midiasCopiadas_.insert(obj(k).midia, doc_.midias.value(obj(k).midia));
+			for (const QString &m : {obj(k).midia, obj(k).capa})
+				if (!m.isEmpty())
+					midiasCopiadas_.insert(m, doc_.midias.value(m));
 		}
 		// Também vai como texto para outros programas.
 		QStringList t;
@@ -3174,6 +4257,8 @@ private:
 			for (Objeto o : recorte_) {
 				if (!o.midia.isEmpty())
 					o.midia = doc_.guardarMidia(midiasCopiadas_.value(o.midia), QFileInfo(o.midia).suffix());
+				if (!o.capa.isEmpty())
+					o.capa = doc_.guardarMidia(midiasCopiadas_.value(o.capa), QFileInfo(o.capa).suffix());
 				o.r.translate(14, 14);
 				if (o.papel != Papel::Livre && slide().com(o.papel))
 					o.papel = Papel::Livre;
@@ -3518,9 +4603,14 @@ private:
 			w->raise();
 			w->activateWindow();
 		};
+		s.comTela = ap != nullptr;
 		s.aoMudar = [ap, pr](int de) {
 			if (ap) ap->mudou(de);
 			if (pr) pr->mudou();
+		};
+		s.aoAnimar = [ap, pr] {
+			if (ap) ap->animou();
+			if (pr) pr->animou();
 		};
 		s.aoSair = [this, ap, pr] {
 			const int fim = sessao_ ? sessao_->slide() : atual_;
@@ -3537,8 +4627,10 @@ private:
 			cheia(ap, outra ? outra : principal);
 			ap->mudou(-1);
 		}
-		if (pr)
+		if (pr) {
 			cheia(pr, principal);
+			pr->mudou();
+		}
 		if (ap)
 			ap->activateWindow();
 	}
@@ -3638,7 +4730,7 @@ private:
 	}
 
 	struct Arrasto {
-		enum Modo { Nada, Mover, Tamanho, Girar, Ponta, Banda } modo = Nada;
+		enum Modo { Nada, Mover, Tamanho, Girar, Ponta, Banda, Coluna, LinhaTab } modo = Nada;
 		QPointF inicio;
 		int alca = -1;
 		bool mexeu = false;
@@ -3662,7 +4754,7 @@ private:
 	QToolBar *barra_ = nullptr;
 	QLabel *titulo_ = nullptr, *quadroVazio_ = nullptr, *previa_ = nullptr;
 	QComboBox *zoom_ = nullptr, *leiaute_ = nullptr, *transicao_ = nullptr, *formato_ = nullptr, *gTipo_ = nullptr;
-	QToolButton *bPainel_[3] = {};
+	QToolButton *bPainel_[4] = {};
 	QVBoxLayout *recentes_ = nullptr;
 	Navegador *nav_ = nullptr;
 	Tela *tela_ = nullptr;
@@ -3671,6 +4763,17 @@ private:
 	std::vector<ItemObjeto *> itens_;
 	EditorTexto *editor_ = nullptr;
 	int edObj_ = -1;
+	int edCel_ = -1; // a célula da tabela em edição
+	std::map<int, std::unique_ptr<Tocador>> tocadores_; // os vídeos tocando no editor
+	QWidget *secTabela_ = nullptr, *secVideo_ = nullptr, *aCorpo_ = nullptr;
+	QCheckBox *tCabecalho_ = nullptr, *tFaixas_ = nullptr, *vSozinho_ = nullptr, *vRepetir_ = nullptr, *vMudo_ = nullptr, *aPar_ = nullptr;
+	QToolButton *tFundo_ = nullptr;
+	QComboBox *aEf_[2] = {}, *aDir_[2] = {}, *aIni_[2] = {};
+	QDoubleSpinBox *aDur_[2] = {};
+	QListWidget *aOrdem_ = nullptr;
+	QLabel *aVazio_ = nullptr, *aPrevia_ = nullptr;
+	QTimer *aTempo_ = nullptr;
+	QElapsedTimer aRelogio_;
 	double edEscala_ = 1;
 	QPlainTextEdit *notas_ = nullptr;
 	QTimer *miniaturas_ = nullptr;
@@ -3762,6 +4865,63 @@ QString Janela::autoteste(const QString &saida)
 	emit gTitulo_->editingFinished();
 	slide().transicao = Transicao::Empurrar;
 	slide().duracao = 1.0;
+	// Uma tabela, escrita célula a célula (Tab passa para a próxima; na
+	// última, cria uma linha), e as animações pelo painel Animar.
+	novoSlideDepois(Layout::SoTitulo);
+	int titulo = -1;
+	for (int k = 0; k < int(slide().objs.size()); k++)
+		if (obj(k).papel == Papel::Titulo) {
+			titulo = k;
+			editar(k);
+			editor_->textCursor().insertText("Notas da turma");
+			terminarEdicao();
+		}
+	inserirTabela(2, 2);
+	const int tab = edObj_;
+	for (const char *t : {"Aluno", "Nota", "Ana", "9,5", "Bruno"}) {
+		editor_->textCursor().insertText(QString::fromUtf8(t));
+		irCelula(1);
+	}
+	editor_->textCursor().insertText("8");
+	alinhar(2);
+	terminarEdicao();
+	editar(tab, QPointF(), false, 3);
+	alinhar(2);
+	terminarEdicao();
+	mostrarInspetor(3);
+	sel_ = {titulo};
+	atualizarInspetor();
+	aEf_[0]->setCurrentIndex(int(Efeito::Dissolver));
+	emit aEf_[0]->activated(int(Efeito::Dissolver));
+	sel_ = {tab};
+	atualizarInspetor();
+	aEf_[0]->setCurrentIndex(int(Efeito::Voar));
+	emit aEf_[0]->activated(int(Efeito::Voar));
+	aDir_[0]->setCurrentIndex(1);
+	emit aDir_[0]->activated(1);
+	aIni_[0]->setCurrentIndex(2);
+	emit aIni_[0]->activated(2);
+	aDur_[0]->setValue(0.8);
+	aEf_[1]->setCurrentIndex(int(Efeito::Dissolver));
+	emit aEf_[1]->activated(int(Efeito::Dissolver));
+	mostrarInspetor(0);
+	// Um vídeo (os bytes de um MP4; a capa chegaria depois, tocando), que
+	// começa sozinho, repete e não tem som.
+	{
+		QTemporaryFile v(QDir::tempPath() + "/lume-palco-XXXXXX.mp4");
+		if (v.open()) {
+			QByteArray b("\x00\x00\x00\x18" "ftypmp42", 12);
+			b += QByteArray(4096, '\x01');
+			v.write(b);
+			v.flush();
+			inserirVideo(v.fileName());
+			obj(sel_[0]).r = QRectF(600, 400, 320, 120);
+			atualizarInspetor();
+			vSozinho_->setChecked(true);
+			vRepetir_->setChecked(true);
+			vMudo_->setChecked(true);
+		}
+	}
 	// Duplicar o último slide, apagar a cópia; desfazer a cópia apagada e refazer.
 	duplicarSlide();
 	apagarSlides();
@@ -3955,8 +5115,9 @@ int main(int argc, char **argv)
 	}
 	if (a.size() >= 3 && a[1] == "--foto") {
 		// LUME_FOTO_SLIDE (o número), LUME_FOTO_OBJETO (escolhe um objeto),
-		// LUME_FOTO_PAINEL (0 Formatar, 1 Transição, 2 Documento),
-		// LUME_FOTO_MODO (apresentacao, apresentador).
+		// LUME_FOTO_PAINEL (0 Formatar, 1 Transição, 2 Documento, 3 Animar),
+		// LUME_FOTO_MODO (apresentacao, apresentador), LUME_FOTO_PASSO (os
+		// cliques já dados no slide, na apresentação).
 		if (a.size() >= 5 && a[3] == "--modelo")
 			j.modelo(a[4]);
 		else if (a.size() >= 4 && a[3] != "--galeria")

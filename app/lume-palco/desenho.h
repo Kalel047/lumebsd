@@ -128,7 +128,54 @@ inline double escalaQueCabe(const Doc &d, const Objeto &o)
 	return lo;
 }
 
-inline void desenharTexto(QPainter &p, const Doc &d, const Objeto &o)
+// O quanto um objeto (ou um parágrafo) está presente num efeito: aplica no
+// pintor a opacidade, o deslocamento, a escala ou o recorte. Falso: não aparece.
+inline bool aplicarQuadro(QPainter &p, const Quadro &q, const QRectF &area, double W, double H)
+{
+	if (q.ef == Efeito::Nenhum)
+		return true;
+	const double p0 = std::clamp(q.p, 0.0, 1.0);
+	const double e = 1 - std::pow(1 - p0, 3); // ease out
+	const double v = q.saida ? 1 - e : e;     // 1: todo à vista
+	switch (q.ef) {
+	case Efeito::Aparecer:
+		return q.saida ? p0 < 1 : p0 > 0;
+	case Efeito::Dissolver:
+		p.setOpacity(p.opacity() * v);
+		break;
+	case Efeito::Voar: {
+		const double f = 1 - v;
+		const QPointF d = q.dir == 1 ? QPointF(-f * area.right(), 0)
+		                  : q.dir == 2 ? QPointF(f * (W - area.left()), 0)
+		                  : q.dir == 3 ? QPointF(0, -f * area.bottom())
+		                               : QPointF(0, f * (H - area.top()));
+		p.translate(d);
+		break;
+	}
+	case Efeito::Ampliar: {
+		const double k = 0.2 + 0.8 * v;
+		p.translate(area.center());
+		p.scale(k, k);
+		p.translate(-area.center());
+		p.setOpacity(p.opacity() * v);
+		break;
+	}
+	case Efeito::Revelar: {
+		QRectF c = area.adjusted(-2, -2, 2, 2);
+		if (q.dir == 1) c.setWidth(c.width() * v);
+		else if (q.dir == 2) c.setLeft(c.right() - c.width() * v);
+		else if (q.dir == 3) c.setHeight(c.height() * v);
+		else c.setTop(c.bottom() - c.height() * v);
+		p.setClipRect(c, Qt::IntersectClip);
+		break;
+	}
+	default:
+		break;
+	}
+	return v > 0.001;
+}
+
+inline void desenharTexto(QPainter &p, const Doc &d, const Objeto &o, const std::vector<Quadro> *pars = nullptr, double W = 0, double H = 0)
 {
 	if (!o.temTexto())
 		return;
@@ -141,13 +188,33 @@ inline void desenharTexto(QPainter &p, const Doc &d, const Objeto &o)
 		y = in.top() + (in.height() - h) / 2;
 	else if (o.vAlin == 2)
 		y = in.bottom() - h;
-	p.save();
-	p.translate(in.left(), y);
-	p.scale(1 / K, 1 / K);
 	QAbstractTextDocumentLayout::PaintContext ctx;
 	ctx.palette.setColor(QPalette::Text, corTexto(d, o));
-	td.documentLayout()->draw(&p, ctx);
-	p.restore();
+	if (!pars || pars->empty()) {
+		p.save();
+		p.translate(in.left(), y);
+		p.scale(1 / K, 1 / K);
+		td.documentLayout()->draw(&p, ctx);
+		p.restore();
+		return;
+	}
+	// Um parágrafo de cada vez, cada um com o seu efeito.
+	int i = 0;
+	for (QTextBlock b = td.begin(); b.isValid(); b = b.next(), i++) {
+		const QRectF br = td.documentLayout()->blockBoundingRect(b);
+		const QRectF faixa(0, br.top(), td.textWidth(), br.height());
+		const QRectF area(in.left(), y + br.top() / K, in.width(), br.height() / K);
+		p.save();
+		if (i < int(pars->size()) && !aplicarQuadro(p, (*pars)[size_t(i)], area, W, H)) {
+			p.restore();
+			continue;
+		}
+		p.translate(in.left(), y);
+		p.scale(1 / K, 1 / K);
+		p.setClipRect(faixa.adjusted(-td.textWidth(), -1, td.textWidth(), 1), Qt::IntersectClip);
+		td.documentLayout()->draw(&p, ctx);
+		p.restore();
+	}
 }
 
 // --- formas ----------------------------------------------------------------
@@ -436,9 +503,158 @@ inline QString dica(const Objeto &o)
 	}
 }
 
-inline void desenharObjeto(QPainter &p, const Doc &d, const Objeto &o, bool comTexto = true, bool dicas = false)
+// --- tabelas ---------------------------------------------------------------
+//
+// As linhas crescem para o texto caber (como no PowerPoint); as colunas
+// dividem a largura da tabela. As cores vêm do tema: a primeira linha
+// (o cabeçalho) na primeira cor das séries, as outras em faixas.
+
+inline QColor misturar(const QColor &a, const QColor &b, double f)
 {
+	return QColor::fromRgbF(float(a.redF() * (1 - f) + b.redF() * f), float(a.greenF() * (1 - f) + b.greenF() * f),
+	                        float(a.blueF() * (1 - f) + b.blueF() * f));
+}
+
+inline QColor fundoDaCelula(const Doc &d, const Objeto &t, int l)
+{
+	if (l == 0 && t.cabecalho)
+		return d.tema.serie.empty() ? d.tema.destaque : d.tema.serie.front();
+	if (t.faixas && (l - (t.cabecalho ? 1 : 0)) % 2 == 1)
+		return misturar(d.tema.fundo, d.tema.texto, 0.07);
+	return QColor();
+}
+
+inline void arrumarTabela(const Doc &d, Objeto &t)
+{
+	if (t.tipo != Tipo::Tabela || t.lins <= 0 || t.cols <= 0)
+		return;
+	t.cel.resize(size_t(t.lins * t.cols));
+	t.largs.resize(size_t(t.cols), t.r.width() / t.cols);
+	t.alts.resize(size_t(t.lins), 24);
+	double soma = 0;
+	for (double &w : t.largs) {
+		w = std::max(4.0, w);
+		soma += w;
+	}
+	for (double &w : t.largs)
+		w *= t.r.width() / soma;
+	t.giro = 0;
+	double y = t.r.top();
+	for (int l = 0; l < t.lins; l++) {
+		double h = t.alts[size_t(l)];
+		double x = t.r.left();
+		for (int c = 0; c < t.cols; c++) {
+			Objeto &o = t.celula(l, c);
+			o.tipo = Tipo::Texto;
+			o.papel = Papel::Livre;
+			o.giro = 0;
+			o.r = QRectF(x, y, t.largs[size_t(c)], h);
+			o.fundoCel = o.preench.isValid() ? o.preench : fundoDaCelula(d, t, l);
+			if (o.temTexto()) {
+				QTextDocument td;
+				montarDocumento(td, d, o);
+				h = std::max(h, td.size().height() / K + 7.2);
+			}
+			x += t.largs[size_t(c)];
+		}
+		for (int c = 0; c < t.cols; c++)
+			t.celula(l, c).r.setHeight(h);
+		y += h;
+	}
+	t.r.setHeight(y - t.r.top());
+}
+
+inline void desenharTabela(QPainter &p, const Doc &d, const Objeto &t0, int semTexto = -1, bool comTexto = true)
+{
+	Objeto t = t0;
+	arrumarTabela(d, t);
+	const QColor fio = t.borda.isValid() && t.espBorda > 0 ? t.borda : d.tema.apagado;
+	const double esp = t.borda.isValid() && t.espBorda > 0 ? t.espBorda : 0.75;
+	for (const Objeto &c : t.cel)
+		if (c.fundoCel.isValid())
+			p.fillRect(c.r, c.fundoCel);
+	p.setPen(QPen(fio, esp));
+	p.setBrush(Qt::NoBrush);
+	for (int l = 1; l < t.lins; l++) {
+		const double y = t.celula(l, 0).r.top();
+		p.drawLine(QPointF(t.r.left(), y), QPointF(t.r.right(), y));
+	}
+	for (int c = 1; c < t.cols; c++) {
+		const double x = t.celula(0, c).r.left();
+		p.drawLine(QPointF(x, t.r.top()), QPointF(x, t.r.bottom()));
+	}
+	p.drawRect(t.r);
+	for (int k = 0; k < int(t.cel.size()) && comTexto; k++)
+		if (k != semTexto)
+			desenharTexto(p, d, t.cel[size_t(k)]);
+}
+
+// --- vídeo -----------------------------------------------------------------
+
+inline void desenharVideo(QPainter &p, const Doc &d, const Objeto &o, bool dicas, const QImage *quadro = nullptr)
+{
+	const QImage capa = quadro && !quadro->isNull() ? *quadro : imagemDe(d, o.capa);
+	p.fillRect(o.r, QColor(0x1c, 0x1b, 0x19));
+	if (!capa.isNull()) {
+		// A imagem inteira, sem deformar, no meio.
+		const double k = std::min(o.r.width() / capa.width(), o.r.height() / capa.height());
+		QRectF r(0, 0, capa.width() * k, capa.height() * k);
+		r.moveCenter(o.r.center());
+		p.drawImage(r, capa);
+	}
+	if (dicas && !quadro) {
+		const double raio = std::clamp(std::min(o.r.width(), o.r.height()) * 0.12, 10.0, 40.0);
+		const QPointF c = o.r.center();
+		p.setPen(Qt::NoPen);
+		p.setBrush(QColor(0, 0, 0, 140));
+		p.drawEllipse(c, raio, raio);
+		QPainterPath tri;
+		tri.moveTo(c + QPointF(-raio * 0.35, -raio * 0.5));
+		tri.lineTo(c + QPointF(raio * 0.55, 0));
+		tri.lineTo(c + QPointF(-raio * 0.35, raio * 0.5));
+		tri.closeSubpath();
+		p.fillPath(tri, Qt::white);
+	}
+	if (o.borda.isValid() && o.espBorda > 0) {
+		p.setPen(QPen(o.borda, o.espBorda));
+		p.setBrush(Qt::NoBrush);
+		p.drawRect(o.r);
+	}
+}
+
+// Como desenhar um objeto: com o texto, com as dicas dos lugares vazios, o
+// estado das animações, a célula em edição (sem o texto) e o quadro do vídeo.
+struct ComoDesenhar {
+	bool comTexto = true, dicas = false;
+	const EstadoObj *estado = nullptr;
+	int celulaSemTexto = -1;
+	const QImage *quadroVideo = nullptr;
+};
+
+inline void desenharObjeto(QPainter &p, const Doc &d, const Objeto &o, const ComoDesenhar &como)
+{
+	const bool comTexto = como.comTexto, dicas = como.dicas;
+	const EstadoObj *est = como.estado && como.estado->tem ? como.estado : nullptr;
 	p.save();
+	// A animação do objeto todo (ou, por parágrafo, a do primeiro para a forma).
+	Quadro qForma;
+	if (est) {
+		qForma = est->todo;
+		if (est->pars.size() == o.pars.size() && !est->pars.empty())
+			for (size_t i = 0; i < o.pars.size(); i++)
+				if (!o.pars[i].texto().trimmed().isEmpty()) {
+					qForma = est->pars[i];
+					break;
+				}
+	}
+	const bool porPar = est && !est->pars.empty() && est->pars.size() == o.pars.size();
+	if (!aplicarQuadro(p, porPar ? est->todo : qForma, o.r, d.larg, d.alt)) {
+		p.restore();
+		return;
+	}
+	p.save();
+	if (porPar && !aplicarQuadro(p, qForma, o.r, d.larg, d.alt))
+		p.setOpacity(0);
 	p.setRenderHint(QPainter::Antialiasing);
 	p.setRenderHint(QPainter::SmoothPixmapTransform);
 	const QPointF c = o.r.center();
@@ -468,6 +684,10 @@ inline void desenharObjeto(QPainter &p, const Doc &d, const Objeto &o, bool comT
 		if (o.preench.isValid())
 			p.fillRect(o.r, o.preench);
 		desenharGrafico(p, d, o);
+	} else if (o.tipo == Tipo::Tabela) {
+		desenharTabela(p, d, o, como.celulaSemTexto, comTexto);
+	} else if (o.tipo == Tipo::Video) {
+		desenharVideo(p, d, o, dicas, como.quadroVideo);
 	} else {
 		const QPainterPath cm = caminho(o.tipo, o.r);
 		if (o.tipo != Tipo::Linha && o.preench.isValid())
@@ -488,7 +708,7 @@ inline void desenharObjeto(QPainter &p, const Doc &d, const Objeto &o, bool comT
 			p.translate(-c);
 		}
 		if (o.temTexto())
-			desenharTexto(p, d, o);
+			desenharTexto(p, d, o, porPar ? &est->pars : nullptr, d.larg, d.alt);
 		else if (dicas && o.papel != Papel::Livre) {
 			Objeto x = o;
 			x.pars = paragrafos(dica(o), false, o.pars.empty() ? 0 : o.pars.front().alin);
@@ -499,6 +719,15 @@ inline void desenharObjeto(QPainter &p, const Doc &d, const Objeto &o, bool comT
 		}
 		p.restore();
 	}
+	p.restore();
+}
+
+inline void desenharObjeto(QPainter &p, const Doc &d, const Objeto &o, bool comTexto = true, bool dicas = false)
+{
+	ComoDesenhar c;
+	c.comTexto = comTexto;
+	c.dicas = dicas;
+	desenharObjeto(p, d, o, c);
 }
 
 inline void desenharFundo(QPainter &p, const Doc &d, const Slide &s)
@@ -517,8 +746,10 @@ inline void desenharFundo(QPainter &p, const Doc &d, const Slide &s)
 	}
 }
 
-// Desenha o slide inteiro dentro de "alvo" (mantendo a proporção do palco).
-inline void desenharSlide(QPainter &p, const Doc &d, const Slide &s, const QRectF &alvo, bool dicas = false)
+// Desenha o slide inteiro dentro de "alvo" (mantendo a proporção do palco),
+// num estado das animações (sem estado: tudo à vista).
+inline void desenharSlide(QPainter &p, const Doc &d, const Slide &s, const QRectF &alvo, bool dicas = false,
+                          const std::vector<EstadoObj> *estado = nullptr, const QHash<int, QImage> *videos = nullptr)
 {
 	p.save();
 	const double k = std::min(alvo.width() / d.larg, alvo.height() / d.alt);
@@ -526,12 +757,22 @@ inline void desenharSlide(QPainter &p, const Doc &d, const Slide &s, const QRect
 	p.scale(k, k);
 	p.setClipRect(QRectF(0, 0, d.larg, d.alt));
 	desenharFundo(p, d, s);
-	for (const Objeto &o : s.objs)
-		desenharObjeto(p, d, o, true, dicas);
+	for (size_t i = 0; i < s.objs.size(); i++) {
+		ComoDesenhar c;
+		c.dicas = dicas;
+		if (estado && i < estado->size())
+			c.estado = &(*estado)[i];
+		if (videos) {
+			auto it = videos->constFind(int(i));
+			if (it != videos->cend())
+				c.quadroVideo = &*it;
+		}
+		desenharObjeto(p, d, s.objs[i], c);
+	}
 	p.restore();
 }
 
-inline QImage imagemSlide(const Doc &d, const Slide &s, int largura, bool dicas = false)
+inline QImage imagemSlide(const Doc &d, const Slide &s, int largura, bool dicas = false, const std::vector<EstadoObj> *estado = nullptr)
 {
 	const int altura = std::max(1, int(std::lround(largura * d.alt / d.larg)));
 	QImage img(largura, altura, QImage::Format_ARGB32_Premultiplied);
@@ -539,6 +780,6 @@ inline QImage imagemSlide(const Doc &d, const Slide &s, int largura, bool dicas 
 	QPainter p(&img);
 	p.setRenderHint(QPainter::Antialiasing);
 	p.setRenderHint(QPainter::TextAntialiasing);
-	desenharSlide(p, d, s, QRectF(0, 0, largura, altura), dicas);
+	desenharSlide(p, d, s, QRectF(0, 0, largura, altura), dicas, estado);
 	return img;
 }

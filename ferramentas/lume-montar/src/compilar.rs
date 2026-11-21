@@ -105,7 +105,18 @@ fn libs_app(nome: &str) -> &'static [&'static str] {
         "lume-rede" => &["-lcrypto"],
         "lume-mercados" => &["-lQt6Network"],
         // Os .odt, .docx, .ods, .xlsx, .odp e .pptx são zips: o zlib da base.
-        "lume-paginas" | "lume-numeros" | "lume-palco" => &["-lz"],
+        "lume-paginas" | "lume-numeros" => &["-lz"],
+        // O Palco também toca vídeo (o Qt Multimedia, que vem com o KWin).
+        "lume-palco" => &["-lz", "-lQt6Multimedia"],
+        _ => &[],
+    }
+}
+
+// Os módulos do Qt além do qt6-base que um app usa: o pacote (que fica na
+// mesma pasta do qt6-base) e a pasta dos cabeçalhos.
+fn modulos_app(nome: &str) -> &'static [(&'static str, &'static str)] {
+    match nome {
+        "lume-palco" => &[("qt6-multimedia", "QtMultimedia")],
         _ => &[],
     }
 }
@@ -116,6 +127,11 @@ fn compilar_app(base: &Path, qtpkg: &Path, saida: &Path, nome: &str) {
     criar_pastas(&qt);
     // (No pacote, os caminhos são absolutos: /usr/local/...)
     rodar(&v!["bsdtar", "-xf", s(qtpkg), "-C", s(&qt), "/usr/local/include", "/usr/local/lib"], None);
+    for (pacote, _) in modulos_app(nome) {
+        let pasta = qtpkg.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        let p = achar_pacote(&pasta, pacote, "app");
+        rodar(&v!["bsdtar", "-xf", s(&p), "-C", s(&qt), "/usr/local/include", "/usr/local/lib"], None);
+    }
     let raiz = sysroot(t.path(), base);
     link(qt.join("usr/local"), raiz.join("usr/local"));
     let inc = raiz.join("usr/local/include/qt6");
@@ -124,6 +140,9 @@ fn compilar_app(base: &Path, qtpkg: &Path, saida: &Path, nome: &str) {
                      // Sem a pasta temporária dentro do binário (os Q_ASSERT).
                      format!("-ffile-prefix-map={}=/", s(&raiz))];
     for m in ["QtCore", "QtGui", "QtWidgets", "QtNetwork"] {
+        cmd.extend(v!["-isystem", s(&inc.join(m))]);
+    }
+    for (_, m) in modulos_app(nome) {
         cmd.extend(v!["-isystem", s(&inc.join(m))]);
     }
     cmd.extend(v![s(&topo().join("app").join(nome).join("main.cpp")), "-o", s(saida),

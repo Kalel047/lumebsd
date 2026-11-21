@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 //
 // lume-palco: o documento. Uma apresentação é uma lista de slides; cada
-// slide tem objetos (caixas de texto, formas, imagens, gráficos) com
+// slide tem objetos (caixas de texto, formas, imagens, gráficos, tabelas,
+// vídeos), cada um com a sua animação de entrada e de saída, com
 // posição em pontos (1/72 de polegada) sobre um palco de 960 x 540 (16:9)
 // ou 720 x 540 (4:3), as mesmas medidas do PowerPoint e do Keynote.
 //
@@ -136,9 +137,33 @@ inline bool lerDados(const QString &txt, DadosGrafico &g)
 	return true;
 }
 
+// --- animações -------------------------------------------------------------
+//
+// Cada objeto pode entrar e sair do slide com um efeito (como as "compilações"
+// do Keynote). A ordem é um número por slide; o início é com o clique, junto
+// com a anterior ou depois dela. Por parágrafo: cada tópico entra num passo.
+
+enum class Efeito { Nenhum, Aparecer, Dissolver, Voar, Ampliar, Revelar };
+
+inline const QStringList &nomesEfeito()
+{
+	static const QStringList n = {"Nenhum", "Aparecer", "Dissolver", "Voar", "Ampliar", "Revelar"};
+	return n;
+}
+
+struct Animacao {
+	Efeito ef = Efeito::Nenhum;
+	int inicio = 0;           // 0 ao clicar, 1 com a anterior, 2 depois da anterior
+	double dur = 0.5;         // segundos
+	int dir = 0;              // de onde (Voar, Revelar): 0 de baixo, 1 da esquerda, 2 da direita, 3 de cima
+	bool porParagrafo = false;
+	int ordem = 0;
+	bool tem() const { return ef != Efeito::Nenhum; }
+};
+
 // --- objetos ---------------------------------------------------------------
 
-enum class Tipo { Texto, Retangulo, Arredondado, Elipse, Triangulo, Seta, Linha, Imagem, Grafico };
+enum class Tipo { Texto, Retangulo, Arredondado, Elipse, Triangulo, Seta, Linha, Imagem, Grafico, Tabela, Video };
 enum class Papel { Livre, Titulo, Subtitulo, Corpo, Corpo2 };
 
 struct Objeto {
@@ -161,10 +186,24 @@ struct Objeto {
 	QColor preench;           // inválida: sem preenchimento
 	QColor borda;             // inválida: sem borda
 	double espBorda = 0;
-	// Imagem e gráfico.
-	QString midia;            // a chave em Doc::midias
+	// Imagem, gráfico e vídeo.
+	QString midia;            // a chave em Doc::midias (a imagem ou o vídeo)
 	DadosGrafico graf;
 	QString nome;             // o nome no arquivo (só para guardar)
+	// O vídeo: a imagem de capa (também em Doc::midias) e como toca.
+	QString capa;
+	bool sozinho = false;     // começa quando o slide aparece (senão, com um clique nele)
+	bool repetir = false, mudo = false;
+	// A tabela: as células (caixas de texto, linha por linha), as larguras
+	// das colunas e as alturas mínimas das linhas (em pontos).
+	int lins = 0, cols = 0;
+	std::vector<double> largs, alts;
+	std::vector<Objeto> cel;
+	bool cabecalho = true, faixas = true;
+	QColor fundoCel;          // (só ao desenhar) o fundo da célula, para a cor do texto
+	// As animações.
+	Animacao entrada, saida;
+	int idArq = 0;            // (só ao ler) o número do objeto no arquivo
 
 	bool temTexto() const
 	{
@@ -180,9 +219,108 @@ struct Objeto {
 			l << QString(p.nivel, '\t') + p.texto();
 		return l.join('\n');
 	}
-	bool forma() const { return tipo != Tipo::Texto && tipo != Tipo::Imagem && tipo != Tipo::Grafico; }
-	bool aceitaTexto() const { return tipo != Tipo::Imagem && tipo != Tipo::Grafico && tipo != Tipo::Linha; }
+	bool forma() const
+	{
+		return tipo != Tipo::Texto && tipo != Tipo::Imagem && tipo != Tipo::Grafico && tipo != Tipo::Tabela && tipo != Tipo::Video;
+	}
+	bool aceitaTexto() const
+	{
+		return tipo != Tipo::Imagem && tipo != Tipo::Grafico && tipo != Tipo::Linha && tipo != Tipo::Tabela && tipo != Tipo::Video;
+	}
+	Objeto &celula(int l, int c) { return cel[size_t(l * cols + c)]; }
+	const Objeto &celula(int l, int c) const { return cel[size_t(l * cols + c)]; }
 };
+
+// Uma tabela nova, com o texto das células (linhas separadas por \n, colunas por \t).
+inline Objeto novaTabela(int lins, int cols, const QRectF &r, double tamanho = 18)
+{
+	Objeto t;
+	t.tipo = Tipo::Tabela;
+	t.lins = std::max(1, lins);
+	t.cols = std::max(1, cols);
+	t.r = r;
+	t.tamanho = tamanho;
+	t.largs.assign(size_t(t.cols), r.width() / t.cols);
+	t.alts.assign(size_t(t.lins), std::max(12.0, r.height() / t.lins));
+	for (int k = 0; k < t.lins * t.cols; k++) {
+		Objeto c;
+		c.tipo = Tipo::Texto;
+		c.tamanho = tamanho;
+		c.vAlin = 1;
+		c.pars.push_back(Paragrafo());
+		t.cel.push_back(c);
+	}
+	return t;
+}
+
+inline void textoNaTabela(Objeto &t, const QString &texto)
+{
+	const QStringList ls = texto.split('\n');
+	for (int l = 0; l < t.lins && l < ls.size(); l++) {
+		const QStringList cs = ls[l].split('\t');
+		for (int c = 0; c < t.cols && c < cs.size(); c++) {
+			Objeto &x = t.celula(l, c);
+			const int alin = x.pars.empty() ? 0 : x.pars.front().alin;
+			x.pars = paragrafos(cs[c], false, alin);
+		}
+	}
+}
+
+// Uma linha nova na posição "l" (0 a lins; o estilo vem da vizinha) ou,
+// com "tirar", a linha "l" a menos. O mesmo para as colunas.
+inline void tabelaLinha(Objeto &t, int l, bool tirar)
+{
+	if (tirar) {
+		if (t.lins <= 1 || l < 0 || l >= t.lins) return;
+		t.cel.erase(t.cel.begin() + l * t.cols, t.cel.begin() + (l + 1) * t.cols);
+		t.alts.erase(t.alts.begin() + l);
+		t.lins--;
+		return;
+	}
+	l = std::clamp(l, 0, t.lins);
+	const int viz = l == 0 ? 0 : l - 1; // a de cima (ou a primeira)
+	std::vector<Objeto> nova;
+	for (int c = 0; c < t.cols; c++) {
+		Objeto x = t.celula(viz, c);
+		const int alin = x.pars.empty() ? 0 : x.pars.front().alin;
+		x.pars = {Paragrafo()};
+		x.pars.front().alin = alin;
+		nova.push_back(x);
+	}
+	t.cel.insert(t.cel.begin() + l * t.cols, nova.begin(), nova.end());
+	t.alts.insert(t.alts.begin() + l, t.alts[size_t(viz)]);
+	t.lins++;
+}
+
+inline void tabelaColuna(Objeto &t, int c0, bool tirar)
+{
+	if (tirar) {
+		if (t.cols <= 1 || c0 < 0 || c0 >= t.cols) return;
+		const double w = t.largs[size_t(c0)];
+		for (int l = t.lins - 1; l >= 0; l--)
+			t.cel.erase(t.cel.begin() + l * t.cols + c0);
+		t.largs.erase(t.largs.begin() + c0);
+		t.cols--;
+		for (double &x : t.largs) x += w / t.cols;
+		return;
+	}
+	c0 = std::clamp(c0, 0, t.cols);
+	const int viz = std::min(c0, t.cols - 1);
+	for (int l = t.lins - 1; l >= 0; l--) {
+		Objeto x = t.cel[size_t(l * t.cols + viz)];
+		const int alin = x.pars.empty() ? 0 : x.pars.front().alin;
+		x.pars = {Paragrafo()};
+		x.pars.front().alin = alin;
+		t.cel.insert(t.cel.begin() + l * t.cols + c0, x);
+	}
+	// A coluna nova divide a largura com as outras (a tabela não cresce).
+	const double w = t.r.width() / (t.cols + 1);
+	t.largs.insert(t.largs.begin() + c0, w);
+	t.cols++;
+	double soma = 0;
+	for (double x : t.largs) soma += x;
+	for (double &x : t.largs) x *= t.r.width() / soma;
+}
 
 // --- slides ----------------------------------------------------------------
 
@@ -252,6 +390,140 @@ struct Slide {
 	}
 };
 
+// --- a sequência das animações --------------------------------------------
+//
+// Os eventos de um slide em ordem, em grupos: o grupo 0 roda sozinho quando
+// o slide aparece (os que não começam com um clique); cada clique roda o
+// grupo seguinte. Dentro do grupo, cada evento tem o seu começo (t0).
+
+struct Evento {
+	int obj = 0;
+	bool saida = false;
+	int par = -1;             // o parágrafo (por parágrafo) ou -1 (o objeto todo)
+	Animacao a;
+	double t0 = 0;
+};
+
+inline std::vector<std::vector<Evento>> sequencia(const Slide &s)
+{
+	struct Item {
+		int ordem, obj;
+		bool saida;
+	};
+	std::vector<Item> itens;
+	for (int k = 0; k < int(s.objs.size()); k++) {
+		const Objeto &o = s.objs[size_t(k)];
+		if (o.entrada.tem()) itens.push_back({o.entrada.ordem, k, false});
+		if (o.saida.tem()) itens.push_back({o.saida.ordem, k, true});
+	}
+	std::stable_sort(itens.begin(), itens.end(), [](const Item &a, const Item &b) {
+		return a.ordem != b.ordem ? a.ordem < b.ordem : (a.obj != b.obj ? a.obj < b.obj : a.saida < b.saida);
+	});
+	std::vector<std::vector<Evento>> g(1);
+	double fim = 0, ini = 0;
+	auto poe = [&](Evento e, int inicio) {
+		const double dur = e.a.ef == Efeito::Aparecer ? 0 : e.a.dur;
+		if (inicio == 0) {
+			g.emplace_back();
+			ini = fim = 0;
+		}
+		if (inicio == 2)
+			ini = fim;
+		e.t0 = ini;
+		fim = std::max(fim, ini + dur);
+		g.back().push_back(e);
+	};
+	for (const Item &it : itens) {
+		const Objeto &o = s.objs[size_t(it.obj)];
+		const Animacao &a = it.saida ? o.saida : o.entrada;
+		const bool pp = a.porParagrafo && o.aceitaTexto() && o.temTexto() && !it.saida;
+		if (pp) {
+			bool primeiro = true;
+			for (int p = 0; p < int(o.pars.size()); p++) {
+				if (o.pars[size_t(p)].texto().trimmed().isEmpty())
+					continue;
+				Evento e{it.obj, false, p, a, 0};
+				poe(e, primeiro ? a.inicio : 0);
+				primeiro = false;
+			}
+		} else
+			poe(Evento{it.obj, it.saida, -1, a, 0}, a.inicio);
+	}
+	// O grupo 0 é o que roda sozinho (vazio se o primeiro evento é com clique).
+	return g;
+}
+
+// Quanto falta de um grupo para acabar (segundos).
+inline double duracaoGrupo(const std::vector<Evento> &g)
+{
+	double f = 0;
+	for (const Evento &e : g)
+		f = std::max(f, e.t0 + (e.a.ef == Efeito::Aparecer ? 0 : e.a.dur));
+	return f;
+}
+
+// Como um objeto (ou um parágrafo) aparece num instante: o efeito e o quanto
+// já andou (0 a 1). Sem efeito: visível.
+struct Quadro {
+	Efeito ef = Efeito::Nenhum;
+	bool saida = false;
+	double p = 1;
+	int dir = 0;
+	bool some() const { return ef != Efeito::Nenhum && ((!saida && p <= 0) || (saida && p >= 1)); }
+};
+
+struct EstadoObj {
+	bool tem = false;
+	Quadro todo;
+	std::vector<Quadro> pars; // por parágrafo (vazio: o objeto todo)
+};
+
+// O estado do slide depois de "grupo" grupos completos e "t" segundos no
+// grupo seguinte (t < 0: o grupo seguinte ainda não começou).
+inline std::vector<EstadoObj> estadoDoSlide(const Slide &s, int grupo, double t)
+{
+	const auto g = sequencia(s);
+	std::vector<EstadoObj> e(s.objs.size());
+	// Quem tem entrada começa escondido.
+	for (int k = 0; k < int(s.objs.size()); k++) {
+		const Objeto &o = s.objs[size_t(k)];
+		if (!o.entrada.tem())
+			continue;
+		e[size_t(k)].tem = true;
+		Quadro q{o.entrada.ef, false, 0, o.entrada.dir};
+		if (o.entrada.porParagrafo && o.aceitaTexto() && o.temTexto())
+			e[size_t(k)].pars.assign(o.pars.size(), q);
+		else
+			e[size_t(k)].todo = q;
+	}
+	auto aplica = [&](const Evento &ev, double p) {
+		EstadoObj &x = e[size_t(ev.obj)];
+		x.tem = true;
+		Quadro q{ev.a.ef, ev.saida, std::clamp(p, 0.0, 1.0), ev.a.dir};
+		if (ev.par >= 0 && ev.par < int(x.pars.size()))
+			x.pars[size_t(ev.par)] = q;
+		else {
+			x.todo = q;
+			if (ev.saida)
+				x.pars.clear();
+		}
+	};
+	for (int k = 0; k < int(g.size()); k++) {
+		if (k > grupo || (k == grupo && t < 0))
+			break;
+		for (const Evento &ev : g[size_t(k)]) {
+			double p = 1;
+			if (k == grupo) {
+				const double dur = ev.a.ef == Efeito::Aparecer ? 0 : ev.a.dur;
+				if (t < ev.t0) continue;
+				p = dur <= 0 ? 1 : (t - ev.t0) / dur;
+			}
+			aplica(ev, p);
+		}
+	}
+	return e;
+}
+
 // --- temas -----------------------------------------------------------------
 
 struct Tema {
@@ -313,8 +585,10 @@ struct Doc {
 				return it.key();
 		int n = int(midias.size()) + 1;
 		QString chave;
+		const QString e = ext.toLower();
+		const bool video = QStringList{"mp4", "m4v", "mov", "webm", "mkv", "avi", "ogv", "mpg", "mpeg", "wmv"}.contains(e);
 		do
-			chave = QString("imagem%1.%2").arg(n++).arg(ext.toLower());
+			chave = QString("%1%2.%3").arg(video ? "video" : "imagem").arg(n++).arg(e);
 		while (midias.contains(chave));
 		midias.insert(chave, dados);
 		return chave;
@@ -326,7 +600,7 @@ struct Doc {
 		for (const Slide &s : slides) {
 			usadas << s.fundoMidia;
 			for (const Objeto &o : s.objs)
-				usadas << o.midia;
+				usadas << o.midia << o.capa;
 		}
 		for (const QString &k : midias.keys())
 			if (!usadas.contains(k))
@@ -338,6 +612,8 @@ inline QColor corTexto(const Doc &d, const Objeto &o)
 {
 	if (o.cor.isValid())
 		return o.cor;
+	if (o.fundoCel.isValid())
+		return o.fundoCel.lightness() < 140 ? QColor(0xff, 0xff, 0xff) : d.tema.texto;
 	if (o.forma() && o.preench.isValid())
 		return o.preench.lightness() < 140 ? QColor(0xff, 0xff, 0xff) : d.tema.titulo;
 	return o.papel == Papel::Titulo ? d.tema.titulo : d.tema.texto;

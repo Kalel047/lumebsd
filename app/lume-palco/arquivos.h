@@ -65,92 +65,145 @@ inline void normalizar(Doc &d)
 		nosso = nosso || (t.id == d.tema.id);
 	if (!nosso)
 		temaPeloUso(d);
+	auto arrumarTexto = [&](Objeto &o) {
+		// O tamanho do objeto: o do primeiro trecho com texto.
+		[&] {
+			for (const Paragrafo &p : o.pars)
+				for (const Trecho &t : p.trechos)
+					if (!t.texto.trimmed().isEmpty() && t.tamanho > 0) {
+						o.tamanho = t.tamanho;
+						return;
+					}
+		}();
+		Objeto semCor = o;
+		semCor.cor = QColor();
+		const QColor tema = corTexto(d, semCor);
+		const QString fonteTema = o.papel == Papel::Titulo ? d.tema.fonteTitulo : d.tema.fonteTexto;
+		bool todosNegrito = true, todosItalico = true, algum = false;
+		QString fonte;
+		bool fonteIgual = true, corIgual = true;
+		QColor corTodos;
+		for (Paragrafo &p : o.pars)
+			for (Trecho &t : p.trechos) {
+				if (t.cor.isValid() && t.cor == tema)
+					t.cor = QColor();
+				if (std::fabs(t.tamanho - o.tamanho) < 0.01)
+					t.tamanho = 0;
+				if (t.texto.trimmed().isEmpty())
+					continue;
+				algum = true;
+				todosNegrito = todosNegrito && t.negrito;
+				todosItalico = todosItalico && t.italico;
+				if (!corTodos.isValid() && corIgual)
+					corTodos = t.cor;
+				if (t.cor != corTodos)
+					corIgual = false;
+				if (fonte.isEmpty())
+					fonte = t.fonte;
+				else if (t.fonte != fonte)
+					fonteIgual = false;
+			}
+		const bool temaNegrito = o.papel == Papel::Titulo && d.tema.tituloNegrito;
+		if (algum && fonteIgual && !fonte.isEmpty() && fonte != fonteTema)
+			o.fonte = fonte;
+		for (Paragrafo &p : o.pars) {
+			for (Trecho &t : p.trechos) {
+				if (algum && todosNegrito)
+					t.negrito = false;
+				if (algum && todosItalico)
+					t.italico = false;
+				if (algum && corIgual && corTodos.isValid() && !o.cor.isValid())
+					t.cor = QColor();
+				if (t.fonte == fonteTema || (!o.fonte.isEmpty() && t.fonte == o.fonte))
+					t.fonte.clear();
+			}
+			// Junta os trechos seguidos com a mesma letra.
+			std::vector<Trecho> j;
+			for (const Trecho &t : p.trechos) {
+				if (!j.empty()) {
+					Trecho &u = j.back();
+					if (u.negrito == t.negrito && u.italico == t.italico && u.sublinhado == t.sublinhado && u.cor == t.cor &&
+					    std::fabs(u.tamanho - t.tamanho) < 0.01 && u.fonte == t.fonte) {
+						u.texto += t.texto;
+						continue;
+					}
+				}
+				if (!t.texto.isEmpty())
+					j.push_back(t);
+			}
+			// Um parágrafo vazio guarda o tamanho num trecho vazio.
+			if (j.empty() && !p.trechos.empty()) {
+				Trecho t;
+				t.tamanho = p.trechos.front().tamanho;
+				if (std::fabs(t.tamanho - o.tamanho) < 0.01)
+					t.tamanho = 0;
+				if (t.tamanho > 0)
+					j.push_back(t);
+			}
+			p.trechos = j;
+		}
+		if (algum && corIgual && corTodos.isValid() && !o.cor.isValid())
+			o.cor = corTodos;
+		if (algum && todosNegrito && !temaNegrito)
+			o.negrito = true;
+		if (algum && todosItalico)
+			o.italico = true;
+	};
 	for (Slide &s : d.slides)
 		for (Objeto &o : s.objs) {
-			if (!o.aceitaTexto())
-				continue;
-			// O tamanho do objeto: o do primeiro trecho com texto.
-			[&] {
-				for (const Paragrafo &p : o.pars)
-					for (const Trecho &t : p.trechos)
-						if (!t.texto.trimmed().isEmpty() && t.tamanho > 0) {
-							o.tamanho = t.tamanho;
-							return;
-						}
-			}();
-			Objeto semCor = o;
-			semCor.cor = QColor();
-			const QColor tema = corTexto(d, semCor);
-			const QString fonteTema = o.papel == Papel::Titulo ? d.tema.fonteTitulo : d.tema.fonteTexto;
-			bool todosNegrito = true, todosItalico = true, algum = false;
-			QString fonte;
-			bool fonteIgual = true, corIgual = true;
-			QColor corTodos;
-			for (Paragrafo &p : o.pars)
-				for (Trecho &t : p.trechos) {
-					if (t.cor.isValid() && t.cor == tema)
-						t.cor = QColor();
-					if (std::fabs(t.tamanho - o.tamanho) < 0.01)
-						t.tamanho = 0;
-					if (t.texto.trimmed().isEmpty())
-						continue;
-					algum = true;
-					todosNegrito = todosNegrito && t.negrito;
-					todosItalico = todosItalico && t.italico;
-					if (!corTodos.isValid() && corIgual)
-						corTodos = t.cor;
-					if (t.cor != corTodos)
-						corIgual = false;
-					if (fonte.isEmpty())
-						fonte = t.fonte;
-					else if (t.fonte != fonte)
-						fonteIgual = false;
-				}
-			const bool temaNegrito = o.papel == Papel::Titulo && d.tema.tituloNegrito;
-			if (algum && fonteIgual && !fonte.isEmpty() && fonte != fonteTema)
-				o.fonte = fonte;
-			for (Paragrafo &p : o.pars) {
-				for (Trecho &t : p.trechos) {
-					if (algum && todosNegrito)
-						t.negrito = false;
-					if (algum && todosItalico)
-						t.italico = false;
-					if (algum && corIgual && corTodos.isValid() && !o.cor.isValid())
-						t.cor = QColor();
-					if (t.fonte == fonteTema || (!o.fonte.isEmpty() && t.fonte == o.fonte))
-						t.fonte.clear();
-				}
-				// Junta os trechos seguidos com a mesma letra.
-				std::vector<Trecho> j;
-				for (const Trecho &t : p.trechos) {
-					if (!j.empty()) {
-						Trecho &u = j.back();
-						if (u.negrito == t.negrito && u.italico == t.italico && u.sublinhado == t.sublinhado && u.cor == t.cor &&
-						    std::fabs(u.tamanho - t.tamanho) < 0.01 && u.fonte == t.fonte) {
-							u.texto += t.texto;
-							continue;
+			if (o.tipo == Tipo::Tabela) {
+				// Uma tabela que veio sem dizer se tem cabeçalho e faixas (o
+				// LibreOffice não guarda), mas com as cores do tema nessa ordem.
+				if (!o.cabecalho && !o.faixas)
+					for (const auto &[cab, fx] : {std::pair{true, true}, std::pair{true, false}}) {
+						Objeto t = o;
+						t.cabecalho = cab;
+						t.faixas = fx;
+						bool igual = true;
+						for (int l = 0; l < t.lins && igual; l++)
+							for (int c = 0; c < t.cols && igual; c++) {
+								const QColor a = t.celula(l, c).preench, b = fundoDaCelula(d, t, l);
+								igual = a.isValid() == b.isValid() && (!a.isValid() || a.rgb() == b.rgb());
+							}
+						if (igual) {
+							o.cabecalho = cab;
+							o.faixas = fx;
+							break;
 						}
 					}
-					if (!t.texto.isEmpty())
-						j.push_back(t);
+				// As células: o fundo igual ao do tema volta a ser "o do tema".
+				for (int l = 0; l < o.lins; l++)
+					for (int c = 0; c < o.cols && size_t(l * o.cols + c) < o.cel.size(); c++) {
+						Objeto &x = o.celula(l, c);
+						const QColor f = fundoDaCelula(d, o, l);
+						if (x.preench.isValid() && f.isValid() && x.preench.rgb() == f.rgb())
+							x.preench = QColor();
+						else if (x.preench.isValid() && !f.isValid() && x.preench.rgb() == fundoDe(d, s).rgb())
+							x.preench = QColor();
+					}
+				// O fio na cor do tema é o fio do tema (o LibreOffice muda a espessura).
+				if (o.borda.isValid() && o.borda.rgb() == d.tema.apagado.rgb() && o.espBorda > 0.3 && o.espBorda < 1.6)
+					o.borda = QColor();
+				// A altura das linhas com o texto (como na tela).
+				arrumarTabela(d, o);
+				for (Objeto &c : o.cel) {
+					arrumarTexto(c);
+					c.fundoCel = QColor();
 				}
-				// Um parágrafo vazio guarda o tamanho num trecho vazio.
-				if (j.empty() && !p.trechos.empty()) {
-					Trecho t;
-					t.tamanho = p.trechos.front().tamanho;
-					if (std::fabs(t.tamanho - o.tamanho) < 0.01)
-						t.tamanho = 0;
-					if (t.tamanho > 0)
-						j.push_back(t);
-				}
-				p.trechos = j;
+				continue;
 			}
-			if (algum && corIgual && corTodos.isValid() && !o.cor.isValid())
-				o.cor = corTodos;
-			if (algum && todosNegrito && !temaNegrito)
-				o.negrito = true;
-			if (algum && todosItalico)
-				o.italico = true;
+			// A capa escura que o .pptx leva quando o vídeo não tem capa.
+			if (o.tipo == Tipo::Video && !o.capa.isEmpty()) {
+				const QImage img = imagemDe(d, o.capa);
+				bool lisa = img.size() == QSize(320, 180);
+				for (int y = 0; lisa && y < img.height(); y += 30)
+					for (int x = 0; lisa && x < img.width(); x += 40)
+						lisa = img.pixelColor(x, y).rgb() == QColor(0x1c, 0x1b, 0x19).rgb();
+				if (lisa)
+					o.capa.clear();
+			}
+			if (o.aceitaTexto())
+				arrumarTexto(o);
 		}
 	d.limparMidias();
 }
@@ -252,6 +305,8 @@ inline QString nomeTipo(const Objeto &o)
 	case Tipo::Linha: return "linha";
 	case Tipo::Imagem: return "imagem";
 	case Tipo::Grafico: return "gráfico";
+	case Tipo::Tabela: return "tabela";
+	case Tipo::Video: return "vídeo";
 	}
 	return {};
 }
@@ -270,19 +325,25 @@ inline QString nomePapel(Papel p)
 inline QString resumo(const Doc &d)
 {
 	QString r;
-	int imagens = 0, graficos = 0;
+	int imagens = 0, graficos = 0, tabelas = 0, videos = 0, anims = 0;
 	for (const Slide &s : d.slides)
 		for (const Objeto &o : s.objs) {
 			imagens += o.tipo == Tipo::Imagem;
 			graficos += o.tipo == Tipo::Grafico;
+			tabelas += o.tipo == Tipo::Tabela;
+			videos += o.tipo == Tipo::Video;
+			anims += o.entrada.tem() + o.saida.tem();
 		}
-	r += QString("palco %1x%2, tema %3, %4 slides, %5 imagens, %6 gráficos\n")
+	r += QString("palco %1x%2, tema %3, %4 slides, %5 imagens, %6 gráficos, %7 tabelas, %8 vídeos, %9 animações\n")
 	         .arg(std::lround(d.larg))
 	         .arg(std::lround(d.alt))
 	         .arg(d.tema.nome)
 	         .arg(d.slides.size())
 	         .arg(imagens)
-	         .arg(graficos);
+	         .arg(graficos)
+	         .arg(tabelas)
+	         .arg(videos)
+	         .arg(anims);
 	auto rr = [](const QRectF &q) {
 		return QString("%1,%2 %3x%4").arg(std::lround(q.x())).arg(std::lround(q.y())).arg(std::lround(q.width())).arg(std::lround(q.height()));
 	};
@@ -351,8 +412,60 @@ inline QString resumo(const Doc &d)
 					}
 					r += pl + "\n";
 				}
+			} else if (o.tipo == Tipo::Tabela) {
+				l += QString(" %1x%2").arg(o.lins).arg(o.cols);
+				if (o.cabecalho) l += " cabeçalho";
+				if (o.faixas) l += " faixas";
+				QStringList ws;
+				for (double w : o.largs)
+					ws << QString::number(std::lround(w));
+				l += " colunas " + ws.join('/');
+				r += l + "\n";
+				for (int li = 0; li < o.lins; li++) {
+					QStringList cs;
+					for (int c = 0; c < o.cols; c++) {
+						const Objeto &x = o.celula(li, c);
+						QString t = x.texto().replace('\n', "↵");
+						QStringList m;
+						if (!x.pars.empty() && x.pars.front().alin == 1) m << "centro";
+						if (!x.pars.empty() && x.pars.front().alin == 2) m << "direita";
+						if (x.negrito) m << "n";
+						if (x.italico) m << "i";
+						if (x.cor.isValid()) m << x.cor.name();
+						if (x.preench.isValid()) m << "fundo " + x.preench.name();
+						if (std::fabs(x.tamanho - o.tamanho) > 0.01) m << QString::number(x.tamanho, 'g', 4) + "pt";
+						if (x.vAlin != 1) m << (x.vAlin == 0 ? "topo" : "base");
+						cs << (m.isEmpty() ? t : "{" + m.join(',') + ":" + t + "}");
+					}
+					r += "    | " + cs.join(" | ") + "\n";
+				}
+			} else if (o.tipo == Tipo::Video) {
+				l += QString(" %1 (%2 KB)").arg(QFileInfo(o.midia).suffix()).arg(d.midias.value(o.midia).size() / 1024);
+				if (!o.capa.isEmpty()) {
+					const QImage img = imagemDe(d, o.capa);
+					l += QString(" capa %1x%2").arg(img.width()).arg(img.height());
+				}
+				if (o.sozinho) l += " sozinho";
+				if (o.repetir) l += " repetir";
+				if (o.mudo) l += " mudo";
+				r += l + "\n";
 			} else
 				r += l + "\n";
+			for (const Animacao *a : {&o.entrada, &o.saida}) {
+				if (!a->tem())
+					continue;
+				static const char *dirs[] = {"de baixo", "da esquerda", "da direita", "de cima"};
+				static const char *ini[] = {"ao clicar", "com a anterior", "depois da anterior"};
+				QString x = QString("    %1 #%2: %3").arg(a == &o.entrada ? "entra" : "sai").arg(a->ordem).arg(nomesEfeito().value(int(a->ef)).toLower());
+				if (a->ef == Efeito::Voar || a->ef == Efeito::Revelar)
+					x += QString(" ") + dirs[std::clamp(a->dir, 0, 3)];
+				if (a->porParagrafo)
+					x += " por parágrafo";
+				x += QString(", %1").arg(ini[std::clamp(a->inicio, 0, 2)]);
+				if (a->ef != Efeito::Aparecer)
+					x += ", " + QString::number(a->dur, 'g', 3) + "s";
+				r += x + "\n";
+			}
 		}
 		if (!s.notas.trimmed().isEmpty())
 			r += "  notas: " + QString(s.notas).replace('\n', " / ") + "\n";

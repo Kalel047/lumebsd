@@ -3,12 +3,15 @@
 // lume-palco: o .odp (OpenDocument, o do Impress do LibreOffice). Como no
 // .pptx, cada caixa leva a posição, a letra e a cor por extenso. Os lugares
 // do título e dos tópicos vão com presentation:class, para o Impress
-// reconhecer; o gráfico vai como imagem com os dados na descrição.
+// reconhecer; o gráfico vai como objeto de gráfico (com a tabela de dados),
+// a tabela como table:table, o vídeo como draw:plugin e as animações como
+// as do Impress (anim:par, com os parágrafos marcados por xml:id).
 //
 // O leitor resolve os estilos (automáticos, comuns e os do mestre, com a
 // herança de parent-style-name), as listas aninhadas, as formas, as imagens,
-// os grupos, os enfeites do mestre, o fundo, as transições, as notas e os
-// gráficos embutidos do LibreOffice (a tabela de dados do objeto).
+// os grupos, os enfeites do mestre, o fundo, as transições, as notas, os
+// gráficos embutidos do LibreOffice (a tabela de dados do objeto), as
+// tabelas, os vídeos e as animações.
 
 #pragma once
 
@@ -42,7 +45,8 @@ inline double ptDe(const QString &s)
 	"xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" " \
 	"xmlns:xlink=\"http://www.w3.org/1999/xlink\" xmlns:presentation=\"urn:oasis:names:tc:opendocument:xmlns:presentation:1.0\" " \
 	"xmlns:smil=\"urn:oasis:names:tc:opendocument:xmlns:smil-compatible:1.0\" xmlns:anim=\"urn:oasis:names:tc:opendocument:xmlns:animation:1.0\" " \
-	"xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
+	"xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" " \
+	"xmlns:loext=\"urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0\""
 
 class EscritorOdp
 {
@@ -66,8 +70,9 @@ public:
 		                              "<office:meta><meta:generator>LumeBSD Palco</meta:generator><dc:title>%1</dc:title><dc:creator>%2</dc:creator>"
 		                              "<meta:user-defined meta:name=\"lume-tema\">%3</meta:user-defined>"
 		                              "<meta:user-defined meta:name=\"lume-leiautes\">%4</meta:user-defined>"
-		                              "<meta:user-defined meta:name=\"lume-tema-nome\">%5</meta:user-defined></office:meta></office:document-meta>")
-		                          .arg(esc(d_.titulo), esc(d_.autor), esc(d_.tema.id), leiautesTexto(), esc(d_.tema.nome))
+		                              "<meta:user-defined meta:name=\"lume-tema-nome\">%5</meta:user-defined>"
+		                              "<meta:user-defined meta:name=\"lume-tema-cores\">%6</meta:user-defined></office:meta></office:document-meta>")
+		                          .arg(esc(d_.titulo), esc(d_.autor), esc(d_.tema.id), leiautesTexto(), esc(d_.tema.nome), coresTema())
 		                          .toUtf8());
 		QString man = CAB "<manifest:manifest xmlns:manifest=\"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0\" manifest:version=\"1.3\">"
 		                  "<manifest:file-entry manifest:full-path=\"/\" manifest:version=\"1.3\" manifest:media-type=\"application/vnd.oasis.opendocument.presentation\"/>"
@@ -75,9 +80,14 @@ public:
 		                  "<manifest:file-entry manifest:full-path=\"styles.xml\" manifest:media-type=\"text/xml\"/>"
 		                  "<manifest:file-entry manifest:full-path=\"meta.xml\" manifest:media-type=\"text/xml\"/>";
 		for (auto it = midias_.cbegin(); it != midias_.cend(); ++it) {
-			man += "<manifest:file-entry manifest:full-path=\"Pictures/" + esc(it.key()) + "\" manifest:media-type=\"" +
+			man += "<manifest:file-entry manifest:full-path=\"" + esc(caminho(it.key())) + "\" manifest:media-type=\"" +
 			       mimeDe(QFileInfo(it.key()).suffix()) + "\"/>";
-			z.add("Pictures/" + it.key(), it.value(), false);
+			z.add(caminho(it.key()), it.value(), false);
+		}
+		for (const auto &[nome, dados, mime] : extras_) {
+			man += "<manifest:file-entry manifest:full-path=\"" + esc(nome) + "\" manifest:media-type=\"" + esc(mime) + "\"/>";
+			if (!nome.endsWith('/'))
+				z.add(nome, dados);
 		}
 		man += "</manifest:manifest>";
 		z.add("META-INF/manifest.xml", man.toUtf8());
@@ -85,6 +95,15 @@ public:
 	}
 
 private:
+	// As cores do tema que o .odp não guarda (o destaque e as das séries).
+	QString coresTema() const
+	{
+		QStringList l{d_.tema.destaque.name()};
+		for (const QColor &c : d_.tema.serie)
+			l << c.name();
+		return l.join(',');
+	}
+
 	QString leiautesTexto() const
 	{
 		QStringList l;
@@ -117,12 +136,18 @@ private:
 		QString e = extensaoDe(b, chave);
 		if (e == "jpeg")
 			e = "jpg";
-		const QString nome = QString("imagem%1.%2").arg(midias_.size() + 1).arg(e);
+		const QString nome = QString(mimeDe(e).startsWith("video/") ? "video%1.%2" : "imagem%1.%2").arg(midias_.size() + 1).arg(e);
 		midias_.insert(nome, b);
 		return nome;
 	}
 
 	static QString corOdf(const QColor &c) { return c.name(); }
+
+	// Onde a mídia fica no pacote (o vídeo em Media/, como o LibreOffice).
+	static QString caminho(const QString &nome)
+	{
+		return (mimeDe(QFileInfo(nome).suffix().toLower()).startsWith("video/") ? "Media/" : "Pictures/") + nome;
+	}
 
 	QString propsGraficas(const Objeto &o) const
 	{
@@ -173,7 +198,9 @@ private:
 		Trecho primeiroT = p.trechos.empty() ? Trecho() : p.trechos.front();
 		primeiroT.texto.clear();
 		const QString P = estilo("P", "paragraph", pp + propsTexto(d_, o, primeiroT));
-		QString s = "<text:p text:style-name=\"" + P + "\">";
+		const QString pid = parPos_ < parIds_.size() ? parIds_[parPos_] : QString();
+		parPos_++;
+		QString s = "<text:p text:style-name=\"" + P + "\"" + (pid.isEmpty() ? QString() : " xml:id=\"" + pid + "\" text:id=\"" + pid + "\"") + ">";
 		for (const Trecho &t : p.trechos) {
 			if (t.texto.isEmpty())
 				continue;
@@ -294,13 +321,45 @@ private:
 	QString objeto(const Objeto &o)
 	{
 		const QString camada = " draw:layer=\"layout\"";
-		if (o.tipo == Tipo::Imagem || o.tipo == Tipo::Grafico) {
+		if (o.tipo == Tipo::Grafico) {
+			// O gráfico do LibreOffice (um objeto embutido, com a tabela de
+			// dados dentro) e a imagem dele para quem não abre o objeto.
+			const QString obj = QString("Object %1").arg(++objetos_);
+			extras_.push_back({obj + "/content.xml", graficoOdf(o).toUtf8(), "text/xml"});
+			extras_.push_back({obj + "/styles.xml", QByteArray(CAB "<office:document-styles xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" office:version=\"1.3\"/>"), "text/xml"});
+			extras_.push_back({obj + "/", QByteArray(), "application/vnd.oasis.opendocument.chart"});
+			extras_.push_back({"ObjectReplacements/" + obj, pngDoGrafico(d_, o), "image/png"});
+			Objeto semTexto = o;
+			semTexto.borda = QColor();
+			const QString gr = estilo("gr", "graphic", propsGraficas(semTexto), "standard");
+			return "<draw:frame draw:style-name=\"" + gr + "\"" + camada + posicao(o) + (o.nome.isEmpty() ? QString() : " draw:name=\"" + esc(o.nome) + "\"") +
+			       "><draw:object xlink:href=\"./" + obj + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"/>"
+			       "<draw:image xlink:href=\"./ObjectReplacements/" + obj + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"/></draw:frame>";
+		}
+		if (o.tipo == Tipo::Tabela)
+			return tabelaOdf(o, camada);
+		if (o.tipo == Tipo::Video) {
+			const QByteArray v = d_.midias.value(o.midia);
+			if (v.isEmpty())
+				return {};
+			const QString nome = nomeMidia(v, o.midia);
+			const QString gr = estilo("gr", "graphic", propsGraficas(o), "standard");
+			QString s = "<draw:frame draw:style-name=\"" + gr + "\"" + camada + posicao(o) + (o.nome.isEmpty() ? QString() : " draw:name=\"" + esc(o.nome) + "\"") +
+			            "><draw:plugin xlink:href=\"" + esc(caminho(nome)) + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\" draw:mime-type=\"" +
+			            mimeDe(QFileInfo(nome).suffix()) + "\">";
+			s += QString("<draw:param draw:name=\"Loop\" draw:value=\"%1\"/><draw:param draw:name=\"Mute\" draw:value=\"%2\"/>"
+			             "<draw:param draw:name=\"VolumeDB\" draw:value=\"0\"/><draw:param draw:name=\"Zoom\" draw:value=\"fit\"/>")
+			         .arg(o.repetir ? "true" : "false", o.mudo ? "true" : "false");
+			s += "</draw:plugin>";
+			const QByteArray capa = d_.midias.value(o.capa);
+			if (!capa.isEmpty())
+				s += "<draw:image xlink:href=\"Pictures/" + esc(nomeMidia(capa, o.capa)) + "\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"/>";
+			return s + "</draw:frame>";
+		}
+		if (o.tipo == Tipo::Imagem) {
 			QByteArray b;
 			QString desc;
-			if (o.tipo == Tipo::Grafico) {
-				b = pngDoGrafico(d_, o);
-				desc = gravarDados(o.graf);
-			} else {
+			{
 				b = d_.midias.value(o.midia);
 				// O recorte vai aplicado (o ODF mede o recorte em comprimento da imagem original).
 				if (o.recorte != QRectF(0, 0, 1, 1)) {
@@ -364,6 +423,260 @@ private:
 		return s + "</draw:custom-shape>";
 	}
 
+	// --- o gráfico (um objeto do LibreOffice) ------------------------------
+
+	QString graficoOdf(const Objeto &o)
+	{
+		const DadosGrafico &g = o.graf;
+		const double letra = std::clamp(std::min(o.r.width(), o.r.height()) / 22, 9.0, 20.0);
+		const bool pizza = g.tipo == TipoGrafico::Pizza;
+		const int nS = pizza ? std::min<int>(1, int(g.series.size())) : int(g.series.size());
+		const int nC = int(g.categorias.size());
+		auto cor = [&](int i) { return d_.tema.serie.empty() ? d_.tema.texto : d_.tema.serie[size_t(i) % d_.tema.serie.size()]; };
+		auto txt = [&](double k, const QColor &c) {
+			return QString("<style:text-properties fo:font-size=\"%1pt\" fo:font-family=\"%2\" fo:color=\"%3\"/>")
+			    .arg(QString::number(letra * k, 'f', 1), esc(familiaCss(d_.tema.fonteTexto)), c.name());
+		};
+		QString est, corpo;
+		int n = 0;
+		auto st = [&](const QString &dentro, const QString &atr = QString()) {
+			const QString nome = QString("ch%1").arg(++n);
+			est += "<style:style style:name=\"" + nome + "\" style:family=\"chart\"" + atr + ">" + dentro + "</style:style>";
+			return nome;
+		};
+		// A porcentagem da pizza: sem casa decimal quando é inteira.
+		est += "<number:percentage-style style:name=\"P0\"><number:number number:decimal-places=\"0\" number:min-decimal-places=\"0\" "
+		       "number:min-integer-digits=\"1\"/><number:text>%</number:text></number:percentage-style>"
+		       "<number:percentage-style style:name=\"P1\"><number:number number:decimal-places=\"1\" number:min-decimal-places=\"1\" "
+		       "number:min-integer-digits=\"1\"/><number:text>%</number:text></number:percentage-style>";
+		double total = 0;
+		if (pizza && !g.valores.empty())
+			for (double v : g.valores[0])
+				total += std::max(0.0, v);
+		const QString cls = g.tipo == TipoGrafico::Linhas ? "chart:line" : pizza ? "chart:circle" : "chart:bar";
+		const QString fundo = o.preench.isValid() ? "draw:fill=\"solid\" draw:fill-color=\"" + o.preench.name() + "\"" : QString("draw:fill=\"none\"");
+		corpo += "<chart:chart svg:width=\"" + cmDe(o.r.width()) + "\" svg:height=\"" + cmDe(o.r.height()) + "\" chart:class=\"" + cls +
+		         "\" chart:style-name=\"" + st("<style:graphic-properties draw:stroke=\"none\" " + fundo + "/>") + "\">";
+		if (!g.titulo.isEmpty())
+			corpo += "<chart:title chart:style-name=\"" + st(txt(1.25, d_.tema.texto)) + "\"><text:p>" + esc(g.titulo) + "</text:p></chart:title>";
+		if (g.legenda)
+			corpo += "<chart:legend chart:legend-position=\"bottom\" style:legend-expansion=\"wide\" chart:style-name=\"" +
+			         st("<style:graphic-properties draw:stroke=\"none\" draw:fill=\"none\"/>" + txt(0.95, d_.tema.texto)) + "\"/>";
+		corpo += QString("<chart:plot-area chart:data-source-has-labels=\"both\" chart:style-name=\"%1\">")
+		             .arg(st(QString("<style:chart-properties chart:vertical=\"%1\"/>").arg(g.tipo == TipoGrafico::Barras ? "true" : "false")));
+		const QString fimCat = QString::number(nC + 1);
+		if (!pizza) {
+			corpo += "<chart:axis chart:dimension=\"x\" chart:name=\"primary-x\" chart:style-name=\"" +
+			         st(QString("<style:chart-properties chart:display-label=\"true\" chart:tick-marks-major-inner=\"false\" chart:tick-marks-major-outer=\"false\" "
+			                    "chart:reverse-direction=\"%1\" chart:axis-label-position=\"outside-start\"/><style:graphic-properties svg:stroke-color=\"%2\"/>")
+			                .arg(g.tipo == TipoGrafico::Barras ? "true" : "false", d_.tema.texto.name()) +
+			            txt(0.9, d_.tema.apagado)) +
+			         "\"><chart:categories table:cell-range-address=\"local-table.$A$2:.$A$" + fimCat + "\"/></chart:axis>";
+			corpo += "<chart:axis chart:dimension=\"y\" chart:name=\"primary-y\" chart:style-name=\"" +
+			         st("<style:chart-properties chart:display-label=\"true\" chart:tick-marks-major-inner=\"false\" chart:tick-marks-major-outer=\"false\"" +
+			            QString(g.tipo == TipoGrafico::Linhas ? "" : " chart:gap-width=\"60\" chart:overlap=\"-10\"") +
+			            "/><style:graphic-properties draw:stroke=\"none\"/>" + txt(0.9, d_.tema.apagado)) +
+			         "\"><chart:grid chart:class=\"major\" chart:style-name=\"" +
+			         st("<style:graphic-properties svg:stroke-color=\"" + d_.tema.apagado.name() + "\" svg:stroke-opacity=\"28%\"/>") + "\"/></chart:axis>";
+		} else
+			corpo += "<chart:axis chart:dimension=\"x\" chart:name=\"primary-x\"><chart:categories table:cell-range-address=\"local-table.$A$2:.$A$" + fimCat +
+			         "\"/></chart:axis><chart:axis chart:dimension=\"y\" chart:name=\"primary-y\" chart:style-name=\"" +
+			         st("<style:chart-properties chart:reverse-direction=\"true\"/>") + "\"/>";
+		for (int k = 0; k < nS; k++) {
+			const QString col = colunaExcel(k + 1);
+			QString ser;
+			if (g.tipo == TipoGrafico::Linhas)
+				ser = QString("<style:chart-properties chart:symbol-type=\"named-symbol\" chart:symbol-name=\"circle\" chart:symbol-width=\"0.15cm\" chart:symbol-height=\"0.15cm\"/>"
+				              "<style:graphic-properties svg:stroke-width=\"%1\" svg:stroke-color=\"%2\" draw:fill-color=\"%2\"/>")
+				          .arg(cmDe(std::max(2.0, letra * 0.22)), cor(k).name());
+			else if (pizza)
+				ser = "<style:chart-properties chart:link-data-style-to-source=\"false\" chart:data-label-number=\"percentage\" chart:label-position=\"center\"/>"
+				      "<style:graphic-properties draw:stroke=\"solid\" svg:stroke-color=\"" + fundoDe(d_, Slide()).name() + "\" svg:stroke-width=\"0.053cm\"/>" + txt(0.95, QColor(0xff, 0xff, 0xff));
+			else
+				ser = "<style:graphic-properties draw:stroke=\"none\" draw:fill-color=\"" + cor(k).name() + "\"/>";
+			corpo += "<chart:series chart:style-name=\"" + st(ser) + "\" chart:values-cell-range-address=\"local-table.$" + col + "$2:.$" + col + "$" + fimCat +
+			         "\" chart:label-cell-address=\"local-table.$" + col + "$1\" chart:class=\"" + cls + "\">";
+			if (pizza)
+				for (int c = 0; c < nC; c++)
+					corpo += "<chart:data-point chart:style-name=\"" +
+					         st("<style:chart-properties chart:link-data-style-to-source=\"false\" chart:data-label-number=\"percentage\" chart:label-position=\"center\"/>"
+					            "<style:graphic-properties draw:fill=\"solid\" draw:fill-color=\"" + cor(c).name() + "\" draw:stroke=\"solid\" svg:stroke-color=\"" +
+					            fundoDe(d_, Slide()).name() + "\" svg:stroke-width=\"0.053cm\"/>" +
+					            txt(0.95, cor(c).lightness() < 150 ? QColor(0xff, 0xff, 0xff) : QColor(0x1c, 0x1b, 0x19)),
+					            [&] {
+						            const double v = g.valores.empty() || c >= int(g.valores[0].size()) ? 0 : g.valores[0][size_t(c)];
+						            const double pc = total > 0 ? std::max(0.0, v) / total * 100 : 0;
+						            return QString(" style:percentage-data-style-name=\"%1\"").arg(std::fabs(pc - std::round(pc)) < 0.05 ? "P0" : "P1");
+					            }()) +
+					         "\"/>";
+			else
+				corpo += QString("<chart:data-point chart:repeated=\"%1\"/>").arg(std::max(1, nC));
+			corpo += "</chart:series>";
+		}
+		corpo += "<chart:wall chart:style-name=\"" + st("<style:graphic-properties draw:stroke=\"none\" draw:fill=\"none\"/>") + "\"/></chart:plot-area>";
+		// A tabela de dados.
+		auto cel = [](const QString &t) { return "<table:table-cell office:value-type=\"string\"><text:p>" + esc(t) + "</text:p></table:table-cell>"; };
+		corpo += "<table:table table:name=\"local-table\"><table:table-header-columns><table:table-column/></table:table-header-columns>"
+		         "<table:table-columns><table:table-column table:number-columns-repeated=\"" + QString::number(std::max(1, nS)) + "\"/></table:table-columns>"
+		         "<table:table-header-rows><table:table-row><table:table-cell><text:p/></table:table-cell>";
+		for (int k = 0; k < nS; k++)
+			corpo += cel(g.series[k]);
+		corpo += "</table:table-row></table:table-header-rows><table:table-rows>";
+		for (int c = 0; c < nC; c++) {
+			corpo += "<table:table-row>" + cel(g.categorias[c]);
+			for (int k = 0; k < nS; k++) {
+				const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
+				const QString x = QString::number(v, 'g', 15);
+				corpo += "<table:table-cell office:value-type=\"float\" office:value=\"" + x + "\"><text:p>" + x + "</text:p></table:table-cell>";
+			}
+			corpo += "</table:table-row>";
+		}
+		corpo += "</table:table-rows></table:table></chart:chart>";
+		return CAB "<office:document-content xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" "
+		           "xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" "
+		           "xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" xmlns:draw=\"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0\" "
+		           "xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" "
+		           "xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" xmlns:chart=\"urn:oasis:names:tc:opendocument:xmlns:chart:1.0\" "
+		           "xmlns:number=\"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0\" office:version=\"1.3\"><office:automatic-styles>" +
+		       est + "</office:automatic-styles><office:body><office:chart>" + corpo + "</office:chart></office:body></office:document-content>";
+	}
+
+	// --- a tabela ----------------------------------------------------------
+
+	QString tabelaOdf(const Objeto &t0, const QString &camada)
+	{
+		Objeto t = t0;
+		arrumarTabela(d_, t);
+		const QColor fio = t.borda.isValid() && t.espBorda > 0 ? t.borda : d_.tema.apagado;
+		const double esp = t.borda.isValid() && t.espBorda > 0 ? t.espBorda : 0.75;
+		const QString gr = estilo("gr", "graphic", "<style:graphic-properties draw:stroke=\"none\" draw:fill=\"none\"/>", "standard");
+		QString s = "<draw:frame draw:style-name=\"" + gr + "\"" + camada + posicao(t) + (t.nome.isEmpty() ? QString() : " draw:name=\"" + esc(t.nome) + "\"") + ">";
+		s += QString("<table:table table:use-first-row-styles=\"%1\" table:use-banding-rows-styles=\"%2\">").arg(t.cabecalho ? "true" : "false", t.faixas ? "true" : "false");
+		for (double w : t.largs)
+			s += "<table:table-column table:style-name=\"" +
+			     estilo("co", "table-column", "<style:table-column-properties style:column-width=\"" + cmDe(w) + "\" style:use-optimal-column-width=\"false\"/>") + "\"/>";
+		for (int l = 0; l < t.lins; l++) {
+			s += "<table:table-row table:style-name=\"" +
+			     estilo("ro", "table-row", "<style:table-row-properties style:row-height=\"" + cmDe(t.celula(l, 0).r.height()) +
+			                                   "\" style:use-optimal-row-height=\"false\"/>") +
+			     "\">";
+			for (int c = 0; c < t.cols; c++) {
+				const Objeto &x = t.celula(l, c);
+				const QString fill = x.fundoCel.isValid() ? "draw:fill=\"solid\" draw:fill-color=\"" + x.fundoCel.name() + "\"" : QString("draw:fill=\"none\"");
+				const QString ce = estilo("ce", "table-cell",
+				                          "<loext:graphic-properties " + fill + " draw:textarea-vertical-align=\"" +
+				                              (x.vAlin == 0 ? "top" : x.vAlin == 2 ? "bottom" : "middle") +
+				                              "\" fo:padding-top=\"0.127cm\" fo:padding-bottom=\"0.127cm\" fo:padding-left=\"0.254cm\" fo:padding-right=\"0.254cm\"/>"
+				                              "<style:paragraph-properties fo:border=\"" + QString::number(esp, 'g', 4) + "pt solid " + fio.name() + "\"/>");
+				s += "<table:table-cell table:style-name=\"" + ce + "\">" + texto(x) + "</table:table-cell>";
+			}
+			s += "</table:table-row>";
+		}
+		return s + "</table:table></draw:frame>";
+	}
+
+	// --- as animações (anim:, como o Impress) ------------------------------
+
+	static QString segundos(double s) { return QString::number(std::max(0.0, s), 'g', 6) + "s"; }
+
+	QString animacoesOdf(const Slide &sl, const std::vector<QString> &ids, const std::vector<std::vector<QString>> &pids) const
+	{
+		const auto grupos = sequencia(sl);
+		QString seq;
+		auto alvoDe = [&](const Evento &e) -> QString {
+			if (e.par >= 0 && size_t(e.obj) < pids.size() && size_t(e.par) < pids[size_t(e.obj)].size() && !pids[size_t(e.obj)][size_t(e.par)].isEmpty())
+				return pids[size_t(e.obj)][size_t(e.par)];
+			return size_t(e.obj) < ids.size() ? ids[size_t(e.obj)] : QString();
+		};
+		// O vídeo que começa sozinho.
+		QString play;
+		for (size_t k = 0; k < sl.objs.size(); k++)
+			if (sl.objs[k].tipo == Tipo::Video && sl.objs[k].sozinho && !ids[k].isEmpty())
+				play += "<anim:par smil:begin=\"0s\" smil:fill=\"hold\" presentation:node-type=\"with-previous\" presentation:preset-class=\"media-call\" "
+				        "presentation:preset-id=\"ooo-media-start\"><anim:command anim:command=\"play\" smil:targetElement=\"" + ids[k] + "\"/></anim:par>";
+		for (size_t gi = 0; gi < grupos.size(); gi++) {
+			const auto &g = grupos[gi];
+			if (g.empty() && !(gi == 0 && !play.isEmpty()))
+				continue;
+			seq += QString("<anim:par smil:begin=\"%1\" smil:fill=\"hold\">").arg(gi == 0 ? "0s" : "next");
+			if (gi == 0 && !play.isEmpty())
+				seq += "<anim:par smil:begin=\"0s\" smil:fill=\"hold\">" + play + "</anim:par>";
+			std::vector<double> ts;
+			for (const Evento &e : g)
+				if (std::find(ts.begin(), ts.end(), e.t0) == ts.end())
+					ts.push_back(e.t0);
+			bool primeiro = true;
+			for (double t0 : ts) {
+				seq += "<anim:par smil:begin=\"" + segundos(t0) + "\" smil:fill=\"hold\">";
+				for (const Evento &e : g) {
+					if (e.t0 != t0)
+						continue;
+					const QString alvo = alvoDe(e);
+					if (alvo.isEmpty())
+						continue;
+					const QString nodo = primeiro && gi > 0 ? "on-click" : e.a.inicio == 2 ? "after-previous" : "with-previous";
+					primeiro = false;
+					seq += efeitoOdf(e, alvo, nodo);
+				}
+				seq += "</anim:par>";
+			}
+			seq += "</anim:par>";
+		}
+		if (seq.isEmpty())
+			return {};
+		return "<anim:par presentation:node-type=\"timing-root\"><anim:seq presentation:node-type=\"main-sequence\">" + seq + "</anim:seq></anim:par>";
+	}
+
+	static QString efeitoOdf(const Evento &e, const QString &alvo, const QString &nodo)
+	{
+		const Animacao &a = e.a;
+		const bool sai = e.saida;
+		const int dd = a.dir < 0 ? 0 : a.dir > 3 ? 3 : a.dir;
+		static const char *subs[] = {"from-bottom", "from-left", "from-right", "from-top"};
+		QString preset, sub;
+		switch (a.ef) {
+		case Efeito::Aparecer: preset = sai ? "ooo-exit-disappear" : "ooo-entrance-appear"; break;
+		case Efeito::Dissolver: preset = sai ? "ooo-exit-fade-out" : "ooo-entrance-fade-in"; break;
+		case Efeito::Voar: preset = sai ? "ooo-exit-fly-out" : "ooo-entrance-fly-in"; sub = subs[dd]; break;
+		case Efeito::Ampliar: preset = sai ? "ooo-exit-fade-out-and-zoom" : "ooo-entrance-fade-in-and-zoom"; break;
+		case Efeito::Revelar: preset = sai ? "ooo-exit-wipe" : "ooo-entrance-wipe"; sub = subs[dd]; break;
+		default: break;
+		}
+		const QString dur = segundos(a.dur);
+		const QString T = " smil:targetElement=\"" + alvo + "\"";
+		QString s = "<anim:par smil:begin=\"0s\" smil:fill=\"hold\" presentation:node-type=\"" + nodo + "\" presentation:preset-class=\"" +
+		            (sai ? "exit" : "entrance") + "\" presentation:preset-id=\"" + preset + "\"" +
+		            (sub.isEmpty() ? QString() : " presentation:preset-sub-type=\"" + sub + "\"") + ">";
+		if (!sai)
+			s += "<anim:set smil:begin=\"0s\" smil:dur=\"0.001s\" smil:fill=\"hold\"" + T + " smil:attributeName=\"visibility\" smil:to=\"visible\"/>";
+		const QString modo = sai ? " smil:mode=\"out\"" : QString();
+		if (a.ef == Efeito::Dissolver)
+			s += "<anim:transitionFilter smil:dur=\"" + dur + "\"" + T + " smil:type=\"fade\" smil:subtype=\"crossfade\"" + modo + "/>";
+		else if (a.ef == Efeito::Voar) {
+			const QString fx = dd == 1 ? "0-width/2" : dd == 2 ? "1+width/2" : "x";
+			const QString fy = dd == 0 ? "1+height/2" : dd == 3 ? "0-height/2" : "y";
+			s += "<anim:animate smil:dur=\"" + dur + "\" smil:fill=\"hold\"" + T + " smil:attributeName=\"x\" smil:values=\"" + (sai ? "x;" + fx : fx + ";x") +
+			     "\" smil:keyTimes=\"0;1\"/>";
+			s += "<anim:animate smil:dur=\"" + dur + "\" smil:fill=\"hold\"" + T + " smil:attributeName=\"y\" smil:values=\"" + (sai ? "y;" + fy : fy + ";y") +
+			     "\" smil:keyTimes=\"0;1\"/>";
+		} else if (a.ef == Efeito::Ampliar) {
+			s += "<anim:transitionFilter smil:dur=\"" + dur + "\"" + T + " smil:type=\"fade\" smil:subtype=\"crossfade\"" + modo + "/>";
+			s += "<anim:animate smil:dur=\"" + dur + "\" smil:fill=\"hold\"" + T + " smil:attributeName=\"width\" smil:values=\"" +
+			     (sai ? "width;0" : "0;width") + "\" smil:keyTimes=\"0;1\"/>";
+			s += "<anim:animate smil:dur=\"" + dur + "\" smil:fill=\"hold\"" + T + " smil:attributeName=\"height\" smil:values=\"" +
+			     (sai ? "height;0" : "0;height") + "\" smil:keyTimes=\"0;1\"/>";
+		} else if (a.ef == Efeito::Revelar) {
+			const bool horiz = dd == 1 || dd == 2;
+			const bool rev = dd == 0 || dd == 2;
+			s += "<anim:transitionFilter smil:dur=\"" + dur + "\"" + T + " smil:type=\"barWipe\" smil:subtype=\"" + (horiz ? "leftToRight" : "topToBottom") + "\"" +
+			     (rev ? " smil:direction=\"reverse\"" : "") + modo + "/>";
+		}
+		if (sai)
+			s += "<anim:set smil:begin=\"" + (a.ef == Efeito::Aparecer ? QString("0s") : segundos(a.dur - 0.001)) + "\" smil:dur=\"0.001s\" smil:fill=\"hold\"" + T +
+			     " smil:attributeName=\"visibility\" smil:to=\"hidden\"/>";
+		return s + "</anim:par>";
+	}
+
 	QString pagina(int i)
 	{
 		const Slide &sl = d_.slides[size_t(i)];
@@ -393,8 +706,31 @@ private:
 		dp += "/>";
 		const QString estiloPagina = estilo("dp", "drawing-page", dp);
 		QString s = QString("<draw:page draw:name=\"page%1\" draw:style-name=\"%2\" draw:master-page-name=\"Lume\">").arg(i + 1).arg(estiloPagina);
-		for (const Objeto &o : sl.objs)
-			s += objeto(o);
+		// Os nomes (xml:id) de quem tem animação: o objeto ou cada parágrafo.
+		std::vector<QString> ids(sl.objs.size());
+		std::vector<std::vector<QString>> pids(sl.objs.size());
+		for (size_t k = 0; k < sl.objs.size(); k++) {
+			const Objeto &o = sl.objs[k];
+			if (!o.entrada.tem() && !o.saida.tem() && !(o.tipo == Tipo::Video && o.sozinho))
+				continue;
+			ids[k] = QString("id%1").arg(++ids_);
+			if (o.entrada.porParagrafo && o.aceitaTexto() && o.temTexto())
+				for (const Paragrafo &p : o.pars)
+					pids[k].push_back(p.texto().trimmed().isEmpty() ? QString() : QString("id%1").arg(++ids_));
+		}
+		for (size_t k = 0; k < sl.objs.size(); k++) {
+			parIds_ = QStringList(pids[k].begin(), pids[k].end());
+			parPos_ = 0;
+			QString x = objeto(sl.objs[k]);
+			parIds_.clear();
+			if (!ids[k].isEmpty() && !x.isEmpty()) {
+				const int sp = int(x.indexOf(' '));
+				if (sp > 0)
+					x.insert(sp, " draw:id=\"" + ids[k] + "\" xml:id=\"" + ids[k] + "\"");
+			}
+			s += x;
+		}
+		s += animacoesOdf(sl, ids, pids);
 		if (!sl.notas.trimmed().isEmpty()) {
 			const QString pr = estilo("pr", "presentation", "<style:graphic-properties draw:fill=\"none\" draw:stroke=\"none\"/>", "Lume-notes");
 			s += QString("<presentation:notes><draw:page-thumbnail draw:layer=\"layout\" svg:width=\"14.8cm\" svg:height=\"%1\" svg:x=\"3.1cm\" svg:y=\"2.3cm\" "
@@ -471,6 +807,10 @@ private:
 	QHash<QString, QString> listas_;
 	QMap<QString, QByteArray> midias_;
 	QMap<QString, QString> fundos_;
+	std::vector<std::tuple<QString, QByteArray, QString>> extras_;
+	int objetos_ = 0, ids_ = 0;
+	QStringList parIds_;
+	int parPos_ = 0;
 };
 
 // --- ler -------------------------------------------------------------------
@@ -501,6 +841,7 @@ public:
 		QString idTema;
 		QStringList leiautes;
 		QString nomeTema;
+		QStringList coresTema;
 		if (lerXml(z_.ler("meta.xml"), meta)) {
 			if (const No *t = meta.achar("dc:title"))
 				d.titulo = t->textoTodo();
@@ -514,6 +855,8 @@ public:
 						leiautes = u->textoTodo().trimmed().split(',');
 					else if (u->a("meta:name") == "lume-tema-nome")
 						nomeTema = u->textoTodo().trimmed();
+					else if (u->a("meta:name") == "lume-tema-cores")
+						coresTema = u->textoTodo().trimmed().split(',');
 				}
 		}
 		// Os estilos: os comuns e automáticos dos dois arquivos.
@@ -570,6 +913,13 @@ public:
 					temaDoMestre(*mp, d);
 					if (!nomeTema.isEmpty())
 						d.tema.nome = nomeTema;
+					if (coresTema.size() >= 2 && QColor(coresTema[0]).isValid()) {
+						d.tema.destaque = QColor(coresTema[0]);
+						d.tema.serie.clear();
+						for (int k = 1; k < coresTema.size(); k++)
+							if (QColor(coresTema[k]).isValid())
+								d.tema.serie.push_back(QColor(coresTema[k]));
+					}
 				}
 			}
 			Slide sl;
@@ -814,6 +1164,9 @@ private:
 		}
 		if (c.primeiro < 0)
 			c.primeiro = p.trechos.front().tamanho;
+		const QString pid = tp.a("xml:id", tp.a("text:id"));
+		if (!pid.isEmpty())
+			parPend_.push_back({pid, int(c.o->pars.size())});
 		c.o->pars.push_back(p);
 	}
 
@@ -966,9 +1319,50 @@ private:
 			Objeto o;
 			const std::vector<Fonte> fs = estilosDe(n);
 			o.nome = n.a("draw:name");
+			parPend_.clear();
+			const QString idArq = n.a("xml:id", n.a("draw:id"));
+			auto anota = [&] {
+				if (!idArq.isEmpty())
+					idObj_[idArq] = int(saida.size());
+				for (const auto &[pid, k] : parPend_)
+					idPar_[pid] = {int(saida.size()), k};
+			};
 			if (n.nome == "draw:frame") {
 				if (!posicao(n, o))
 					continue;
+				if (const No *tb = n.filho("table:table")) {
+					if (!tabela(*tb, o, mestre))
+						continue;
+					parPend_.clear();
+					anota();
+					saida.push_back(std::move(o));
+					continue;
+				}
+				if (const No *pl = n.filho("draw:plugin")) {
+					o.tipo = Tipo::Video;
+					o.midia = guardar(pl->a("xlink:href"));
+					if (o.midia.isEmpty())
+						continue;
+					for (const No *pa : pl->todos("draw:param")) {
+						if (pa->a("draw:name") == "Loop") o.repetir = pa->a("draw:value") == "true";
+						if (pa->a("draw:name") == "Mute") o.mudo = pa->a("draw:value") == "true";
+					}
+					if (const No *im = n.filho("draw:image"))
+						o.capa = guardar(im->a("xlink:href"));
+					graficas(fs, o);
+					o.preench = QColor();
+					// A borda só se o próprio estilo do quadro diz (a padrão do
+					// Impress não aparece num vídeo).
+					{
+						const No *st = estilos_.value("graphic|" + n.a("draw:style-name"));
+						const No *gp = st ? st->filho("style:graphic-properties") : nullptr;
+						if (!gp || gp->a("draw:stroke") != "solid")
+							o.borda = QColor();
+					}
+					anota();
+					saida.push_back(std::move(o));
+					continue;
+				}
 				if (classe == "title") o.papel = Papel::Titulo;
 				else if (classe == "subtitle") o.papel = Papel::Subtitulo;
 				else if (classe == "outline") o.papel = corpos++ == 0 ? Papel::Corpo : Papel::Corpo2;
@@ -1049,8 +1443,208 @@ private:
 				}
 			} else
 				continue;
+			anota();
 			saida.push_back(std::move(o));
 		}
+	}
+
+	// Uma tabela do Impress: as colunas, as linhas, o fundo e o texto de cada célula.
+	bool tabela(const No &tb, Objeto &o, const QString &mestre)
+	{
+		std::vector<double> largs;
+		std::vector<QString> padraoCol;
+		for (const No *c : tb.todos("table:table-column")) {
+			const int rep = std::max(1, c->a("table:number-columns-repeated", "1").toInt());
+			const double w = ptDe(prop("table-column", c->a("table:style-name"), "style:table-column-properties", "style:column-width"));
+			for (int k = 0; k < rep && largs.size() < 200; k++) {
+				largs.push_back(w);
+				padraoCol.push_back(c->a("table:default-cell-style-name"));
+			}
+		}
+		std::vector<const No *> linhas;
+		std::function<void(const No &)> junta = [&](const No &x) {
+			for (const No &k : x.filhos) {
+				if (k.nome == "table:table-row")
+					linhas.push_back(&k);
+				else if (k.nome == "table:table-header-rows" || k.nome == "table:table-rows" || k.nome == "table:table-row-group")
+					junta(k);
+			}
+		};
+		junta(tb);
+		if (linhas.empty() || largs.empty())
+			return false;
+		const QRectF r = o.r;
+		const QString nome = o.nome;
+		o = novaTabela(int(linhas.size()), int(largs.size()), r);
+		o.nome = nome;
+		double soma = 0;
+		for (double w : largs) soma += w;
+		for (size_t c = 0; c < largs.size(); c++)
+			o.largs[c] = soma > 0 && largs[c] > 0 ? largs[c] : r.width() / largs.size();
+		o.cabecalho = tb.a("table:use-first-row-styles") == "true";
+		o.faixas = tb.a("table:use-banding-rows-styles") == "true";
+		double tamanho = 0;
+		for (int l = 0; l < o.lins; l++) {
+			const No *lin = linhas[size_t(l)];
+			const QString ro = lin->a("table:style-name");
+			const double h = ptDe(prop("table-row", ro, "style:table-row-properties", "style:row-height"));
+			const double hm = ptDe(prop("table-row", ro, "style:table-row-properties", "style:min-row-height"));
+			o.alts[size_t(l)] = h > 0 ? h : hm > 0 ? hm : r.height() / o.lins;
+			int c = 0;
+			for (const No &cel : lin->filhos) {
+				if (cel.nome != "table:table-cell" && cel.nome != "table:covered-table-cell")
+					continue;
+				const int rep = std::max(1, cel.a("table:number-columns-repeated", "1").toInt());
+				for (int k = 0; k < rep && c < o.cols; k++, c++) {
+					if (cel.nome == "table:covered-table-cell")
+						continue;
+					Objeto &x = o.celula(l, c);
+					QString ce = cel.a("table:style-name");
+					if (ce.isEmpty()) ce = lin->a("table:default-cell-style-name");
+					if (ce.isEmpty() && size_t(c) < padraoCol.size()) ce = padraoCol[size_t(c)];
+					const std::vector<Fonte> fs{{"table-cell", ce}};
+					for (const char *el : {"loext:graphic-properties", "style:graphic-properties", "style:table-cell-properties"})
+						if (auto f = fill(fs, el)) {
+							x.preench = *f;
+							break;
+						}
+					QString va;
+					for (const char *el : {"loext:graphic-properties", "style:graphic-properties"})
+						if (va.isEmpty())
+							va = prop(fs, el, "draw:textarea-vertical-align");
+					if (va.isEmpty())
+						va = prop(fs, "style:table-cell-properties", "style:vertical-align");
+					x.vAlin = va == "top" ? 0 : va == "bottom" ? 2 : 1;
+					if (!o.borda.isValid()) {
+						QString b;
+						for (const char *el : {"style:paragraph-properties", "style:table-cell-properties"})
+							for (const char *at : {"fo:border", "fo:border-top", "fo:border-left"})
+								if (b.isEmpty() || b == "none")
+									b = prop(fs, el, at);
+						static const QRegularExpression rb("([0-9.]+[a-z]+)\\s+\\S+\\s+(#[0-9a-fA-F]{6})");
+						const auto m = rb.match(b);
+						if (m.hasMatch()) {
+							o.borda = QColor(m.captured(2));
+							o.espBorda = ptDe(m.captured(1));
+						}
+					}
+					lerTexto(cel, x, fs, QString(), mestre);
+					if (tamanho <= 0 && x.temTexto())
+						tamanho = x.tamanho;
+				}
+			}
+		}
+		if (tamanho > 0)
+			o.tamanho = tamanho;
+		return true;
+	}
+
+	// As animações da página (a sequência principal do Impress).
+	void animacoes(const No &pg, Slide &sl)
+	{
+		const No *seq = nullptr;
+		std::function<void(const No &)> acha = [&](const No &n) {
+			for (const No &f : n.filhos) {
+				if (seq)
+					return;
+				if (f.nome == "anim:seq" && f.a("presentation:node-type") == "main-sequence") {
+					seq = &f;
+					return;
+				}
+				if (f.nome.startsWith("anim:"))
+					acha(f);
+			}
+		};
+		acha(pg);
+		if (!seq)
+			return;
+		auto segs = [](QString v) {
+			v = v.trimmed();
+			if (v.endsWith("ms")) return v.chopped(2).toDouble() / 1000;
+			if (v.endsWith('s')) v.chop(1);
+			return v.toDouble();
+		};
+		int ordem = 0;
+		std::set<std::pair<int, bool>> feitos;
+		std::function<void(const No &)> efeitos = [&](const No &n) {
+			for (const No &f : n.filhos) {
+				if (f.nome != "anim:par" && f.nome != "anim:seq")
+					continue;
+				const QString classe = f.a("presentation:preset-class");
+				if (classe.isEmpty()) {
+					efeitos(f);
+					continue;
+				}
+				// O alvo: o primeiro com smil:targetElement.
+				QString alvo;
+				std::function<void(const No &)> procura = [&](const No &x) {
+					for (const No &k : x.filhos) {
+						if (!alvo.isEmpty())
+							return;
+						if (k.atr.contains("smil:targetElement"))
+							alvo = k.a("smil:targetElement");
+						else
+							procura(k);
+					}
+				};
+				procura(f);
+				int obj = -1;
+				bool doPar = false;
+				if (idObj_.contains(alvo))
+					obj = idObj_.value(alvo);
+				else if (idPar_.contains(alvo)) {
+					obj = idPar_.value(alvo).first;
+					doPar = true;
+				}
+				if (obj < 0 || obj >= int(sl.objs.size()))
+					continue;
+				const QString nodo = f.a("presentation:node-type");
+				Objeto &o = sl.objs[size_t(obj)];
+				if (classe == "media-call") {
+					if (o.tipo == Tipo::Video && nodo != "on-click")
+						o.sozinho = true;
+					continue;
+				}
+				if (classe != "entrance" && classe != "exit")
+					continue;
+				const bool sai = classe == "exit";
+				if (feitos.count({obj, sai}))
+					continue;
+				feitos.insert({obj, sai});
+				Animacao a;
+				const QString id = f.a("presentation:preset-id");
+				if (id.contains("appear") || id.contains("disappear"))
+					a.ef = Efeito::Aparecer;
+				else if (id.contains("zoom") || id.contains("grow") || id.contains("expand"))
+					a.ef = Efeito::Ampliar;
+				else if (id.contains("fly") || id.contains("ascend") || id.contains("descend") || id.contains("rise"))
+					a.ef = Efeito::Voar;
+				else if (id.contains("wipe") || id.contains("wedge") || id.contains("split"))
+					a.ef = Efeito::Revelar;
+				else
+					a.ef = Efeito::Dissolver;
+				const QString sub = f.a("presentation:preset-sub-type");
+				a.dir = sub == "from-left" ? 1 : sub == "from-right" ? 2 : sub == "from-top" ? 3 : 0;
+				a.inicio = nodo == "with-previous" ? 1 : nodo == "after-previous" ? 2 : 0;
+				a.dur = 0.5;
+				std::function<bool(const No &)> dura = [&](const No &x) {
+					for (const No &k : x.filhos) {
+						if (k.nome != "anim:set" && k.atr.contains("smil:dur") && segs(k.a("smil:dur")) > 0.002) {
+							a.dur = segs(k.a("smil:dur"));
+							return true;
+						}
+						if (dura(k))
+							return true;
+					}
+					return false;
+				};
+				dura(f);
+				a.porParagrafo = doPar && !sai;
+				a.ordem = ordem++;
+				(sai ? o.saida : o.entrada) = a;
+			}
+		};
+		efeitos(*seq);
 	}
 
 	// Um gráfico do LibreOffice: a tabela de dados dentro do objeto.
@@ -1149,7 +1743,10 @@ private:
 		if (mp && pg.a("presentation:background-objects-visible") != "false" && prop(fp, dp, "presentation:background-objects-visible") != "false")
 			objetos(*mp, sl.objs, mestre, true, corpos);
 		corpos = 0;
+		idObj_.clear();
+		idPar_.clear();
 		objetos(pg, sl.objs, mestre, false, corpos);
+		animacoes(pg, sl);
 		sl.layout = inferirLeiaute(sl);
 		if (const No *nt = pg.filho("presentation:notes"))
 			for (const No *fr : nt->todos("draw:frame"))
@@ -1170,4 +1767,8 @@ private:
 	QHash<QString, const No *> estilos_, padroes_, listas_, paginas_, gradientes_;
 	QMap<QString, const No *> mestres_;
 	QHash<QString, QString> imagens_, fontes_;
+	// Os nomes (xml:id) dos objetos e dos parágrafos da página, para as animações.
+	QHash<QString, int> idObj_;
+	QHash<QString, std::pair<int, int>> idPar_;
+	std::vector<std::pair<QString, int>> parPend_;
 };

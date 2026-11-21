@@ -98,7 +98,7 @@ jobs:
           mkdir -p freebsd qt
           curl -sSfL https://download.freebsd.org/releases/amd64/15.1-RELEASE/base.txz |
               bsdtar -xf - -C freebsd ./lib ./usr/lib ./usr/include
-          ferramentas/montar pacotes --sem-dependencias qt qt6-base
+          ferramentas/montar pacotes --sem-dependencias qt qt6-base qt6-multimedia
           ferramentas/montar app --so-compilar freebsd \
               "$(ls qt/qt6-base-[0-9]*.pkg | head -1)" apps
           file apps/*
@@ -148,17 +148,19 @@ jobs:
               -o lume-numeros $(pkg-config --libs Qt6Widgets) -lz
           sh tests/numeros.sh ./lume-numeros numeros-teste
 
-      # O Palco também: os modelos vão e voltam em .pptx e .odp, o PDF sai
+      # O Palco também: os modelos vão e voltam em .pptx e .odp (com os
+      # gráficos de verdade, as tabelas, as animações e o vídeo), o PDF sai
       # com uma página por slide, a edição pelos caminhos da janela dá o
       # esperado, e um .pptx do python-pptx (como os do PowerPoint, com tudo
       # herdado do mestre) é lido.
       - name: Palco (ida e volta)
         if: matrix.base == 'fixado'
         run: |
+          sudo apt-get install -y -q qt6-multimedia-dev
           python3 -m pip install -q --user --break-system-packages python-pptx==1.0.2 || true
           g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
-              $(pkg-config --cflags Qt6Widgets) app/lume-palco/main.cpp \
-              -o lume-palco $(pkg-config --libs Qt6Widgets) -lz
+              $(pkg-config --cflags Qt6Widgets Qt6Multimedia) app/lume-palco/main.cpp \
+              -o lume-palco $(pkg-config --libs Qt6Widgets Qt6Multimedia) -lz
           sh tests/palco.sh ./lume-palco palco-teste
 
       # As contas dos Mercados (sem rede): títulos, correlação, Black-Scholes,

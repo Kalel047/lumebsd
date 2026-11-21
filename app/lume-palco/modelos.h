@@ -92,6 +92,51 @@ public:
 		s.objs.push_back(o);
 		return s.objs.back();
 	}
+	// Uma tabela (linhas separadas por \n, colunas por \t), com as larguras
+	// relativas das colunas e o alinhamento de cada uma.
+	Objeto &tabela(Slide &s, QRectF r, const QString &txt, const std::vector<double> &pesos = {}, const std::vector<int> &alins = {},
+	               double tam = 18)
+	{
+		const QStringList ls = txt.split('\n');
+		Objeto t = novaTabela(int(ls.size()), int(ls.value(0).split('\t').size()), r, tam);
+		if (int(pesos.size()) == t.cols) {
+			double soma = 0;
+			for (double p : pesos) soma += p;
+			for (int c = 0; c < t.cols; c++) t.largs[size_t(c)] = r.width() * pesos[size_t(c)] / soma;
+		}
+		for (int l = 0; l < t.lins; l++)
+			for (int c = 0; c < t.cols; c++) {
+				Objeto &x = t.celula(l, c);
+				x.pars = paragrafos(ls[l].split('\t').value(c), false, c < int(alins.size()) ? alins[size_t(c)] : 0);
+				if (l == 0 && t.cabecalho)
+					x.negrito = true;
+			}
+		t.alts.assign(size_t(t.lins), r.height() / t.lins);
+		s.objs.push_back(t);
+		return s.objs.back();
+	}
+	// A entrada de um objeto (a ordem segue a de quem já tem animação).
+	static void entrar(Slide &s, Objeto &o, Efeito ef, bool porParagrafo = false, int inicio = 0, int dir = 0, double dur = 0.5)
+	{
+		int ordem = 0;
+		for (const Objeto &x : s.objs) {
+			if (x.entrada.tem()) ordem = std::max(ordem, x.entrada.ordem + 1);
+			if (x.saida.tem()) ordem = std::max(ordem, x.saida.ordem + 1);
+		}
+		o.entrada.ef = ef;
+		o.entrada.porParagrafo = porParagrafo;
+		o.entrada.inicio = inicio;
+		o.entrada.dir = dir;
+		o.entrada.dur = dur;
+		o.entrada.ordem = ordem;
+	}
+	static Objeto &corpo(Slide &s, Papel p = Papel::Corpo)
+	{
+		for (Objeto &o : s.objs)
+			if (o.papel == p)
+				return o;
+		return s.objs.back();
+	}
 	double W() const { return d_.larg; }
 	double H() const { return d_.alt; }
 
@@ -112,6 +157,7 @@ inline void montarModelo(Doc &d, const QString &id)
 		s1.notas = "Começar perguntando quem já dividiu uma pizza em partes iguais.";
 		Slide &s2 = r.slide(Layout::TituloConteudo, "Objetivos da aula");
 		r.topicos(s2, "Entender o que uma fração representa\nLer e escrever frações\nReconhecer frações equivalentes\nResolver problemas do dia a dia");
+		Roteiro::entrar(s2, Roteiro::corpo(s2), Efeito::Dissolver, true);
 		s2.transicao = Transicao::Dissolver;
 		Slide &s3 = r.slide(Layout::DuasColunas, "O que é uma fração");
 		r.topicos(s3, "Uma parte de um inteiro dividido em partes iguais\nO denominador diz em quantas partes\n\tembaixo do traço\nO numerador diz quantas partes pegamos\n\tem cima do traço");
@@ -122,7 +168,8 @@ inline void montarModelo(Doc &d, const QString &id)
 		pizza.categorias = QStringList{"Pegamos 3", "Sobraram 5"};
 		pizza.series = QStringList{"Pedaços"};
 		pizza.valores = {{3, 5}};
-		r.grafico(s3, QRectF(W * 0.55, H * 0.27, W * 0.38, H * 0.64), pizza);
+		Objeto &gp = r.grafico(s3, QRectF(W * 0.55, H * 0.27, W * 0.38, H * 0.64), pizza);
+		Roteiro::entrar(s3, gp, Efeito::Ampliar);
 		s3.transicao = Transicao::Dissolver;
 		s3.notas = "Pedir para a turma contar os pedaços em voz alta.";
 		Slide &s4 = r.slide(Layout::SoTitulo, "Frações equivalentes");
@@ -134,15 +181,20 @@ inline void montarModelo(Doc &d, const QString &id)
 			f.tamanho = 54;
 			f.cor = d.tema.fundo;
 			f.negrito = true;
+			if (i > 0)
+				Roteiro::entrar(s4, f, Efeito::Voar, false, 0, 0);
 			if (i < 2) {
 				Objeto &igual = r.caixa(s4, QRectF(x + lado, y, W * 0.1, H * 0.3), "=", 54, 1);
 				igual.vAlin = 1;
+				Roteiro::entrar(s4, igual, Efeito::Dissolver);
 			}
 		}
-		r.caixa(s4, QRectF(m, H * 0.74, W - 2 * m, H * 0.12), "Multiplicar em cima e embaixo pelo mesmo número não muda a fração.", 22, 1);
+		Objeto &regra = r.caixa(s4, QRectF(m, H * 0.74, W - 2 * m, H * 0.12), "Multiplicar em cima e embaixo pelo mesmo número não muda a fração.", 22, 1);
+		Roteiro::entrar(s4, regra, Efeito::Revelar, false, 0, 1);
 		s4.transicao = Transicao::Empurrar;
 		Slide &s5 = r.slide(Layout::TituloConteudo, "Exercícios");
 		r.topicos(s5, "Escreva a fração da parte pintada\nQual é maior: 2/3 ou 3/5?\nComplete: 3/4 = ?/12\nUma turma tem 30 alunos e 2/5 são meninas. Quantas meninas?", Papel::Corpo, true);
+		Roteiro::entrar(s5, Roteiro::corpo(s5), Efeito::Aparecer, true);
 		s5.transicao = Transicao::Dissolver;
 		Slide &s6 = r.slide(Layout::Secao, "Para casa", "Páginas 42 e 43 do livro · entregar na quinta");
 		s6.transicao = Transicao::PeloPreto;
@@ -153,9 +205,11 @@ inline void montarModelo(Doc &d, const QString &id)
 		s1.notas = "Apresentar o grupo: cada um fala de uma parte.";
 		Slide &s2 = r.slide(Layout::TituloConteudo, "Roteiro");
 		r.topicos(s2, "Como funciona um painel solar\nPor que o Brasil tem tanto sol\nNas casas e nas usinas\nO que ainda falta\nConclusão", Papel::Corpo, true);
+		Roteiro::entrar(s2, Roteiro::corpo(s2), Efeito::Voar, true, 0, 1);
 		Slide &s3 = r.slide(Layout::DuasColunas, "Vantagens e desafios");
 		r.topicos(s3, "Vantagens\n\tenergia limpa e renovável\n\tsol o ano inteiro em quase todo o país\n\tconta de luz menor");
 		r.topicos(s3, "Desafios\n\tcusto de instalação\n\tguardar a energia para a noite\n\treciclar os painéis velhos", Papel::Corpo2);
+		Roteiro::entrar(s3, Roteiro::corpo(s3, Papel::Corpo2), Efeito::Dissolver);
 		s3.transicao = Transicao::Empurrar;
 		Slide &s4 = r.slide(Layout::Citacao);
 		for (Objeto &o : s4.objs) {
@@ -192,6 +246,7 @@ inline void montarModelo(Doc &d, const QString &id)
 		Objeto &c2 = r.caixa(s2, QRectF(W * 0.69, H * 0.3, W * 0.25, H * 0.56),
 		                     "Duas recessões: 2015–2016 e a pandemia em 2020.\n\nDe 2021 a 2024, crescimento acima de 3% ao ano.", 18);
 		c2.cor = d.tema.apagado;
+		Roteiro::entrar(s2, c2, Efeito::Dissolver, true);
 		s2.transicao = Transicao::Dissolver;
 		s2.notas = "Fonte: IBGE, Contas Nacionais.";
 		Slide &s3 = r.slide(Layout::SoTitulo, "Inflação e juros");
@@ -201,15 +256,26 @@ inline void montarModelo(Doc &d, const QString &id)
 		g2.categorias = anos;
 		g2.series = QStringList{"IPCA", "Selic"};
 		g2.valores = {ipca, selic};
-		r.grafico(s3, QRectF(m, H * 0.27, W - 2 * m, H * 0.66), g2);
+		Objeto &gl = r.grafico(s3, QRectF(m, H * 0.27, W - 2 * m, H * 0.66), g2);
+		Roteiro::entrar(s3, gl, Efeito::Revelar, false, 1, 1, 1.0);
 		s3.transicao = Transicao::Dissolver;
 		s3.notas = "Fontes: IBGE (IPCA) e Banco Central (meta da Selic).";
+		Slide &s3b = r.slide(Layout::SoTitulo, "Os números dos últimos cinco anos");
+		QString tab = "Ano\tPIB (%)\tIPCA (%)\tSelic (%)";
+		const QLocale br(QLocale::Portuguese, QLocale::Brazil);
+		for (int a = 5; a < 10; a++)
+			tab += "\n" + anos[a] + "\t" + br.toString(pib[size_t(a)], 'f', 1) + "\t" + br.toString(ipca[size_t(a)], 'f', 2) + "\t" +
+			       br.toString(selic[size_t(a)], 'f', 2);
+		r.tabela(s3b, QRectF(m, H * 0.28, W - 2 * m, H * 0.56), tab, {1.2, 1, 1, 1}, {0, 2, 2, 2}, 20);
+		s3b.transicao = Transicao::Dissolver;
+		s3b.notas = "PIB: IBGE. IPCA: IBGE. Selic: meta do Copom no fim do ano.";
 		Slide &s4 = r.slide(Layout::Grande, "7,1%", "o juro real no fim de 2024: a Selic de 12,25% descontado o IPCA de 4,83%");
 		s4.transicao = Transicao::Ampliar;
 		s4.notas = "Juro real = (1 + Selic) / (1 + IPCA) − 1 = 1,1225 / 1,0483 − 1.";
 		Slide &s5 = r.slide(Layout::DuasColunas, "O que olhar daqui para a frente");
 		r.topicos(s5, "Riscos\n\tinflação de serviços\n\tcontas públicas\n\tjuros altos por mais tempo");
 		r.topicos(s5, "Sinais bons\n\tmercado de trabalho firme\n\tsafra e exportações\n\tinflação perto da meta", Papel::Corpo2);
+		Roteiro::entrar(s5, Roteiro::corpo(s5, Papel::Corpo2), Efeito::Voar, false, 0, 2);
 		r.slide(Layout::Secao, "Perguntas?", "Os dados estão no modelo Indicadores econômicos dos Números");
 	} else if (id == "reuniao") {
 		d.tema = tema("terracota");
@@ -226,6 +292,13 @@ inline void montarModelo(Doc &d, const QString &id)
 		g.valores = {{48000, 30000, 26000, 18000, 9000}};
 		r.grafico(s3, QRectF(m, H * 0.25, W - 2 * m, H * 0.68), g);
 		s3.transicao = Transicao::Dissolver;
+		Slide &s3b = r.slide(Layout::SoTitulo, "Orçamento do ano que vem");
+		Objeto &orc = r.tabela(s3b, QRectF(m, H * 0.27, W - 2 * m, H * 0.6),
+		                       "Despesa\tEste ano\tProposta\nPortaria\tR$ 48.000\tR$ 50.400\nLimpeza\tR$ 30.000\tR$ 31.500\n"
+		                       "Água e luz\tR$ 26.000\tR$ 27.000\nManutenção\tR$ 18.000\tR$ 24.000\nAdministração\tR$ 9.000\tR$ 9.000",
+		                       {1.6, 1, 1}, {0, 2, 2});
+		Roteiro::entrar(s3b, orc, Efeito::Dissolver);
+		s3b.notas = "A manutenção sobe por causa das obras na garagem.";
 		Slide &s4 = r.slide(Layout::TituloConteudo, "Para votar");
 		r.topicos(s4, "Aprovar as contas do ano\nReajuste da taxa de condomínio\nOrçamento das obras na garagem\n\tlevantar três orçamentos antes");
 		Slide &s5 = r.slide(Layout::Secao, "Obrigado!", "A ata vai por e-mail");

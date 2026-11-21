@@ -4,7 +4,7 @@
 .Os LumeBSD
 .Sh NAME
 .Nm lume-palco
-.Nd Palco do LumeBSD: as apresentações, com temas, gráficos e transições
+.Nd Palco do LumeBSD: as apresentações, com temas, gráficos, tabelas, animações e vídeo
 .Sh SYNOPSIS
 .Nm
 .Op Ar arquivo
@@ -29,12 +29,20 @@
 Um programa de apresentações com a cara do Keynote: os slides à esquerda
 (arraste para mudar a ordem), o slide no meio, onde o texto se escreve
 direto (clique duas vezes), as notas do apresentador embaixo e o painel à
-direita com três partes:
+direita com quatro partes:
 .Bl -tag -width "Documento"
 .It Formatar
 a letra, o tamanho, as cores, o alinhamento, os tópicos e os níveis do
-texto; o preenchimento e a borda das formas; os dados do gráfico; a
-posição, o tamanho e o giro; o leiaute e o fundo do slide.
+texto; o preenchimento e a borda das formas; os dados do gráfico; as
+linhas e colunas da tabela, o cabeçalho, as faixas e o fundo das células;
+o vídeo (começar sozinho, repetir, sem som, a capa); a posição, o tamanho
+e o giro; o leiaute e o fundo do slide.
+.It Animar
+como cada objeto entra e sai do slide: aparecer, dissolver, voar (de um dos
+lados), ampliar ou revelar, ao clicar, junto com a anterior ou depois
+dela, com a duração; um texto pode entrar um parágrafo (tópico) por vez.
+A ordem das animações do slide, que se muda, e uma prévia; com o painel
+aberto, o número de cada animação aparece no objeto.
 .It Transição
 como o slide entra: dissolver, empurrar, cobrir, descobrir, ampliar ou
 pelo preto, com a duração e uma prévia.
@@ -46,6 +54,10 @@ o título e o autor.
 .Pp
 Os objetos se arrastam com o mouse; as alças mudam o tamanho e a de cima
 gira.
+Numa tabela, dois cliques numa célula escrevem nela; Tab passa para a
+próxima (na última, cria uma linha) e os fios entre as colunas e entre as
+linhas se arrastam.
+Dois cliques num vídeo tocam (e pausam) no próprio slide.
 Guias aparecem quando a borda ou o meio de um objeto se alinha com o slide
 ou com outro objeto (Alt desliga as guias; Shift mantém a direção, a
 proporção ou o ângulo de 15 em 15 graus).
@@ -76,10 +88,19 @@ próprios: vão e voltam os slides, os leiautes, o texto (com negrito,
 itálico, sublinhado, cores, tamanhos, fontes, alinhamento, tópicos e
 níveis), as formas, as imagens (com recorte), as linhas, o giro, o fundo
 (cor ou imagem), as transições, os slides pulados e as notas.
-Os gráficos vão como imagem, com os dados guardados junto (o Palco lê de
-volta como gráfico; os outros programas mostram a imagem).
-Lê também os gráficos feitos no PowerPoint e no LibreOffice, os enfeites do
-slide mestre e do leiaute, e as tabelas (como texto).
+Os gráficos vão como gráficos de verdade, que o PowerPoint e o Impress
+editam: no
+.Pa .pptx ,
+com a planilha dos dados embutida (o
+.Dq Editar dados
+do PowerPoint); no
+.Pa .odp ,
+o objeto de gráfico do Impress.
+Vão e voltam também as tabelas, as animações (a entrada e a saída de cada
+objeto, por parágrafo, na ordem, ao clicar, com a anterior ou depois dela)
+e os vídeos (com a capa, e se começam sozinhos, repetem ou não têm som).
+Lê também os gráficos, as tabelas, as animações e os vídeos feitos no
+PowerPoint e no LibreOffice, e os enfeites do slide mestre e do leiaute.
 Exporta PDF, um slide por página.
 O
 .Pa .ppt
@@ -93,9 +114,10 @@ Com dois monitores, os slides vão para o segundo e a tela do apresentador
 Ensaiar mostra a tela do apresentador sozinha.
 .Bl -tag -width "número e Enter" -compact
 .It → espaço Enter
-o próximo slide (com a transição)
+o próximo passo: a próxima animação do slide ou o próximo slide (com a
+transição)
 .It ← Backspace
-o slide anterior
+o passo anterior
 .It número e Enter
 vai para o slide desse número
 .It Home, End
@@ -105,6 +127,10 @@ tela preta, tela branca
 .It Esc
 sai
 .El
+.Pp
+Um clique num vídeo toca e pausa; fora dele, avança.
+A tela do apresentador mostra o que vem no próximo clique e quantos
+cliques faltam no slide.
 .Sh ATALHOS
 .Bl -tag -width "Ctrl+B, Ctrl+I, Ctrl+U" -compact
 .It Ctrl+M
@@ -114,7 +140,8 @@ duplica o objeto (ou o slide, se nenhum objeto estiver escolhido)
 .It Enter
 escreve no texto escolhido (Esc termina)
 .It Tab, Shift+Tab
-desce, sobe um nível de tópico (escrevendo)
+desce, sobe um nível de tópico (escrevendo); numa tabela, a próxima
+célula, a anterior
 .It Setas
 movem o objeto (com Shift, de 10 em 10 pontos)
 .It Ctrl+B, Ctrl+I, Ctrl+U

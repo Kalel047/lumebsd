@@ -1,4 +1,4 @@
-From b7c39ca1528d1323024f7159dc47cdeade152475 Mon Sep 17 00:00:00 2001
+From 1c77181bca7dacc43a57fe6b4ce22ba8c9f72d0c Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Sat, 21 Nov 2026 12:41:13 -0300
 Subject: [PATCH] LumeBSD 2.4: o Palco no menu e na Ajuda
@@ -122,26 +122,26 @@ index 9bcc9a619..08f30de08 100644
  <tr><td>Fotos</td><td>digiKam</td></tr>
  <tr><td>iMovie, Final Cut Pro</td><td>Kdenlive, Shotcut</td></tr>
 diff --git a/usr.sbin/lume-configurar/ajuda/index.html b/usr.sbin/lume-configurar/ajuda/index.html
-index 316f3c928..6c34d2236 100644
+index 316f3c928..4809ef860 100644
 --- a/usr.sbin/lume-configurar/ajuda/index.html
 +++ b/usr.sbin/lume-configurar/ajuda/index.html
 @@ -17,6 +17,7 @@
  <a class="cartao" href="programas.html"><b>Instalar programas</b><span>A loja, os kits por área (Exatas, Sociais aplicadas, Uso geral) e como achar o que você precisa.</span></a>
  <a class="cartao" href="trocando.html#texto"><b>Escrever um documento</b><span>O Páginas: trabalho nas normas da ABNT, plano de aula, carta e currículo, em .docx, .odt e PDF.</span></a>
  <a class="cartao" href="trocando.html#planilha"><b>Fazer uma planilha</b><span>O Números: orçamento, notas da turma, juros e fluxo de caixa, com fórmulas em português, em .xlsx, .ods e PDF.</span></a>
-+<a class="cartao" href="trocando.html#apresentacao"><b>Fazer uma apresentação</b><span>O Palco: aula, seminário e conjuntura econômica, com temas, gráficos, transições e as notas do apresentador, em .pptx, .odp e PDF.</span></a>
++<a class="cartao" href="trocando.html#apresentacao"><b>Fazer uma apresentação</b><span>O Palco: aula, seminário e conjuntura econômica, com temas, gráficos, tabelas, animações, vídeo e as notas do apresentador, em .pptx, .odp e PDF.</span></a>
  <a class="cartao" href="trocando.html"><b>Vindo do Windows ou do Mac</b><span>O que usar no lugar do MATLAB, do Excel, do AutoCAD, do SPSS e de outros.</span></a>
  <a class="cartao" href="compatibilidade.html"><b>Windows, Linux e Mac</b><span>Abrir um .exe (de 64 ou 32 bits), usar o Office e o Teams pela web, e o que fazer com um programa do Mac.</span></a>
  <a class="cartao" href="tela.html"><b>A tela de papel</b><span>O filtro e-ink, o tema escuro, as abas de janelas, os atributos dos arquivos e as animações.</span></a>
 diff --git a/usr.sbin/lume-configurar/ajuda/trocando.html b/usr.sbin/lume-configurar/ajuda/trocando.html
-index 67b9121b2..387f90e3b 100644
+index 67b9121b2..7ca59cafb 100644
 --- a/usr.sbin/lume-configurar/ajuda/trocando.html
 +++ b/usr.sbin/lume-configurar/ajuda/trocando.html
 @@ -21,6 +21,7 @@
  <tr><th>Você usava</th><th>No LumeBSD</th><th>Observação</th></tr>
  <tr id="texto"><td>Word e Pages (texto)</td><td>Páginas (já vem no LumeBSD), ou o LibreOffice Writer</td><td>O Páginas abre e salva .docx e .odt, exporta PDF e tem modelos de trabalho acadêmico nas normas da ABNT, plano de aula, relatório, carta e currículo. Para mala direta, sumário automático e controle de alterações, o LibreOffice Writer.</td></tr>
  <tr id="planilha"><td>Excel e Numbers (planilhas)</td><td>Números (já vem no LumeBSD), ou o LibreOffice Calc</td><td>O Números abre e salva .xlsx e .ods, abre .csv, exporta PDF e escreve as fórmulas em português, como o Excel (=SOMA, =PROCV, =VPL, =TIR). Tem gráficos e modelos de orçamento, notas da turma, juros compostos, fluxo de caixa e indicadores econômicos. Para tabelas dinâmicas e macros, o LibreOffice Calc.</td></tr>
-+<tr id="apresentacao"><td>PowerPoint e Keynote (apresentações)</td><td>Palco (já vem no LumeBSD), ou o LibreOffice Impress</td><td>O Palco abre e salva .pptx e .odp e exporta PDF. Tem temas, gráficos, transições e a tela do apresentador (o próximo slide, as notas e o relógio) quando há um segundo monitor, e modelos de aula, seminário, conjuntura econômica e reunião. Para animações dentro do slide, tabelas e vídeo, o LibreOffice Impress.</td></tr>
++<tr id="apresentacao"><td>PowerPoint e Keynote (apresentações)</td><td>Palco (já vem no LumeBSD), ou o LibreOffice Impress</td><td>O Palco abre e salva .pptx e .odp e exporta PDF. Tem temas, gráficos (que o PowerPoint e o LibreOffice editam), tabelas, animações de entrada e saída (no painel Animar), vídeo, transições e a tela do apresentador (o próximo clique, as notas e o relógio) quando há um segundo monitor, e modelos de aula, seminário, conjuntura econômica e reunião. Para vídeo no PowerPoint, prefira MP4.</td></tr>
  <tr><td>Word, Excel, PowerPoint</td><td>LibreOffice, ou o Microsoft 365 na web</td><td>O LibreOffice abre e salva .docx, .xlsx e .pptx. Com as fontes do Office instaladas (kit Uso geral), a paginação fica igual. Macros VBA complexas e o Power Query só no Microsoft 365.</td></tr>
  <tr><td>Outlook</td><td>Thunderbird, ou o Outlook na web</td><td>O e-mail institucional costuma funcionar nos dois.</td></tr>
  <tr><td>OneNote, Notability</td><td>Xournal++, Joplin</td><td>O Xournal++ escreve por cima de PDFs.</td></tr>

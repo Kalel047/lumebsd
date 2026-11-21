@@ -52,11 +52,14 @@ gráficos), testados contra o LibreOffice nos dois sentidos; CSV e PDF.
 O **Palco** (`app/lume-palco`, C++/Qt sem moc): o slide num
 `QGraphicsView` (o texto se escreve direto nele, com o mesmo
 `QTextDocument` que desenha), os temas do LumeBSD, os leiautes, as formas,
-as imagens e os gráficos, as transições, o modo de apresentação e a tela do
-apresentador com as notas, os modelos (aula, seminário, conjuntura
-econômica, reunião), leitores e gravadores próprios de `.pptx` e `.odp`
-(com a herança do mestre e do leiaute do PowerPoint), testados contra o
-LibreOffice e o python-pptx; PDF.
+as imagens, os gráficos (gravados como gráficos de verdade, com a planilha
+embutida no `.pptx` e o objeto de gráfico no `.odp`), as tabelas, as
+animações de entrada e saída (por parágrafo, em ordem, um passo por
+clique), o vídeo (Qt Multimedia), as transições, o modo de apresentação e a
+tela do apresentador com as notas e o próximo clique, os modelos (aula,
+seminário, conjuntura econômica, reunião), leitores e gravadores próprios
+de `.pptx` e `.odp` (com a herança do mestre e do leiaute do PowerPoint),
+testados contra o LibreOffice e o python-pptx; PDF.
 
 ## 2.x
 
@@ -65,8 +68,7 @@ LibreOffice e o python-pptx; PDF.
   Páginas, `app/lume-paginas`), a planilha na 2.3 (os Números,
   `app/lume-numeros`) e as apresentações na 2.4 (o Palco,
   `app/lume-palco`). O que falta nos três: colar um gráfico dos Números no
-  Palco e no Páginas mantendo os dados, as animações dentro do slide e as
-  tabelas no Palco.
+  Palco e no Páginas mantendo os dados.
 - **MediaKit de baixa latência**: um servidor de mídia nosso sobre o OSS, com
   threads de tempo real e um grafo de nós como o do BeOS (alvo: uns 5 ms).
 - **Replicants**: pedaços vivos de um app na área de trabalho ou em outro app.

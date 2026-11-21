@@ -3,15 +3,17 @@
 // lume-palco: o .pptx (PowerPoint). O gravador escreve um pacote completo
 // (mestre, oito leiautes com os lugares do título e do texto, tema, notas),
 // com a posição, a letra e a cor de cada caixa escritas por extenso, para o
-// slide sair igual em qualquer programa. O gráfico vai como imagem, com os
-// dados no texto alternativo (o Palco lê de volta como gráfico).
+// slide sair igual em qualquer programa. O gráfico vai como gráfico de
+// verdade (c:chartSpace, com a planilha dos dados embutida), a tabela como
+// a:tbl, o vídeo com a capa e as animações na árvore p:timing.
 //
 // O leitor segue a herança do PowerPoint: a caixa do slide, o lugar no
 // leiaute, o lugar no mestre e os estilos do mestre, para a posição, o
 // tamanho da letra, as cores (do esquema do tema, com lumMod e lumOff) e os
 // marcadores. As formas e imagens soltas do mestre e do leiaute (faixas,
 // logotipos) entram em cada slide. Lê também os gráficos do PowerPoint (os
-// valores guardados no próprio gráfico) e as tabelas (como texto).
+// valores guardados no próprio gráfico), as tabelas, os vídeos e as
+// animações.
 
 #pragma once
 
@@ -27,6 +29,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <set>
 
 inline QString hex6(const QColor &c) { return c.name().mid(1).toUpper(); }
 inline qint64 emu(double pt) { return qint64(std::llround(pt * 12700)); }
@@ -53,12 +56,23 @@ inline QByteArray pngDoGrafico(const Doc &d, const Objeto &o)
 	return b;
 }
 
+// A letra da coluna (0: A, 1: B...).
+inline QString colunaExcel(int c)
+{
+	QString s;
+	for (c++; c > 0; c = (c - 1) / 26)
+		s.prepend(QChar('A' + (c - 1) % 26));
+	return s;
+}
+
 inline QString extensaoDe(const QByteArray &b, const QString &chave)
 {
 	if (b.startsWith("\x89PNG")) return "png";
 	if (b.startsWith("\xff\xd8")) return "jpeg";
 	if (b.startsWith("GIF8")) return "gif";
 	if (b.startsWith("BM")) return "bmp";
+	if (b.mid(4, 4) == "ftyp") return QFileInfo(chave).suffix().toLower() == "mov" ? "mov" : "mp4";
+	if (b.startsWith("\x1a\x45\xdf\xa3")) return QFileInfo(chave).suffix().toLower() == "mkv" ? "mkv" : "webm";
 	const QString e = QFileInfo(chave).suffix().toLower();
 	return e == "jpg" ? "jpeg" : e.isEmpty() ? "png" : e;
 }
@@ -71,6 +85,14 @@ inline QString mimeDe(const QString &ext)
 	if (ext == "svg") return "image/svg+xml";
 	if (ext == "emf") return "image/x-emf";
 	if (ext == "wmf") return "image/x-wmf";
+	if (ext == "mp4" || ext == "m4v") return "video/mp4";
+	if (ext == "mov") return "video/quicktime";
+	if (ext == "webm") return "video/webm";
+	if (ext == "mkv") return "video/x-matroska";
+	if (ext == "avi") return "video/x-msvideo";
+	if (ext == "ogv") return "video/ogg";
+	if (ext == "mpg" || ext == "mpeg") return "video/mpeg";
+	if (ext == "wmv") return "video/x-ms-wmv";
 	return "image/png";
 }
 
@@ -89,34 +111,7 @@ public:
 	{
 		ZipEscritor z;
 		const int n = int(d_.slides.size());
-		QString tipos = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
-		                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
-		                "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
-		                "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
-		                "<Default Extension=\"png\" ContentType=\"image/png\"/>"
-		                "<Default Extension=\"jpeg\" ContentType=\"image/jpeg\"/>"
-		                "<Default Extension=\"gif\" ContentType=\"image/gif\"/>"
-		                "<Default Extension=\"bmp\" ContentType=\"image/bmp\"/>"
-		                "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>"
-		                "<Override PartName=\"/ppt/slideMasters/slideMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml\"/>"
-		                "<Override PartName=\"/ppt/notesMasters/notesMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml\"/>"
-		                "<Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>"
-		                "<Override PartName=\"/ppt/theme/theme2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>"
-		                "<Override PartName=\"/ppt/presProps.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presProps+xml\"/>"
-		                "<Override PartName=\"/ppt/viewProps.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml\"/>"
-		                "<Override PartName=\"/ppt/tableStyles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml\"/>"
-		                "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>"
-		                "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>";
 		const auto &ls = leiautes();
-		for (size_t i = 0; i < ls.size(); i++)
-			tipos += QString("<Override PartName=\"/ppt/slideLayouts/slideLayout%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml\"/>").arg(i + 1);
-		for (int i = 0; i < n; i++) {
-			tipos += QString("<Override PartName=\"/ppt/slides/slide%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>").arg(i + 1);
-			if (!d_.slides[size_t(i)].notas.trimmed().isEmpty())
-				tipos += QString("<Override PartName=\"/ppt/notesSlides/notesSlide%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml\"/>").arg(i + 1);
-		}
-		tipos += "</Types>";
-		z.add("[Content_Types].xml", tipos.toUtf8());
 		z.add("_rels/.rels", rels({{"rId1", "officeDocument", "ppt/presentation.xml"},
 		                           {"rId2", "package/2006/relationships/metadata/core-properties", "docProps/core.xml"},
 		                           {"rId3", "extended-properties", "docProps/app.xml"}}));
@@ -213,6 +208,45 @@ public:
 			slide(z, i);
 		for (auto it = midias_.cbegin(); it != midias_.cend(); ++it)
 			z.add("ppt/media/" + it.key(), it.value(), false);
+		QString tipos = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+		                "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+		                "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+		                "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+		                "<Default Extension=\"png\" ContentType=\"image/png\"/>"
+		                "<Default Extension=\"jpeg\" ContentType=\"image/jpeg\"/>"
+		                "<Default Extension=\"gif\" ContentType=\"image/gif\"/>"
+		                "<Default Extension=\"bmp\" ContentType=\"image/bmp\"/>"
+		                "<Override PartName=\"/ppt/presentation.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml\"/>"
+		                "<Override PartName=\"/ppt/slideMasters/slideMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml\"/>"
+		                "<Override PartName=\"/ppt/notesMasters/notesMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml\"/>"
+		                "<Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>"
+		                "<Override PartName=\"/ppt/theme/theme2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>"
+		                "<Override PartName=\"/ppt/presProps.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.presProps+xml\"/>"
+		                "<Override PartName=\"/ppt/viewProps.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml\"/>"
+		                "<Override PartName=\"/ppt/tableStyles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml\"/>"
+		                "<Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>"
+		                "<Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>";
+		for (size_t i = 0; i < leiautes().size(); i++)
+			tipos += QString("<Override PartName=\"/ppt/slideLayouts/slideLayout%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml\"/>").arg(i + 1);
+		for (int i = 0; i < n; i++) {
+			tipos += QString("<Override PartName=\"/ppt/slides/slide%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>").arg(i + 1);
+			if (!d_.slides[size_t(i)].notas.trimmed().isEmpty())
+				tipos += QString("<Override PartName=\"/ppt/notesSlides/notesSlide%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml\"/>").arg(i + 1);
+		}
+		for (int k = 1; k <= graficos_; k++)
+			tipos += QString("<Override PartName=\"/ppt/charts/chart%1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\"/>").arg(k);
+		if (graficos_)
+			tipos += "<Default Extension=\"xlsx\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"/>";
+		QStringList exts;
+		for (auto it = midias_.cbegin(); it != midias_.cend(); ++it) {
+			const QString e = QFileInfo(it.key()).suffix().toLower();
+			if (!exts.contains(e) && !QStringList{"png", "jpeg", "gif", "bmp"}.contains(e)) {
+				exts << e;
+				tipos += "<Default Extension=\"" + e + "\" ContentType=\"" + mimeDe(e) + "\"/>";
+			}
+		}
+		tipos += "</Types>";
+		z.add("[Content_Types].xml", tipos.toUtf8());
 		return z.fechar();
 	}
 
@@ -229,8 +263,9 @@ private:
 	{
 		QString s = CAB "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">";
 		for (const auto &r : l) {
-			const QString tipo = r[1].startsWith("package/") ? "http://schemas.openxmlformats.org/" + r[1]
-			                                                 : "http://schemas.openxmlformats.org/officeDocument/2006/relationships/" + r[1];
+			const QString tipo = r[1] == "@media"             ? QString("http://schemas.microsoft.com/office/2007/relationships/media")
+			                     : r[1].startsWith("package/") ? "http://schemas.openxmlformats.org/" + r[1]
+			                                                   : "http://schemas.openxmlformats.org/officeDocument/2006/relationships/" + r[1];
 			s += "<Relationship Id=\"" + r[0] + "\" Type=\"" + tipo + "\" Target=\"" + esc(r[2]) + "\"/>";
 		}
 		s += "</Relationships>";
@@ -351,9 +386,15 @@ private:
 
 	QString corpo(const Objeto &o) const
 	{
-		QString s = "<p:txBody><a:bodyPr wrap=\"square\" lIns=\"91440\" tIns=\"45720\" rIns=\"91440\" bIns=\"45720\" rtlCol=\"0\" anchor=\"" +
-		            QString(o.vAlin == 1 ? "ctr" : o.vAlin == 2 ? "b" : "t") + "\">" + (o.encolher ? "<a:normAutofit/>" : "<a:noAutofit/>") +
-		            "</a:bodyPr><a:lstStyle/>";
+		return "<p:txBody><a:bodyPr wrap=\"square\" lIns=\"91440\" tIns=\"45720\" rIns=\"91440\" bIns=\"45720\" rtlCol=\"0\" anchor=\"" +
+		       QString(o.vAlin == 1 ? "ctr" : o.vAlin == 2 ? "b" : "t") + "\">" + (o.encolher ? "<a:normAutofit/>" : "<a:noAutofit/>") +
+		       "</a:bodyPr><a:lstStyle/>" + pars(o) + "</p:txBody>";
+	}
+
+	// Os parágrafos (a:p) de um texto.
+	QString pars(const Objeto &o) const
+	{
+		QString s;
 		const bool temaNegrito = o.papel == Papel::Titulo && d_.tema.tituloNegrito;
 		bool primeiro = true;
 		for (const Paragrafo &p : o.pars) {
@@ -407,7 +448,7 @@ private:
 		}
 		if (o.pars.empty())
 			s += "<a:p><a:endParaRPr lang=\"pt-BR\"/></a:p>";
-		return s + "</p:txBody>";
+		return s;
 	}
 
 	QString novaMidia(const QByteArray &b, const QString &chave)
@@ -415,7 +456,8 @@ private:
 		for (auto it = midias_.cbegin(); it != midias_.cend(); ++it)
 			if (it.value() == b)
 				return it.key();
-		const QString nome = QString("image%1.%2").arg(midias_.size() + 1).arg(extensaoDe(b, chave));
+		const QString e = extensaoDe(b, chave);
+		const QString nome = QString(mimeDe(e).startsWith("video/") ? "media%1.%2" : "image%1.%2").arg(midias_.size() + 1).arg(e);
 		midias_.insert(nome, b);
 		return nome;
 	}
@@ -443,27 +485,76 @@ private:
 			s += "<p:bg><p:bgPr>" + preench(sl.fundo) + "<a:effectLst/></p:bgPr></p:bg>";
 		s += "<p:spTree>" GRUPO;
 		int id = 2;
-		for (const Objeto &o : sl.objs) {
+		std::vector<int> spid(sl.objs.size(), 0);
+		std::vector<bool> ehSp(sl.objs.size(), false);
+		for (size_t k = 0; k < sl.objs.size(); k++) {
+			const Objeto &o = sl.objs[k];
 			const QString nome = !o.nome.isEmpty() ? o.nome : QString("%1 %2").arg(nomePapel(o.papel)).arg(id - 1);
-			if (o.tipo == Tipo::Imagem || o.tipo == Tipo::Grafico) {
-				QByteArray b;
-				QString chave, descr;
-				if (o.tipo == Tipo::Grafico) {
-					b = pngDoGrafico(d_, o);
-					chave = "grafico.png";
-					descr = gravarDados(o.graf);
-				} else {
-					b = d_.midias.value(o.midia);
-					chave = o.midia;
+			if (o.tipo == Tipo::Grafico) {
+				// O gráfico de verdade (o PowerPoint e o LibreOffice editam), com os
+				// dados também numa planilha embutida.
+				const int g = ++graficos_;
+				const QString rid = rel("chart", QString("../charts/chart%1.xml").arg(g));
+				z.add(QString("ppt/charts/chart%1.xml").arg(g), graficoXml(o).toUtf8());
+				z.add(QString("ppt/charts/_rels/chart%1.xml.rels").arg(g),
+				      rels({{"rId1", "package", QString("../embeddings/Microsoft_Excel_Worksheet%1.xlsx").arg(g)}}));
+				z.add(QString("ppt/embeddings/Microsoft_Excel_Worksheet%1.xlsx").arg(g), planilha(o.graf), false);
+				spid[k] = id;
+				s += QString("<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"%1\" name=\"%2\"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>")
+				         .arg(id++)
+				         .arg(esc(o.nome.isEmpty() ? QString("Gráfico %1").arg(g) : o.nome));
+				s += xfrm(o, "p:xfrm") + "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\">"
+				     "<c:chart xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" r:id=\"" + rid + "\"/></a:graphicData></a:graphic></p:graphicFrame>";
+				continue;
+			}
+			if (o.tipo == Tipo::Tabela) {
+				spid[k] = id;
+				s += tabelaXml(o, id, o.nome.isEmpty() ? QString("Tabela %1").arg(id - 1) : o.nome);
+				id++;
+				continue;
+			}
+			if (o.tipo == Tipo::Video) {
+				const QByteArray v = d_.midias.value(o.midia);
+				if (v.isEmpty())
+					continue;
+				const QString alvo = "../media/" + novaMidia(v, o.midia);
+				const QString rv = rel("video", alvo);
+				const QString rm = rel("@media", alvo);
+				QByteArray capa = d_.midias.value(o.capa);
+				if (capa.isEmpty()) {
+					// Uma capa escura (o PowerPoint quer uma imagem).
+					QImage img(320, 180, QImage::Format_RGB32);
+					img.fill(QColor(0x1c, 0x1b, 0x19));
+					QBuffer buf(&capa);
+					buf.open(QIODevice::WriteOnly);
+					img.save(&buf, "PNG");
 				}
+				const QString ri = rel("image", "../media/" + novaMidia(capa, o.capa.isEmpty() ? "capa.png" : o.capa));
+				spid[k] = id;
+				s += QString("<p:pic><p:nvPicPr><p:cNvPr id=\"%1\" name=\"%2\"><a:hlinkClick r:id=\"\" action=\"ppaction://media\"/></p:cNvPr>"
+				             "<p:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></p:cNvPicPr><p:nvPr><a:videoFile r:link=\"%3\"/><p:extLst>"
+				             "<p:ext uri=\"{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}\"><p14:media xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" r:embed=\"%4\"/></p:ext>"
+				             "</p:extLst></p:nvPr></p:nvPicPr>")
+				         .arg(id++)
+				         .arg(esc(o.nome.isEmpty() ? QFileInfo(o.midia).fileName() : o.nome), rv, rm);
+				s += "<p:blipFill><a:blip r:embed=\"" + ri + "\"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>" + xfrm(o) +
+				     "<a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom>";
+				if (o.borda.isValid() && o.espBorda > 0)
+					s += QString("<a:ln w=\"%1\">").arg(emu(o.espBorda)) + preench(o.borda) + "</a:ln>";
+				s += "</p:spPr></p:pic>";
+				continue;
+			}
+			if (o.tipo == Tipo::Imagem) {
+				const QByteArray b = d_.midias.value(o.midia);
 				if (b.isEmpty())
 					continue;
-				const QString rid = rel("image", "../media/" + novaMidia(b, chave));
-				s += QString("<p:pic><p:nvPicPr><p:cNvPr id=\"%1\" name=\"%2\" descr=\"%3\"/><p:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>")
+				const QString rid = rel("image", "../media/" + novaMidia(b, o.midia));
+				spid[k] = id;
+				s += QString("<p:pic><p:nvPicPr><p:cNvPr id=\"%1\" name=\"%2\"/><p:cNvPicPr><a:picLocks noChangeAspect=\"1\"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>")
 				         .arg(id++)
-				         .arg(esc(o.tipo == Tipo::Grafico ? "Gráfico" : nome), esc(descr));
+				         .arg(esc(nome));
 				s += "<p:blipFill><a:blip r:embed=\"" + rid + "\"/>";
-				if (o.tipo == Tipo::Imagem && o.recorte != QRectF(0, 0, 1, 1)) {
+				if (o.recorte != QRectF(0, 0, 1, 1)) {
 					const QRectF c = o.recorte;
 					s += QString("<a:srcRect l=\"%1\" t=\"%2\" r=\"%3\" b=\"%4\"/>")
 					         .arg(qint64(std::llround(c.left() * 100000)))
@@ -481,6 +572,7 @@ private:
 			                                         {int(Tipo::Elipse), "ellipse"}, {int(Tipo::Triangulo), "triangle"}, {int(Tipo::Seta), "rightArrow"},
 			                                         {int(Tipo::Linha), "line"}};
 			if (o.tipo == Tipo::Linha) {
+				spid[k] = id;
 				s += QString("<p:cxnSp><p:nvCxnSpPr><p:cNvPr id=\"%1\" name=\"%2\"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr>").arg(id++).arg(esc(nome));
 				s += xfrm(o) + "<a:prstGeom prst=\"line\"><a:avLst/></a:prstGeom>";
 				s += QString("<a:ln w=\"%1\">").arg(emu(std::max(0.5, o.espBorda))) + preench(o.borda.isValid() ? o.borda : d_.tema.texto) + "</a:ln>";
@@ -488,6 +580,8 @@ private:
 				continue;
 			}
 			const QString ph = phDe(o.papel, sl.layout);
+			spid[k] = id;
+			ehSp[k] = true;
 			s += QString("<p:sp><p:nvSpPr><p:cNvPr id=\"%1\" name=\"%2\"/>").arg(id++).arg(esc(nome));
 			if (!ph.isEmpty())
 				s += "<p:cNvSpPr><a:spLocks noGrp=\"1\"/></p:cNvSpPr><p:nvPr><p:ph " + ph + "/></p:nvPr>";
@@ -516,6 +610,7 @@ private:
 			}
 			s += "<p:transition spd=\"" + spd + "\">" + t + "</p:transition>";
 		}
+		s += timingXml(sl, spid, ehSp);
 		s += "</p:sld>";
 		if (!sl.notas.trimmed().isEmpty()) {
 			const QString nid = rel("notesSlide", QString("../notesSlides/notesSlide%1.xml").arg(i + 1));
@@ -535,12 +630,400 @@ private:
 		z.add(QString("ppt/slides/slide%1.xml").arg(i + 1), s.toUtf8());
 		z.add(QString("ppt/slides/_rels/slide%1.xml.rels").arg(i + 1), rels(rs));
 	}
+	// --- o gráfico (DrawingML) ---------------------------------------------
+
+	// A planilha embutida com os dados (o "Editar dados" do PowerPoint):
+	// as categorias na coluna A, uma série por coluna.
+	static QByteArray planilha(const DadosGrafico &g)
+	{
+		ZipEscritor z;
+		z.add("[Content_Types].xml", CAB "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+		      "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+		      "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+		      "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
+		      "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+		      "</Types>");
+		z.add("_rels/.rels", CAB "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+		      "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
+		      "</Relationships>");
+		z.add("xl/workbook.xml", CAB "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+		      "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Planilha1\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");
+		z.add("xl/_rels/workbook.xml.rels", CAB "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+		      "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+		      "</Relationships>");
+		auto txt = [](const QString &ref, const QString &t) { return "<c r=\"" + ref + "\" t=\"inlineStr\"><is><t>" + esc(t) + "</t></is></c>"; };
+		const int nS = g.tipo == TipoGrafico::Pizza ? std::min<int>(1, int(g.series.size())) : int(g.series.size());
+		QString s = CAB "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData><row r=\"1\">";
+		for (int k = 0; k < nS; k++)
+			s += txt(colunaExcel(k + 1) + "1", g.series[k]);
+		s += "</row>";
+		for (int c = 0; c < g.categorias.size(); c++) {
+			s += QString("<row r=\"%1\">").arg(c + 2) + txt(QString("A%1").arg(c + 2), g.categorias[c]);
+			for (int k = 0; k < nS; k++) {
+				const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
+				s += QString("<c r=\"%1%2\"><v>%3</v></c>").arg(colunaExcel(k + 1)).arg(c + 2).arg(QString::number(v, 'g', 15));
+			}
+			s += "</row>";
+		}
+		s += "</sheetData></worksheet>";
+		z.add("xl/worksheets/sheet1.xml", s.toUtf8());
+		return z.fechar();
+	}
+
+	QString txPr(double tam, const QColor &cor, bool negrito = false) const
+	{
+		return QString("<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz=\"%1\" b=\"%2\">").arg(qint64(std::llround(tam * 100))).arg(negrito ? 1 : 0) +
+		       preench(cor) + "<a:latin typeface=\"" + esc(d_.tema.fonteTexto) + "\"/></a:defRPr></a:pPr><a:endParaRPr lang=\"pt-BR\"/></a:p></c:txPr>";
+	}
+
+	QString graficoXml(const Objeto &o) const
+	{
+		const DadosGrafico &g = o.graf;
+		const double letra = std::clamp(std::min(o.r.width(), o.r.height()) / 22, 9.0, 20.0);
+		const bool pizza = g.tipo == TipoGrafico::Pizza;
+		const int nS = pizza ? std::min<int>(1, int(g.series.size())) : int(g.series.size());
+		const int nC = int(g.categorias.size());
+		auto cor = [&](int i) { return d_.tema.serie.empty() ? d_.tema.texto : d_.tema.serie[size_t(i) % d_.tema.serie.size()]; };
+		const QColor grade(d_.tema.apagado.red(), d_.tema.apagado.green(), d_.tema.apagado.blue());
+		QString s = CAB "<c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" "
+		                "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" "
+		                "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+		                "<c:date1904 val=\"0\"/><c:lang val=\"pt-BR\"/><c:roundedCorners val=\"0\"/><c:chart>";
+		if (!g.titulo.isEmpty())
+			s += "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr/></a:pPr><a:r>" +
+			     QString("<a:rPr lang=\"pt-BR\" sz=\"%1\" b=\"0\">").arg(qint64(std::llround(letra * 1.25 * 100))) + preench(d_.tema.texto) +
+			     "<a:latin typeface=\"" + esc(d_.tema.fonteTexto) + "\"/></a:rPr><a:t>" + esc(g.titulo) +
+			     "</a:t></a:r></a:p></c:rich></c:tx><c:overlay val=\"0\"/></c:title><c:autoTitleDeleted val=\"0\"/>";
+		else
+			s += "<c:autoTitleDeleted val=\"1\"/>";
+		s += "<c:plotArea><c:layout/>";
+		if (g.tipo == TipoGrafico::Linhas)
+			s += "<c:lineChart><c:grouping val=\"standard\"/><c:varyColors val=\"0\"/>";
+		else if (pizza)
+			s += "<c:pieChart><c:varyColors val=\"1\"/>";
+		else
+			s += QString("<c:barChart><c:barDir val=\"%1\"/><c:grouping val=\"clustered\"/><c:varyColors val=\"0\"/>").arg(g.tipo == TipoGrafico::Barras ? "bar" : "col");
+		const QString fimCat = "$A$" + QString::number(nC + 1);
+		for (int k = 0; k < nS; k++) {
+			const QString col = "$" + colunaExcel(k + 1) + "$";
+			s += QString("<c:ser><c:idx val=\"%1\"/><c:order val=\"%1\"/>").arg(k);
+			s += "<c:tx><c:strRef><c:f>Planilha1!" + col + "1</c:f><c:strCache><c:ptCount val=\"1\"/><c:pt idx=\"0\"><c:v>" + esc(g.series[k]) +
+			     "</c:v></c:pt></c:strCache></c:strRef></c:tx>";
+			if (g.tipo == TipoGrafico::Linhas)
+				s += QString("<c:spPr><a:ln w=\"%1\" cap=\"rnd\">").arg(emu(std::max(2.0, letra * 0.22))) + preench(cor(k)) + "<a:round/></a:ln></c:spPr>" +
+				     "<c:marker><c:symbol val=\"circle\"/><c:size val=\"5\"/><c:spPr>" + preench(cor(k)) + "<a:ln><a:noFill/></a:ln></c:spPr></c:marker>";
+			else if (pizza)
+				s += "<c:spPr><a:ln w=\"19050\">" + preench(fundoDe(d_, Slide())) + "</a:ln></c:spPr>";
+			else
+				s += "<c:spPr>" + preench(cor(k)) + "<a:ln><a:noFill/></a:ln></c:spPr><c:invertIfNegative val=\"0\"/>";
+			if (pizza)
+				for (int c = 0; c < nC; c++)
+					s += QString("<c:dPt><c:idx val=\"%1\"/><c:bubble3D val=\"0\"/><c:spPr>").arg(c) + preench(cor(c)) + "<a:ln w=\"19050\">" +
+					     preench(fundoDe(d_, Slide())) + "</a:ln></c:spPr></c:dPt>";
+			if (pizza) {
+				// O rótulo de cada fatia: claro no escuro, escuro no claro; sem
+				// casa decimal quando a porcentagem é inteira (como no Palco).
+				double total = 0;
+				for (int c = 0; c < nC; c++)
+					total += std::max(0.0, k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0);
+				s += "<c:dLbls>";
+				for (int c = 0; c < nC; c++) {
+					const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
+					const double pc = total > 0 ? std::max(0.0, v) / total * 100 : 0;
+					const bool inteiro = std::fabs(pc - std::round(pc)) < 0.05;
+					s += QString("<c:dLbl><c:idx val=\"%1\"/><c:numFmt formatCode=\"%2\" sourceLinked=\"0\"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>")
+					         .arg(c)
+					         .arg(inteiro ? "0%" : "0.0%") +
+					     txPr(letra * 0.95, cor(c).lightness() < 150 ? QColor(0xff, 0xff, 0xff) : QColor(0x1c, 0x1b, 0x19)) +
+					     QString("<c:dLblPos val=\"ctr\"/><c:showLegendKey val=\"0\"/><c:showVal val=\"0\"/><c:showCatName val=\"0\"/><c:showSerName val=\"0\"/>"
+					             "<c:showPercent val=\"%1\"/><c:showBubbleSize val=\"0\"/></c:dLbl>")
+					         .arg(pc > 4 ? 1 : 0);
+				}
+				s += "<c:numFmt formatCode=\"0%\" sourceLinked=\"0\"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>" +
+				     txPr(letra * 0.95, QColor(0xff, 0xff, 0xff)) +
+				     "<c:dLblPos val=\"ctr\"/><c:showLegendKey val=\"0\"/><c:showVal val=\"0\"/><c:showCatName val=\"0\"/><c:showSerName val=\"0\"/>"
+				     "<c:showPercent val=\"1\"/><c:showBubbleSize val=\"0\"/><c:showLeaderLines val=\"0\"/></c:dLbls>";
+			}
+			s += "<c:cat><c:strRef><c:f>Planilha1!$A$2:" + fimCat + "</c:f><c:strCache>" + QString("<c:ptCount val=\"%1\"/>").arg(nC);
+			for (int c = 0; c < nC; c++)
+				s += QString("<c:pt idx=\"%1\"><c:v>").arg(c) + esc(g.categorias[c]) + "</c:v></c:pt>";
+			s += "</c:strCache></c:strRef></c:cat>";
+			s += "<c:val><c:numRef><c:f>Planilha1!" + col + "2:" + col + QString::number(nC + 1) + "</c:f><c:numCache><c:formatCode>General</c:formatCode>" +
+			     QString("<c:ptCount val=\"%1\"/>").arg(nC);
+			for (int c = 0; c < nC; c++) {
+				const double v = k < int(g.valores.size()) && c < int(g.valores[size_t(k)].size()) ? g.valores[size_t(k)][size_t(c)] : 0;
+				s += QString("<c:pt idx=\"%1\"><c:v>%2</c:v></c:pt>").arg(c).arg(QString::number(v, 'g', 15));
+			}
+			s += "</c:numCache></c:numRef></c:val>";
+			if (g.tipo == TipoGrafico::Linhas)
+				s += "<c:smooth val=\"0\"/>";
+			s += "</c:ser>";
+		}
+		if (pizza)
+			s += "<c:firstSliceAng val=\"0\"/></c:pieChart>";
+		else {
+			if (g.tipo == TipoGrafico::Linhas)
+				s += "<c:marker val=\"1\"/>";
+			else
+				s += "<c:gapWidth val=\"60\"/><c:overlap val=\"-10\"/>";
+			s += "<c:axId val=\"111111111\"/><c:axId val=\"222222222\"/>";
+			s += g.tipo == TipoGrafico::Linhas ? "</c:lineChart>" : "</c:barChart>";
+			const bool deitado = g.tipo == TipoGrafico::Barras;
+			const QString linhaEixo = "<c:spPr><a:ln w=\"15240\">" + preench(d_.tema.texto) + "</a:ln></c:spPr>";
+			s += QString("<c:catAx><c:axId val=\"111111111\"/><c:scaling><c:orientation val=\"%1\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"%2\"/>")
+			         .arg(deitado ? "maxMin" : "minMax", deitado ? "l" : "b") +
+			     "<c:numFmt formatCode=\"General\" sourceLinked=\"0\"/><c:majorTickMark val=\"none\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"low\"/>" +
+			     linhaEixo + txPr(letra * 0.9, d_.tema.apagado) +
+			     "<c:crossAx val=\"222222222\"/><c:crosses val=\"autoZero\"/><c:auto val=\"1\"/><c:lblAlgn val=\"ctr\"/><c:lblOffset val=\"100\"/><c:noMultiLvlLbl val=\"0\"/></c:catAx>";
+			s += QString("<c:valAx><c:axId val=\"222222222\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"%1\"/>")
+			         .arg(deitado ? "b" : "l") +
+			     "<c:majorGridlines><c:spPr><a:ln w=\"9525\"><a:solidFill><a:srgbClr val=\"" + hex6(grade) +
+			     "\"><a:alpha val=\"28000\"/></a:srgbClr></a:solidFill></a:ln></c:spPr></c:majorGridlines>"
+			     "<c:numFmt formatCode=\"General\" sourceLinked=\"0\"/><c:majorTickMark val=\"none\"/><c:minorTickMark val=\"none\"/><c:tickLblPos val=\"nextTo\"/>"
+			     "<c:spPr><a:ln><a:noFill/></a:ln></c:spPr>" +
+			     txPr(letra * 0.9, d_.tema.apagado) +
+			     QString("<c:crossAx val=\"111111111\"/><c:crosses val=\"%1\"/><c:crossBetween val=\"between\"/></c:valAx>").arg("autoZero");
+		}
+		s += "<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr></c:plotArea>";
+		if (g.legenda)
+			s += "<c:legend><c:legendPos val=\"b\"/><c:overlay val=\"0\"/>" + txPr(letra * 0.95, d_.tema.texto) + "</c:legend>";
+		s += "<c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/></c:chart>";
+		s += "<c:spPr>" + (o.preench.isValid() ? preench(o.preench) : QString("<a:noFill/>")) + "<a:ln><a:noFill/></a:ln></c:spPr>";
+		s += txPr(letra, d_.tema.texto);
+		s += "<c:externalData r:id=\"rId1\"><c:autoUpdate val=\"0\"/></c:externalData></c:chartSpace>";
+		return s;
+	}
+
+	// --- a tabela ----------------------------------------------------------
+
+	QString tabelaXml(const Objeto &t0, int id, const QString &nome) const
+	{
+		Objeto t = t0;
+		arrumarTabela(d_, t);
+		const QColor fio = t.borda.isValid() && t.espBorda > 0 ? t.borda : d_.tema.apagado;
+		const double esp = t.borda.isValid() && t.espBorda > 0 ? t.espBorda : 0.75;
+		auto ln = [&](const char *tag) {
+			return QString("<a:%1 w=\"%2\" cap=\"flat\" cmpd=\"sng\" algn=\"ctr\">").arg(tag).arg(emu(esp)) + preench(fio) +
+			       "<a:prstDash val=\"solid\"/></a:" + tag + ">";
+		};
+		QString s = QString("<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"%1\" name=\"%2\"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp=\"1\"/>"
+		                    "</p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr>")
+		                .arg(id)
+		                .arg(esc(nome));
+		s += xfrm(t, "p:xfrm") + "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl>";
+		s += QString("<a:tblPr firstRow=\"%1\" bandRow=\"%2\"/><a:tblGrid>").arg(t.cabecalho ? 1 : 0).arg(t.faixas ? 1 : 0);
+		for (double w : t.largs)
+			s += "<a:gridCol w=\"" + E(w) + "\"/>";
+		s += "</a:tblGrid>";
+		for (int l = 0; l < t.lins; l++) {
+			s += "<a:tr h=\"" + E(t.celula(l, 0).r.height()) + "\">";
+			for (int c = 0; c < t.cols; c++) {
+				const Objeto &x = t.celula(l, c);
+				s += "<a:tc><a:txBody><a:bodyPr/><a:lstStyle/>" + pars(x) + "</a:txBody>";
+				s += QString("<a:tcPr marL=\"91440\" marR=\"91440\" marT=\"45720\" marB=\"45720\" anchor=\"%1\">").arg(x.vAlin == 0 ? "t" : x.vAlin == 2 ? "b" : "ctr");
+				s += ln("lnL") + ln("lnR") + ln("lnT") + ln("lnB");
+				s += x.fundoCel.isValid() ? preench(x.fundoCel) : QString("<a:noFill/>");
+				s += "</a:tcPr></a:tc>";
+			}
+			s += "</a:tr>";
+		}
+		s += "</a:tbl></a:graphicData></a:graphic></p:graphicFrame>";
+		return s;
+	}
+
+	// --- as animações (p:timing) -------------------------------------------
+	//
+	// A árvore do PowerPoint: a sequência principal tem um "par" por clique;
+	// dentro, um "par" por instante de começo; dentro, um por efeito.
+
+	QString timingXml(const Slide &sl, const std::vector<int> &spid, const std::vector<bool> &ehSp) const
+	{
+		const auto grupos = sequencia(sl);
+		bool algum = false;
+		for (const auto &g : grupos)
+			algum = algum || !g.empty();
+		bool videos = false;
+		for (size_t k = 0; k < sl.objs.size(); k++)
+			videos = videos || (sl.objs[k].tipo == Tipo::Video && spid[k] != 0);
+		if (!algum && !videos)
+			return {};
+		int id = 3;
+		QString cliques;
+		// Os vídeos que começam sozinhos: "tocar" no começo do slide.
+		QString tocar;
+		for (size_t k = 0; k < sl.objs.size(); k++)
+			if (sl.objs[k].tipo == Tipo::Video && sl.objs[k].sozinho && spid[k] != 0) {
+				tocar += QString("<p:par><p:cTn id=\"%1\" presetID=\"1\" presetClass=\"mediacall\" presetSubtype=\"0\" fill=\"hold\" nodeType=\"%2\">"
+				                 "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:cmd type=\"call\" cmd=\"playFrom(0.0)\">")
+				             .arg(id)
+				             .arg(tocar.isEmpty() ? "afterEffect" : "withEffect");
+				id++;
+				tocar += QString("<p:cBhvr><p:cTn id=\"%1\" dur=\"1\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"%2\"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par>")
+				             .arg(id++)
+				             .arg(spid[k]);
+			}
+		if (!tocar.isEmpty() && grupos.front().empty())
+			cliques += QString("<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/><p:cond evt=\"onBegin\" delay=\"0\"><p:tn val=\"2\"/></p:cond>"
+			                   "</p:stCondLst><p:childTnLst><p:par><p:cTn id=\"%2\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>")
+			               .arg(id)
+			               .arg(id + 1) +
+			           tocar + "</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>";
+		if (!tocar.isEmpty() && grupos.front().empty())
+			id += 2;
+		std::set<std::pair<int, bool>> construcoes; // (objeto, por parágrafo)
+		for (size_t gi = 0; gi < grupos.size(); gi++) {
+			const auto &g = grupos[gi];
+			if (g.empty())
+				continue;
+			QString par = QString("<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/>").arg(id++);
+			if (gi == 0)
+				par += "<p:cond evt=\"onBegin\" delay=\"0\"><p:tn val=\"2\"/></p:cond>";
+			par += "</p:stCondLst><p:childTnLst>";
+			// Os instantes de começo, em ordem.
+			std::vector<double> ts;
+			for (const Evento &e : g)
+				if (std::find(ts.begin(), ts.end(), e.t0) == ts.end())
+					ts.push_back(e.t0);
+			bool primeiro = true;
+			for (double t0 : ts) {
+				par += QString("<p:par><p:cTn id=\"%1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"%2\"/></p:stCondLst><p:childTnLst>")
+				           .arg(id++)
+				           .arg(qint64(std::llround(t0 * 1000)));
+				if (gi == 0 && t0 == ts.front() && !tocar.isEmpty()) {
+					par += tocar;
+					primeiro = false;
+				}
+				for (const Evento &e : g) {
+					if (e.t0 != t0 || e.obj < 0 || size_t(e.obj) >= spid.size() || spid[size_t(e.obj)] == 0)
+						continue;
+					const Objeto &o = sl.objs[size_t(e.obj)];
+					const QString nodo = primeiro && gi > 0 ? "clickEffect" : e.a.inicio == 2 ? "afterEffect" : "withEffect";
+					primeiro = false;
+					const bool txEl = e.par >= 0 && ehSp[size_t(e.obj)];
+					QString alvo = QString("<p:tgtEl><p:spTgt spid=\"%1\"").arg(spid[size_t(e.obj)]);
+					if (txEl)
+						alvo += QString("><p:txEl><p:pRg st=\"%1\" end=\"%1\"/></p:txEl></p:spTgt></p:tgtEl>").arg(e.par);
+					else
+						alvo += "/></p:tgtEl>";
+					if (!e.saida)
+						construcoes.insert({e.obj, txEl});
+					par += efeitoXml(e, o, alvo, nodo, id);
+				}
+				par += "</p:childTnLst></p:cTn></p:par>";
+			}
+			par += "</p:childTnLst></p:cTn></p:par>";
+			cliques += par;
+		}
+		// Como cada vídeo toca: o volume, sem som e repetir.
+		QString midia;
+		for (size_t k = 0; k < sl.objs.size(); k++) {
+			const Objeto &o = sl.objs[k];
+			if (o.tipo != Tipo::Video || spid[k] == 0)
+				continue;
+			midia += QString("<p:video><p:cMediaNode vol=\"80000\"%1><p:cTn id=\"%2\"%3 fill=\"hold\" display=\"0\"><p:stCondLst><p:cond delay=\"indefinite\"/>"
+			                 "</p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"%4\"/></p:tgtEl></p:cMediaNode></p:video>")
+			             .arg(o.mudo ? " mute=\"1\"" : "")
+			             .arg(id++)
+			             .arg(o.repetir ? " repeatCount=\"indefinite\"" : "")
+			             .arg(spid[k]);
+		}
+		QString s = "<p:timing><p:tnLst><p:par><p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst>";
+		if (!cliques.isEmpty())
+			s += "<p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst>" + cliques +
+			     "</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>"
+			     "<p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>";
+		s += midia + "</p:childTnLst></p:cTn></p:par></p:tnLst>";
+		if (!construcoes.empty()) {
+			s += "<p:bldLst>";
+			std::set<int> feitos;
+			for (const auto &[obj, porPar] : construcoes) {
+				if (!ehSp[size_t(obj)] || feitos.count(obj))
+					continue;
+				feitos.insert(obj);
+				s += QString("<p:bldP spid=\"%1\" grpId=\"0\"%2/>").arg(spid[size_t(obj)]).arg(porPar ? " build=\"p\"" : " animBg=\"1\"");
+			}
+			s += "</p:bldLst>";
+		}
+		return s + "</p:timing>";
+	}
+
+	// Um efeito: o código do PowerPoint (presetID e subtipo) e os comportamentos.
+	static QString efeitoXml(const Evento &e, const Objeto &o, const QString &alvo, const QString &nodo, int &id)
+	{
+		Q_UNUSED(o);
+		const Animacao &a = e.a;
+		const bool sai = e.saida;
+		const int ms = std::max(1, int(std::lround(a.dur * 1000)));
+		const int dd = a.dir < 0 ? 0 : a.dir > 3 ? 3 : a.dir;
+		// O subtipo da direção: 4 de baixo, 8 da esquerda, 2 da direita, 1 de cima.
+		static const int sub[] = {4, 8, 2, 1};
+		int preset = 1, subtipo = 0;
+		switch (a.ef) {
+		case Efeito::Aparecer: preset = 1; break;
+		case Efeito::Dissolver: preset = 10; break;
+		case Efeito::Voar: preset = 2; subtipo = sub[dd]; break;
+		case Efeito::Ampliar: preset = 53; subtipo = 16; break;
+		case Efeito::Revelar: preset = 22; subtipo = sub[dd]; break;
+		default: break;
+		}
+		QString s = QString("<p:par><p:cTn id=\"%1\" presetID=\"%2\" presetClass=\"%3\" presetSubtype=\"%4\" fill=\"hold\"%5 nodeType=\"%6\">"
+		                    "<p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst>")
+		                .arg(id++)
+		                .arg(preset)
+		                .arg(sai ? "exit" : "entr")
+		                .arg(subtipo)
+		                .arg(e.par >= 0 || sai ? QString() : QString(" grpId=\"0\""))
+		                .arg(nodo);
+		auto cbhvr = [&](int dur, const QString &extra = QString(), int atraso = 0) {
+			QString c = QString("<p:cBhvr%1><p:cTn id=\"%2\" dur=\"%3\" fill=\"hold\"").arg(extra).arg(id++).arg(dur);
+			if (atraso)
+				c += QString("><p:stCondLst><p:cond delay=\"%1\"/></p:stCondLst></p:cTn>").arg(atraso);
+			else
+				c += "/>";
+			return c + alvo;
+		};
+		auto visivel = [&](bool v, int atraso) {
+			return "<p:set>" + cbhvr(1, QString(), atraso) + "<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>" +
+			       "<p:to><p:strVal val=\"" + (v ? "visible" : "hidden") + "\"/></p:to></p:set>";
+		};
+		auto anim = [&](const QString &attr, const QString &de, const QString &para) {
+			return "<p:anim calcmode=\"lin\" valueType=\"num\">" + cbhvr(ms, " additive=\"base\"") + "<p:attrNameLst><p:attrName>" + attr +
+			       "</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"" + de +
+			       "\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"" + para + "\"/></p:val></p:tav></p:tavLst></p:anim>";
+		};
+		auto filtro = [&](const QString &f) {
+			return QString("<p:animEffect transition=\"%1\" filter=\"%2\">").arg(sai ? "out" : "in", f) + cbhvr(ms) + "</p:cBhvr></p:animEffect>";
+		};
+		if (!sai)
+			s += visivel(true, 0);
+		if (a.ef == Efeito::Dissolver)
+			s += filtro("fade");
+		else if (a.ef == Efeito::Voar) {
+			const QString px = sai ? "ppt_x" : "#ppt_x", py = sai ? "ppt_y" : "#ppt_y";
+			const QString fx = a.dir == 1 ? "0-#ppt_w/2" : a.dir == 2 ? "1+#ppt_w/2" : px;
+			const QString fy = a.dir == 0 ? "1+#ppt_h/2" : a.dir == 3 ? "0-#ppt_h/2" : py;
+			s += sai ? anim("ppt_x", px, QString(fx).remove('#')) + anim("ppt_y", py, QString(fy).remove('#'))
+			         : anim("ppt_x", fx, px) + anim("ppt_y", fy, py);
+		} else if (a.ef == Efeito::Ampliar) {
+			s += sai ? anim("ppt_w", "ppt_w", "0") + anim("ppt_h", "ppt_h", "0") : anim("ppt_w", "0", "#ppt_w") + anim("ppt_h", "0", "#ppt_h");
+			s += filtro("fade");
+		} else if (a.ef == Efeito::Revelar) {
+			static const char *ent[] = {"wipe(up)", "wipe(right)", "wipe(left)", "wipe(down)"};
+			static const char *sa[] = {"wipe(down)", "wipe(left)", "wipe(right)", "wipe(up)"};
+			s += filtro((sai ? sa : ent)[dd]);
+		}
+		if (sai)
+			s += visivel(false, a.ef == Efeito::Aparecer ? 0 : std::max(0, ms - 1));
+		return s + "</p:childTnLst></p:cTn></p:par>";
+	}
+
 #undef CAB
 #undef NS
 #undef GRUPO
 
 	const Doc &d_;
 	QMap<QString, QByteArray> midias_;
+	int graficos_ = 0;
 };
 
 // --- ler -------------------------------------------------------------------
@@ -1047,8 +1530,10 @@ private:
 		const QString idx = ph ? ph->a("idx") : QString();
 		const Lugar *lL = ph && cx.leiaute ? acharLugar(cx.leiaute->lugares, tipoPh, idx) : nullptr;
 		const Lugar *lM = ph && m ? acharMestre(m->lugares, tipoPh) : nullptr;
-		if (const No *c = f.achar("p:cNvPr"))
+		if (const No *c = f.achar("p:cNvPr")) {
 			o.nome = c->a("name");
+			o.idArq = c->a("id").toInt();
+		}
 		const No *spPr = f.filho("p:spPr");
 		std::optional<QRectF> r;
 		const No *xf = nullptr;
@@ -1084,6 +1569,23 @@ private:
 			if (const No *x = st->filho("a:fontRef")) fontRef = cor(x, m);
 		}
 
+		if (f.nome == "p:pic" && (f.achar("a:videoFile") || f.achar("p14:media"))) {
+			o.tipo = Tipo::Video;
+			QString v;
+			if (const No *md = f.achar("p14:media"))
+				v = guardar(cx, md->a("r:embed"));
+			if (v.isEmpty())
+				if (const No *vf = f.achar("a:videoFile"))
+					v = guardar(cx, vf->a("r:link"));
+			if (v.isEmpty())
+				return false;
+			o.midia = v;
+			if (const No *bf = f.filho("p:blipFill"))
+				if (const No *bl = bf->filho("a:blip"))
+					o.capa = guardar(cx, bl->a("r:embed"));
+			lerLinha(spPr, lnRef, o, m);
+			return true;
+		}
 		if (f.nome == "p:pic") {
 			o.tipo = Tipo::Imagem;
 			if (const No *c = f.achar("p:cNvPr"))
@@ -1293,19 +1795,68 @@ private:
 			return lerGraficoOoxml(x, o.graf);
 		}
 		if (const No *tbl = gd->achar("a:tbl")) {
-			o.tipo = Tipo::Texto;
-			o.tamanho = 14;
-			for (const No *tr : tbl->todos("a:tr")) {
-				QStringList cel;
-				for (const No *tc : tr->todos("a:tc"))
-					cel << tc->textoTodo().simplified();
-				Paragrafo p;
-				p.trechos.push_back(trecho(cel.join("   ·   ")));
-				o.pars.push_back(p);
+			const No *grid = tbl->filho("a:tblGrid");
+			const auto trs = tbl->todos("a:tr");
+			if (!grid || trs.empty())
+				return false;
+			std::vector<double> largs;
+			for (const No *gc : grid->todos("a:gridCol"))
+				largs.push_back(gc->a("w").toDouble() / 12700);
+			if (largs.empty())
+				return false;
+			const QRectF r = o.r;
+			const QString nome = o.nome;
+			const int idArq = o.idArq;
+			o = novaTabela(int(trs.size()), int(largs.size()), r);
+			o.nome = nome;
+			o.idArq = idArq;
+			o.largs = largs;
+			if (const No *pr = tbl->filho("a:tblPr")) {
+				o.cabecalho = pr->a("firstRow") == "1" || pr->a("firstRow") == "true";
+				o.faixas = pr->a("bandRow") == "1" || pr->a("bandRow") == "true";
+			} else
+				o.cabecalho = o.faixas = false;
+			double tamanho = 0;
+			for (int l = 0; l < o.lins; l++) {
+				o.alts[size_t(l)] = trs[size_t(l)]->a("h").toDouble() / 12700;
+				const auto tcs = trs[size_t(l)]->todos("a:tc");
+				for (int c = 0; c < o.cols && c < int(tcs.size()); c++) {
+					const No *tc = tcs[size_t(c)];
+					Objeto &x = o.celula(l, c);
+					lerTexto(tc->filho("a:txBody"), nullptr, QString(), nullptr, nullptr, std::nullopt, cx, x);
+					if (x.pars.empty())
+						x.pars = {Paragrafo()};
+					// Sem cor escrita na célula, a cor vem do estilo da tabela
+					// (no Palco, a do tema conforme o fundo), não do mestre.
+					bool corEscrita = false;
+					if (const No *tb = tc->filho("a:txBody"))
+						for (const char *tag : {"a:rPr", "a:defRPr", "a:endParaRPr"})
+							for (const No *r = tb->achar(tag); r && !corEscrita; r = nullptr)
+								corEscrita = r->achar("a:solidFill") != nullptr;
+					if (!corEscrita)
+						for (Paragrafo &p : x.pars)
+							for (Trecho &t : p.trechos)
+								t.cor = QColor();
+					x.vAlin = 0;
+					if (const No *pr = tc->filho("a:tcPr")) {
+						const QString an = pr->a("anchor", "t");
+						x.vAlin = an == "ctr" ? 1 : an == "b" ? 2 : 0;
+						if (const std::optional<QColor> fill = preench(pr, cx.mestre, cx))
+							x.preench = *fill;
+						if (!o.borda.isValid())
+							if (const No *ln = pr->filho("a:lnT") ? pr->filho("a:lnT") : pr->filho("a:lnL"))
+								if (const No *sf = ln->filho("a:solidFill"); sf && cor(sf, cx.mestre)) {
+									o.borda = *cor(sf, cx.mestre);
+									o.espBorda = ln->atr.contains("w") ? ln->a("w").toDouble() / 12700 : 1;
+								}
+					}
+					if (tamanho <= 0 && x.temTexto())
+						tamanho = x.tamanho;
+				}
 			}
-			o.borda = cx.doc->tema.apagado;
-			o.espBorda = 0.75;
-			return !o.pars.empty();
+			if (tamanho > 0)
+				o.tamanho = tamanho;
+			return true;
 		}
 		return false;
 	}
@@ -1370,7 +1921,7 @@ public:
 			nCat = std::max(nCat, n);
 			QString nome;
 			if (const No *tx = s->filho("c:tx"))
-				nome = tx->textoTodo().simplified();
+				nome = (tx->achar("c:v") ? tx->achar("c:v")->textoTodo() : tx->achar("c:f") ? QString() : tx->textoTodo()).simplified();
 			g.series << (nome.isEmpty() ? QString("Série %1").arg(g.series.size() + 1) : nome);
 			std::vector<double> v;
 			for (int k = 0; k < n; k++)
@@ -1387,6 +1938,146 @@ public:
 	}
 
 private:
+	// As animações (p:timing): a sequência principal, um "par" por clique.
+	static void lerAnimacoes(const No &tm, Slide &sl, size_t n0)
+	{
+		const No *seq = nullptr;
+		std::function<void(const No &)> acha = [&](const No &n) {
+			for (const No &f : n.filhos) {
+				if (seq)
+					return;
+				if (f.nome == "p:seq")
+					if (const No *c = f.filho("p:cTn"); c && c->a("nodeType") == "mainSeq") {
+						seq = &f;
+						return;
+					}
+				acha(f);
+			}
+		};
+		acha(tm);
+		auto objeto = [&](int spid) -> int {
+			for (size_t k = n0; k < sl.objs.size(); k++)
+				if (sl.objs[k].idArq == spid)
+					return int(k);
+			return -1;
+		};
+		// Como cada vídeo toca (sem som, repetir).
+		std::function<void(const No &)> midias = [&](const No &n) {
+			for (const No &f : n.filhos) {
+				if (f.nome == "p:cMediaNode") {
+					const No *alvo = f.achar("p:spTgt");
+					const int k = alvo ? objeto(alvo->a("spid").toInt()) : -1;
+					if (k >= 0 && sl.objs[size_t(k)].tipo == Tipo::Video) {
+						sl.objs[size_t(k)].mudo = f.a("mute") == "1" || f.a("mute") == "true";
+						if (const No *c = f.filho("p:cTn"))
+							sl.objs[size_t(k)].repetir = c->a("repeatCount") == "indefinite";
+					}
+				} else
+					midias(f);
+			}
+		};
+		midias(tm);
+		if (!seq)
+			return;
+		const No *lista = seq->filho("p:cTn") ? seq->filho("p:cTn")->filho("p:childTnLst") : nullptr;
+		if (!lista)
+			return;
+		int ordem = 0;
+		std::set<std::pair<int, bool>> feitos;
+		// Os efeitos, em ordem: os "par" com presetClass.
+		std::function<void(const No &)> efeitos = [&](const No &n) {
+			for (const No &f : n.filhos) {
+				const No *c = f.nome == "p:par" ? f.filho("p:cTn") : nullptr;
+				if (!c) {
+					if (f.nome != "p:par")
+						efeitos(f);
+					continue;
+				}
+				const QString classe = c->a("presetClass");
+				if (classe.isEmpty()) {
+					efeitos(f);
+					continue;
+				}
+				if (classe == "mediacall") {
+					// "Tocar" sem clique: o vídeo começa sozinho.
+					if (const No *alvo = f.achar("p:spTgt"); alvo && c->a("nodeType") != "clickEffect" && f.achar("p:cmd") &&
+					                                          f.achar("p:cmd")->a("cmd").startsWith("play")) {
+						const int k = objeto(alvo->a("spid").toInt());
+						if (k >= 0 && sl.objs[size_t(k)].tipo == Tipo::Video)
+							sl.objs[size_t(k)].sozinho = true;
+					}
+					continue;
+				}
+				if (classe != "entr" && classe != "exit")
+					continue;
+				const No *alvo = f.achar("p:spTgt");
+				if (!alvo)
+					continue;
+				const int k = objeto(alvo->a("spid").toInt());
+				if (k < 0)
+					continue;
+				const bool sai = classe == "exit";
+				const bool porPar = alvo->achar("p:pRg") != nullptr;
+				// Por parágrafo: o primeiro efeito vale para o objeto todo.
+				if (feitos.count({k, sai}))
+					continue;
+				feitos.insert({k, sai});
+				Animacao a;
+				const int preset = c->a("presetID").toInt(), sub = c->a("presetSubtype").toInt();
+				switch (preset) {
+				case 1: a.ef = Efeito::Aparecer; break;
+				case 2: case 3: case 12: case 47: a.ef = Efeito::Voar; break;
+				case 22: case 18: case 3001: a.ef = Efeito::Revelar; break;
+				case 23: case 53: case 31: case 21: case 55: a.ef = Efeito::Ampliar; break;
+				default: a.ef = Efeito::Dissolver; break;
+				}
+				if (a.ef == Efeito::Voar || a.ef == Efeito::Revelar)
+					a.dir = sub == 8 ? 1 : sub == 2 ? 2 : sub == 1 ? 3 : 0;
+				const QString nodo = c->a("nodeType");
+				a.inicio = nodo == "withEffect" ? 1 : nodo == "afterEffect" ? 2 : 0;
+				// A duração: a do primeiro comportamento que não é um "set".
+				a.dur = 0.5;
+				for (const char *tag : {"p:animEffect", "p:anim", "p:animScale", "p:animMotion"})
+					if (const No *b = f.achar(tag))
+						if (const No *bc = b->achar("p:cTn")) {
+							const double ms = bc->a("dur").toDouble();
+							if (ms > 1) {
+								a.dur = ms / 1000;
+								break;
+							}
+						}
+				a.porParagrafo = porPar && !sai;
+				a.ordem = ordem++;
+				Objeto &o = sl.objs[size_t(k)];
+				(sai ? o.saida : o.entrada) = a;
+			}
+		};
+		efeitos(*lista);
+		// O primeiro clique do slide pode ser automático (onBegin): os efeitos
+		// dele marcados "ao clicar" começam sozinhos.
+		if (const No *p0 = lista->filho("p:par"))
+			if (const No *c0 = p0->filho("p:cTn"))
+				if (const No *st = c0->filho("p:stCondLst"))
+					for (const No *cd : st->todos("p:cond"))
+						if (cd->a("evt") == "onBegin") {
+							std::set<int> nele;
+							std::function<void(const No &)> junta = [&](const No &n) {
+								for (const No &f : n.filhos) {
+									if (f.nome == "p:cTn" && (f.a("presetClass") == "entr" || f.a("presetClass") == "exit"))
+										if (const No *a = f.achar("p:spTgt"))
+											nele.insert(objeto(a->a("spid").toInt()));
+									junta(f);
+								}
+							};
+							junta(*p0);
+							for (int k : nele)
+								if (k >= 0)
+									for (Animacao *a : {&sl.objs[size_t(k)].entrada, &sl.objs[size_t(k)].saida})
+										if (a->tem() && a->ordem == 0 && a->inicio == 0)
+											a->inicio = 2;
+						}
+	}
+
 	bool lerSlide(const QString &parte, Doc &d, Slide &sl, bool &temaFeito)
 	{
 		No x;
@@ -1447,8 +2138,13 @@ private:
 				sl.objs.push_back(o);
 		}
 		corpos_ = 0;
+		const size_t n0 = sl.objs.size();
+		for (Objeto &o : sl.objs)
+			o.idArq = 0;
 		if (const No *st = x.achar("p:spTree"))
 			lerArvore(*st, QTransform(), cx, sl.objs, false);
+		if (const No *tm = s->filho("p:timing"))
+			lerAnimacoes(*tm, sl, n0);
 		if (inferirLeiaute_)
 			sl.layout = inferirLeiaute(sl);
 		// A transição (direto ou dentro de mc:AlternateContent).
@@ -1496,18 +2192,22 @@ private:
 
 	void temaDoMestre(const Mestre &m, Doc &d)
 	{
-		// Um tema do Palco volta a ser ele mesmo.
-		if (m.nomeTema.endsWith(" (LumeBSD)")) {
-			const QString nome = m.nomeTema.chopped(10);
+		// Um tema do Palco volta a ser ele mesmo (um tema de fora gravado pelo
+		// Palco também leva o " (LumeBSD)" no nome).
+		const bool doPalco = m.nomeTema.endsWith(" (LumeBSD)");
+		const QString nomeTema = doPalco ? m.nomeTema.chopped(10) : m.nomeTema;
+		bool achou = false;
+		if (doPalco)
 			for (const Tema &t : temas())
-				if (t.nome == nome) {
+				if (t.nome == nomeTema) {
 					d.tema = t;
+					achou = true;
 					break;
 				}
-		} else {
+		if (!achou) {
 			Tema t;
 			t.id = "arquivo";
-			t.nome = m.nomeTema.isEmpty() ? "Do arquivo" : m.nomeTema;
+			t.nome = nomeTema.isEmpty() ? "Do arquivo" : nomeTema;
 			t.texto = m.esquema.value("tx1", Qt::black);
 			t.fundo = m.fundo && m.fundo->isValid() ? *m.fundo : m.esquema.value("bg1", Qt::white);
 			t.titulo = m.titulo[0].cor ? *m.titulo[0].cor : t.texto;
