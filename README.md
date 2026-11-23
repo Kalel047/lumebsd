@@ -404,6 +404,12 @@ aplica de novo.
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
 
+### O gráfico dos Números no Páginas e no Palco (2.5)
+
+| | |
+|---|---|
+| ![Um gráfico colado dos Números num .docx do Páginas](docs/capturas/paginas-6-grafico.png) | ![O mesmo gráfico colado num slide do Palco](docs/capturas/palco-9-grafico.png) |
+
 ### O Palco (2.4) na tela
 
 | | |
