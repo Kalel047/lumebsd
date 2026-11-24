@@ -219,6 +219,9 @@ inline void dicasDaMesa(QWidget *w)
 	msg(estado, {1, atomo("_NET_WM_STATE_SKIP_TASKBAR"), atomo("_NET_WM_STATE_SKIP_PAGER"), 1});
 	msg(estado, {1, atomo("_NET_WM_STATE_BELOW"), 0, 1});
 	msg(atomo("_NET_WM_DESKTOP"), {0xFFFFFFFFu, 1});
+	// O Qt anuncia o WM_TAKE_FOCUS mesmo sem foco, e o KWin, que não o
+	// ativa (está abaixo), o marca "pedindo atenção": tira.
+	msg(estado, {0, atomo("_NET_WM_STATE_DEMANDS_ATTENTION"), 0, 1});
 	descarregar(c);
 #else
 	Q_UNUSED(w);
@@ -280,6 +283,8 @@ public:
 		setGeometry(g);
 		show();
 		dicasDaMesa(this);
+		// (De novo depois que o KWin terminou de pôr a janela.)
+		QTimer::singleShot(1500, this, [this] { dicasDaMesa(this); });
 		naMesa_ = true;
 	}
 

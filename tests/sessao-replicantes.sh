@@ -14,6 +14,7 @@ for f in ind.xlsx ind-novo.xlsx relatorio-vinculado.docx; do fetch -qo /tmp/$f $
 rm -f /home/kalel/.config/lume/mesa; su -m kalel -c 'env HOME=/home/kalel sh -c "lume-mesa --por lume-numeros grafico /home/kalel/Documentos/ind.xlsx 1; lume-mesa --por lume-financas indicadores; lume-mesa --por lume-mercados cotacao AAA BBB; lume-mesa --listar"'
 eval "$S"; su -m kalel -c 'cd /home/kalel; env HOME=/home/kalel LUME_FINANCAS_SGS=/tmp/dados/sgs LUME_MERCADOS_DADOS=/tmp/dados daemon -f -o /tmp/mesa.log lume-mesa'; sleep 20; echo "replicantes: $(pgrep -f -- '--replicante' | wc -l | tr -d ' ')"
 eval "$S"; for c in lume-numeros lume-financas lume-mercados; do w=$(xdotool search --classname $c | head -1); echo "$c $(xprop -id $w _NET_WM_STATE _NET_WM_DESKTOP | tr '\n' ' ')"; done
+sleep 3; for c in lume-numeros lume-financas lume-mercados; do w=$(xdotool search --classname $c | head -1); echo "$c depois $(xprop -id $w _NET_WM_STATE | tr "\n" " ")"; done
 FOTO mesa-1
 pkill -9 -f 'lume-financas --replicante'; sleep 6; echo "voltou: $(pgrep -f 'lume-financas --replicante' | wc -l | tr -d ' ')"
 eval "$S"; su -m kalel -c 'cd /home/kalel; env HOME=/home/kalel daemon -f lume-paginas /home/kalel/Documentos/relatorio-vinculado.docx'; sleep 20
