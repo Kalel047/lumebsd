@@ -1,3 +1,22 @@
+# LumeBSD 2.6 "Farol"
+
+Os Replicants, como no BeOS: pedaços vivos dos apps na área de trabalho e dentro de outros apps.
+
+## Na mesa (a área de trabalho)
+
+- **Um gráfico dos Números na mesa:** botão direito no gráfico › **Pôr na mesa**. Ele fica na área de trabalho e se redesenha sozinho quando você grava a planilha.
+- **Os indicadores do dia** (Selic, IPCA em 12 meses, CDI e dólar): Finanças › Inflação e índices › **Pôr na mesa**. Atualizam a cada hora.
+- **Cotações:** no Mercados, `MESA PETR4 VALE3 DOLAR` (sem ativos: Ibovespa, dólar, PETR4 e VALE3). O preço, a variação do dia e os últimos pregões, a cada minuto.
+- Cada replicante é uma folha de papel sem borda, atrás das janelas, em todas as áreas de trabalho e fora da barra de tarefas. Arraste para mudar de lugar; a alça do canto muda o tamanho; dois cliques abrem o app; o botão direito tem **Atualizar** e **Tirar da mesa**.
+- **A mesa (`lume-mesa`)** entra com a sessão e traz cada replicante de volta no lugar em que estava; se um cair, ele volta sozinho. No terminal: `lume-mesa --listar` e `lume-mesa --tirar r1`.
+
+## Dentro de outro app: o gráfico vinculado
+
+- **Um gráfico copiado nos Números** (de uma planilha gravada) e colado no **Páginas** ou no **Palco** continua ligado à planilha: se atualiza ao abrir o documento e quando a planilha é gravada.
+- **O vínculo vai junto no arquivo** (.docx, .odt, .pptx e .odp), no nome do gráfico, que o Word, o PowerPoint e o LibreOffice guardam.
+- Mudar os números do gráfico à mão solta o vínculo; se a planilha sumir, o gráfico fica como estava.
+- No terminal: `lume-paginas --atualizar relatorio.docx` (e o mesmo no `lume-palco`) traz os dados novos.
+
 # LumeBSD 2.5 "Farol"
 
 O escritório do LumeBSD trabalhando junto, e testado contra arquivos de verdade do Word, do Excel e do PowerPoint.

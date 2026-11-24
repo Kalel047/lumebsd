@@ -43,6 +43,10 @@
 .Nm
 .Fl -chave
 .Ar url
+.Nm
+.Fl -replicante
+.Ar id
+.Op Fl -foto Ar saida.png
 .Sh DESCRIPTION
 Um terminal de mercados para quem estuda, ensina e trabalha com economia e
 finanças.
@@ -137,6 +141,18 @@ Outras bolsas levam o sufixo do Yahoo Finance
 As cotações têm atraso (em geral 15 minutos nas bolsas).
 Cada tela diz a fonte dos seus números.
 Nada aqui é recomendação de investimento.
+.Pp
+.Li MESA
+e os ativos
+.Pq Li MESA PETR4 VALE3 DOLAR
+põem as cotações na área de trabalho: um replicante (ver
+.Xr lume-mesa 1 )
+com o código, o nome, o preço, a variação do dia e os últimos pregões, que
+se atualiza a cada minuto
+.Pq Nm Fl -replicante Ar id ;
+com
+.Fl -foto ,
+desenha uma vez no arquivo e escreve o que mostrou.
 .Sh ENVIRONMENT
 .Bl -tag -width indent
 .It Ev LUME_MERCADOS_DADOS
@@ -181,6 +197,7 @@ as costas e as fronteiras do mapa (Natural Earth, domínio público)
 .Dl lume-mercados --triagem
 .Dl lume-mercados --alertas
 .Sh SEE ALSO
+.Xr lume-mesa 1 ,
 .Xr lume-financas 1
 .Pp
 Fontes dos dados: Yahoo Finance (cotações), B3 (o arquivo do pregão), CVM,

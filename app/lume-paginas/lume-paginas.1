@@ -18,6 +18,10 @@
 .Fl -resumo
 .Ar arquivo
 .Nm
+.Fl -atualizar
+.Ar arquivo
+.Op Ar saida
+.Nm
 .Fl -foto
 .Ar saida.png
 .Op Ar arquivo | Fl -modelo Ar nome | Fl -galeria
@@ -64,6 +68,13 @@ Um gráfico copiado no
 .Xr lume-numeros 1
 cola no texto como gráfico, com os dados; Inserir > Gráfico começa um do
 zero, e dois cliques nele mudam o tipo, o título, a legenda e os números.
+Copiado de uma planilha gravada, o gráfico fica vinculado a ela: se
+atualiza ao abrir o documento e quando a planilha é gravada (o vínculo vai
+no nome do gráfico, no
+.Pa .docx
+e no
+.Pa .odt ) .
+Mudar os números à mão solta o vínculo.
 O gráfico vai como gráfico de verdade: no
 .Pa .docx ,
 o do Word, com a planilha dos dados embutida; no
@@ -103,6 +114,11 @@ grava um dos modelos
 .Pq branco, abnt, aula, relatorio, carta, curriculo .
 .It Fl -resumo Ar arquivo
 mostra a estrutura do documento (os testes comparam).
+.It Fl -atualizar Ar arquivo Op Ar saida
+traz os dados novos dos gráficos vinculados aos Números e grava (no mesmo
+arquivo ou em
+.Ar saida ) ;
+escreve quantos mudaram.
 .It Fl -foto Ar saida.png
 fotografa a janela (para a documentação).
 .El

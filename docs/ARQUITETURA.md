@@ -49,7 +49,8 @@ eles criam, gerada por `ferramentas/montar fonte` e conferida no CI.
 | `app/lume-paginas/` | o Páginas (C++/Qt): o editor de texto, com leitores e gravadores de `.odt` e `.docx` e o PDF; também na linha de comando |
 | `app/lume-numeros/` | os Números (C++/Qt): a planilha, com o cálculo das fórmulas, os gráficos, leitores e gravadores de `.xlsx` e `.ods`, CSV e PDF; também na linha de comando |
 | `app/lume-palco/` | o Palco (C++/Qt): as apresentações, com temas, leiautes, gráficos, tabelas, animações, vídeo, transições, o modo de apresentação e a tela do apresentador, leitores e gravadores de `.pptx` e `.odp`, e PDF; também na linha de comando |
-| `app/comum/` | o que os apps do escritório dividem: `grafico.h` (os dados de um gráfico, o formato da área de transferência e o desenho) e `grafico-arquivos.h` (o gráfico de verdade do Office, com a planilha embutida, e o do ODF, para gravar e ler) |
+| `app/comum/` | o que os apps dividem: `grafico.h` (os dados de um gráfico, o formato da área de transferência e o desenho), `grafico-arquivos.h` (o gráfico de verdade do Office, com a planilha embutida, e o do ODF, para gravar e ler), `replicante.h` (a mesa e a janela dos replicantes) e `vinculo.h` (o gráfico vinculado à planilha) |
+| `app/lume-mesa/` | a mesa dos replicantes: um processo por replicante, que volta se cair |
 | `app/lume-financas/` | as Finanças do LumeBSD (C++/Qt): juros, financiamento, projetos, inflação (SGS do Banco Central), regressão e o orçamento do mês; também na linha de comando |
 | `app/lume-mercados/` | os Mercados do LumeBSD (C++/Qt, com o QtNetwork): o terminal de mercados; `main.cpp` e as partes ao lado (`base.h` a rede, o gráfico e a configuração, `ws.h` um cliente de WebSocket, `dados.h` as cotações e as contas, `relcvm.h` o Formulário de Referência, `sec.h` a SEC, `telas1.h` a `telas6.h` as funções), o mapa (Natural Earth) e as relações entre empresas (`lume-mercados-relacoes.tsv`) |
 | `app/lume-motor/` | o motor de renderização: `liblume-motor`, os cabeçalhos e o `papel.glsl` comum ao filtro do KWin |
@@ -814,6 +815,46 @@ testes colam o gráfico dos indicadores no autoteste do Páginas e do Palco,
 levam o do Páginas por `.odt` -> `.docx` -> `.odt` e conferem o
 `lume-numeros --copiar-grafico`; o LibreOffice abre os dois formatos com o
 gráfico como gráfico, e o que ele grava volta igual.
+
+## Os Replicants (2.6)
+
+No BeOS, um replicante é uma vista de um app (arquivada num `BMessage`)
+que outro app, ou a área de trabalho, hospeda viva. Aqui o replicante é o
+próprio app rodando num modo pequeno (`lume-numeros --replicante r1`): o
+código é o do app, num processo dele, e a mesa só guarda e supervisiona.
+
+A mesa é um arquivo (`~/.config/lume/mesa`, um `QSettings` em INI): um
+grupo por replicante, com o app (só `lume-*`), os dados (o que mostra: no
+Números, `grafico ARQUIVO N`; nas Finanças, `indicadores`; no Mercados,
+`cotacao ATIVO...`) e o lugar. Quem mexe nela (o `lume-mesa`, o replicante
+que guarda o lugar, o app que põe um novo) trava com um `QLockFile`.
+
+O `lume-mesa` (uma por sessão, pelo `QLockFile` `mesa.rodando`) roda um
+`QProcess` por replicante e vigia o arquivo e a pasta: um replicante novo
+começa, um tirado recebe o SIGTERM. Um que sai sem estar fora da mesa caiu
+e volta (depois de 1, 2, 3... segundos); mais de cinco quedas num minuto e
+ele fica parado. O SIGTERM da mesa (o fim da sessão) passa pelo laço do Qt
+(um par de sockets) e leva os replicantes junto.
+
+A janela (`JanelaReplicante`, em `app/comum/replicante.h`) é sem borda e
+`WindowStaysOnBottomHint`; no X11, ela pede ao KWin, por mensagens de
+cliente ao root, `_NET_WM_STATE_SKIP_TASKBAR`, `_SKIP_PAGER`, `_BELOW` e
+`_NET_WM_DESKTOP` = todas. O xcb é aberto na hora (`dlopen` da
+`libxcb.so.1`, pela conexão que o `QNativeInterface::QX11Application` do
+Qt dá): nada a compilar contra ele, e nada a fazer no Wayland. Arrastar e
+mudar de tamanho são do gerenciador de janelas (`startSystemMove` e
+`startSystemResize`), e o lugar é gravado 0,6 s depois de parar.
+
+O gráfico vinculado é o replicante dentro de outro app. Os Números põem na
+área de transferência, junto do gráfico, de onde ele veio
+(`application/x-lume-grafico-vinculo`: `ARQUIVO#N`). O Páginas guarda o
+vínculo numa propriedade do formato da imagem; o Palco, no nome do objeto.
+Nos arquivos, ele vai no nome do gráfico (`lume-vinculo:ARQUIVO#N`: o
+`name` do `wp:docPr` e do `p:cNvPr`, o `draw:name` do ODF), que o Word, o
+PowerPoint e o LibreOffice guardam. Os dados de agora vêm do próprio
+`lume-numeros --copiar-grafico ARQUIVO N`, num processo (o Páginas e o
+Palco não leem planilhas); a `VigiaVinculos` olha as planilhas (e as
+pastas: os Números gravam num arquivo novo e trocam).
 
 ## Ícone de rede
 

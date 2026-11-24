@@ -33,6 +33,10 @@
 .Fl -meta
 .Ar valor meses taxa
 .Op Ar ja-tem
+.Nm
+.Fl -replicante
+.Ar id
+.Op Fl -foto Ar saida.png
 .Sh DESCRIPTION
 Um app para estudantes, professores e profissionais de economia, finanças e
 contabilidade, e para quem quer entender um financiamento.
@@ -101,7 +105,15 @@ em
 .Ar meses ,
 rendendo
 .Ar taxa
-ao ano.
+ao ano;
+.Fl -replicante
+mostra os indicadores do dia na área de trabalho (o replicante que o
+.Dq Pôr na mesa
+da página 4 deixa na mesa; ver
+.Xr lume-mesa 1 ) ,
+buscando de novo a cada hora; com
+.Fl -foto ,
+desenha uma vez no arquivo e escreve o que mostrou.
 .Sh ENVIRONMENT
 .Bl -tag -width indent
 .It Ev LUME_FINANCAS_SGS
@@ -122,6 +134,7 @@ o orçamento de cada mês
 .Dl lume-financas --corrigir ipca 1000 01/2020 12/2020
 .Dl lume-financas --meta 10000 12 10
 .Sh SEE ALSO
+.Xr lume-mesa 1 ,
 .Xr fetch 1 ,
 .Xr lume 1 ,
 .Xr lume-programas 1
