@@ -2750,6 +2750,48 @@ private:
 		atualizarTitulo();
 		mostrarInspetor(0);
 		tela_->setFocus();
+		seguirVinculos(true);
+	}
+
+	// Vigia as planilhas dos gráficos vinculados e, se agora (ao abrir, ou
+	// quando uma delas é gravada), traz os dados novos.
+	void seguirVinculos(bool agora)
+	{
+		if (!vigia_) {
+			vigia_ = new VigiaVinculos(this);
+			vigia_->mudou = [this] { seguirVinculos(true); };
+		}
+		QList<Vinculo> vs;
+		for (const Slide &s : doc_.slides)
+			for (const Objeto &o : s.objs)
+				if (o.tipo == Tipo::Grafico && lerVinculo(o.nome).ok() && !vs.contains(lerVinculo(o.nome)))
+					vs << lerVinculo(o.nome);
+		QStringList arqs;
+		for (const Vinculo &v : vs)
+			arqs << v.arq;
+		vigia_->vigiar(arqs);
+		if (!agora)
+			return;
+		for (const Vinculo &v : vs)
+			buscarVinculo(v, this, [this, v](bool ok, const DadosGrafico &novo) {
+				if (!ok)
+					return;
+				bool mudou = false;
+				for (Slide &s : doc_.slides)
+					for (Objeto &o : s.objs)
+						if (o.tipo == Tipo::Grafico && lerVinculo(o.nome) == v && gravarDados(o.graf) != gravarDados(novo)) {
+							if (!mudou)
+								guardar();
+							o.graf = novo;
+							mudou = true;
+						}
+				if (!mudou)
+					return;
+				refazerCena();
+				atualizarInspetor();
+				marcarMudanca();
+				statusBar()->showMessage(QString("O gráfico de %1 foi atualizado com a planilha.").arg(QFileInfo(v.arq).fileName()), 5000);
+			});
 	}
 
 	void atualizarTitulo()
@@ -4003,7 +4045,21 @@ private:
 			}
 		const bool ant = atualizando_;
 		atualizando_ = true;
-		mudarObjetos([&g](Objeto &o) { if (o.tipo == Tipo::Grafico) o.graf = g; });
+		// Os números mudados à mão: o gráfico deixa de seguir a planilha.
+		bool soltou = false;
+		mudarObjetos([&g, &soltou](Objeto &o) {
+			if (o.tipo != Tipo::Grafico)
+				return;
+			o.graf = g;
+			if (lerVinculo(o.nome).ok()) {
+				o.nome.clear();
+				soltou = true;
+			}
+		});
+		if (soltou) {
+			seguirVinculos(false);
+			statusBar()->showMessage("Os números mudaram aqui: o gráfico deixou de seguir a planilha.", 6000);
+		}
 		atualizando_ = ant;
 	}
 
@@ -4250,6 +4306,8 @@ private:
 		m->setText(t.join("\n\n"));
 		if (recorte_.size() == 1 && recorte_.front().tipo == Tipo::Grafico) {
 			m->setData(MIME_GRAFICO, gravarDados(recorte_.front().graf).toUtf8());
+			if (lerVinculo(recorte_.front().nome).ok())
+				m->setData(MIME_VINCULO, lerVinculo(recorte_.front().nome).texto().toUtf8());
 			m->setImageData(QImage::fromData(pngDoGrafico(doc_, recorte_.front())));
 		}
 		// A marca desta cópia (colar aqui volta os objetos inteiros).
@@ -4273,7 +4331,17 @@ private:
 			o.graf = dg;
 			o.r = QRectF(0, 0, doc_.larg * 0.6, doc_.alt * 0.6);
 			o.r.moveCenter(centroLivre(o.r.size()));
+			// De onde veio (a planilha dos Números): vai no nome do gráfico.
+			const Vinculo v = m->hasFormat(MIME_VINCULO) ? lerVinculo(QString::fromUtf8(m->data(MIME_VINCULO))) : Vinculo();
+			if (v.ok())
+				o.nome = v.nome();
 			acrescentar(o);
+			if (v.ok()) {
+				seguirVinculos(false);
+				statusBar()->showMessage("Gráfico colado com os dados, vinculado a " + QFileInfo(v.arq).fileName() +
+				                         ": ele se atualiza quando a planilha é gravada.", 6000);
+				return;
+			}
 			statusBar()->showMessage("Gráfico colado com os dados: clique duas vezes nele para mudar os números.", 5000);
 			return;
 		}
@@ -4774,6 +4842,7 @@ private:
 	QString textoCopiado_;
 	QByteArray marcaCopia_;
 	QString arquivo_;
+	VigiaVinculos *vigia_ = nullptr;
 	bool mudou_ = false, atualizando_ = false, ajustando_ = false;
 	std::unique_ptr<Sessao> sessao_;
 
@@ -5081,6 +5150,7 @@ static int uso()
 	             "     lume-palco --converter ENTRADA SAIDA   (pptx, odp, pdf)\n"
 	             "     lume-palco --modelo NOME [SAIDA]       (branco, aula, seminario, conjuntura, reuniao)\n"
 	             "     lume-palco --resumo ARQUIVO\n"
+	             "     lume-palco --atualizar ARQUIVO [SAIDA]   (os gráficos vinculados aos Números)\n"
 	             "     lume-palco --autoteste SAIDA\n"
 	             "     lume-palco --foto SAIDA.png [ARQUIVO | --modelo NOME | --galeria]\n");
 	return 2;
@@ -5091,7 +5161,7 @@ int main(int argc, char **argv)
 	bool semJanela = false;
 	for (int i = 1; i < argc; i++) {
 		const QByteArray a(argv[i]);
-		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || (a == "--modelo" && i == 1 && argc > 3))
+		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || a == "--atualizar" || (a == "--modelo" && i == 1 && argc > 3))
 			semJanela = true;
 		if (a == "--foto" && qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
 			semJanela = true;
@@ -5135,6 +5205,32 @@ int main(int argc, char **argv)
 			std::fprintf(stderr, "lume-palco: %s\n", qPrintable(erro));
 			return 1;
 		}
+		return 0;
+	}
+	// Os gráficos vinculados com a planilha de agora (o que a janela faz ao
+	// abrir e quando a planilha é gravada), gravando no mesmo arquivo ou em
+	// SAIDA.
+	if (a.size() >= 3 && a[1] == "--atualizar") {
+		Doc d;
+		QString erro;
+		if (!abrirArquivo(a[2], d, &erro)) {
+			std::fprintf(stderr, "lume-palco: %s\n", qPrintable(erro));
+			return 1;
+		}
+		int n = 0;
+		for (Slide &s : d.slides)
+			for (Objeto &o : s.objs) {
+				DadosGrafico novo;
+				if (o.tipo == Tipo::Grafico && dadosDoVinculo(lerVinculo(o.nome), novo) && gravarDados(novo) != gravarDados(o.graf)) {
+					o.graf = novo;
+					n++;
+				}
+			}
+		if (!gravarArquivo(a.size() >= 4 ? a[3] : a[2], d, &erro)) {
+			std::fprintf(stderr, "lume-palco: %s\n", qPrintable(erro));
+			return 1;
+		}
+		std::printf("%d gráfico(s) atualizado(s)\n", n);
 		return 0;
 	}
 	if (a.size() >= 3 && a[1] == "--resumo") {

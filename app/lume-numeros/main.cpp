@@ -31,6 +31,7 @@
 
 #include "../comum/grafico.h"
 #include "../comum/replicante.h"
+#include "../comum/vinculo.h"
 
 // Os dados de um gráfico da folha, como os outros apps do escritório colam
 // (a área e a dispersão vão como linhas).
@@ -1510,10 +1511,24 @@ private:
 		}
 		auto *m = new QMimeData;
 		m->setData(MIME_GRAFICO, gravarDados(dadosParaColar(g)).toUtf8());
+		// De onde veio (a planilha gravada): colado no Páginas ou no Palco,
+		// o gráfico se atualiza quando ela é gravada de novo.
+		const QString ext = extensao(arquivo_);
+		if (!arquivo_.isEmpty() && !csv_ && (ext == "xlsx" || ext == "ods")) {
+			Vinculo v;
+			v.arq = arquivo_;
+			v.n = graficoEscolhido_ + 1;
+			for (int f = 0; f < grade_.folha(); f++)
+				v.n += int(pasta_.folha(f).graficos.size());
+			m->setData(MIME_VINCULO, v.texto().toUtf8());
+		}
 		m->setImageData(img);
+		const bool vinculado = m->hasFormat(MIME_VINCULO);
 		QApplication::clipboard()->setMimeData(m);
 		textoCopiado_.clear();
-		statusBar()->showMessage("Gráfico copiado: cole no Palco ou no Páginas (Ctrl+V) e ele continua com os dados.", 5000);
+		statusBar()->showMessage(vinculado
+		    ? "Gráfico copiado: colado no Palco ou no Páginas, ele continua com os dados e se atualiza quando você grava a planilha."
+		    : "Gráfico copiado: cole no Palco ou no Páginas (Ctrl+V) e ele continua com os dados.", 6000);
 	}
 
 	// Um replicante na área de trabalho (lume-mesa): o gráfico vivo, que se

@@ -14,6 +14,7 @@
 #include <QMarginsF>
 
 #include "../comum/grafico.h"
+#include "../comum/vinculo.h"
 
 #include <QByteArray>
 #include <QColor>

@@ -175,6 +175,8 @@ jobs:
               $(pkg-config --cflags Qt6Widgets Qt6Multimedia) app/lume-palco/main.cpp \
               -o lume-palco $(pkg-config --libs Qt6Widgets Qt6Multimedia) -lz
           sh tests/palco.sh ./lume-palco palco-teste
+          # O gráfico vinculado aos Números, no Páginas e no Palco.
+          sh tests/vinculo.sh ./lume-numeros ./lume-paginas ./lume-palco vinculo-teste
 
       # As contas dos Mercados (sem rede): títulos, correlação, Black-Scholes,
       # a leitura dos documentos da CVM e da SEC.
