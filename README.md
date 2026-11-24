@@ -405,6 +405,12 @@ aplica de novo.
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
 
+### Os Replicants (2.6)
+
+| | |
+|---|---|
+| ![Na mesa: o gráfico dos Números, as cotações do Mercados e os indicadores das Finanças, vivos na área de trabalho](docs/capturas/mesa-1-replicantes.png) | ![O gráfico vinculado no Páginas, redesenhado quando a planilha foi gravada](docs/capturas/mesa-2-vinculado.png) |
+
 ### O gráfico dos Números no Páginas e no Palco (2.5)
 
 | | |
