@@ -186,6 +186,17 @@ jobs:
               -o lume-mercados $(pkg-config --libs Qt6Widgets Qt6Network)
           QT_QPA_PLATFORM=offscreen sh tests/mercados-contas.sh ./lume-mercados app/lume-mercados
 
+      # As contas das Finanças (Price, SAC, VPL, TIR, IPCA, regressão,
+      # orçamento) contra valores conhecidos, e o replicante dos indicadores;
+      # sem rede (os dados do Banco Central vêm de uma pasta de teste).
+      - name: Finanças (contas)
+        if: matrix.base == 'fixado'
+        run: |
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
+              $(pkg-config --cflags Qt6Widgets) app/lume-financas/main.cpp \
+              -o lume-financas $(pkg-config --libs Qt6Widgets)
+          QT_QPA_PLATFORM=offscreen sh tests/financas-contas.sh ./lume-financas
+
       # O lume-motor também no Linux, sem tela (Mesa llvmpipe): desenha a
       # página, o zoom e a troca de texto, e os quadros vão como artefato.
       - name: Motor de renderização (desenha sem tela)

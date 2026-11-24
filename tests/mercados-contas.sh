@@ -127,5 +127,14 @@ else
 	echo "ok    CVM: a versão antiga fica de fora"
 fi
 
+# O replicante (lume-mesa): as cotações na área de trabalho, com os mesmos
+# dados de teste (a mesa escrita à mão, como o lume-mesa --por escreve).
+printf '[r1]\napp=lume-mercados\ndados=cotacao, AAA, BBB\n' > "$T/mesa"
+u="https://query1.finance.yahoo.com/v7/finance/spark?symbols=AAA,BBB&range=5d&interval=1d"
+[ -f "$T/$("$M" --chave "$u")" ] || dados 5d
+confere "replicante: a cotação" "AAA 118,41 BRL ▲ 1,01%" env LUME_MESA="$T/mesa" QT_QPA_PLATFORM=offscreen "$M" --replicante r1 --foto "$T/r1.png"
+confere "replicante: o nome" "Empresa BBB" env LUME_MESA="$T/mesa" QT_QPA_PLATFORM=offscreen "$M" --replicante r1 --foto "$T/r1.png"
+if [ -s "$T/r1.png" ]; then echo "ok    replicante: a foto"; else echo "FALHA replicante: a foto"; falhas=$((falhas + 1)); fi
+
 [ $falhas -eq 0 ] && echo "tudo certo" || echo "$falhas falha(s)"
 exit $falhas
