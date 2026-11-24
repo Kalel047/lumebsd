@@ -30,6 +30,7 @@
 #include "modelos.h"
 
 #include "../comum/grafico.h"
+#include "../comum/replicante.h"
 
 // Os dados de um gráfico da folha, como os outros apps do escritório colam
 // (a área e a dispersão vão como linhas).
@@ -59,6 +60,7 @@ static DadosGrafico dadosParaColar(const Pasta &p, int f, const Grafico &g)
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
+#include <QFileSystemWatcher>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QHeaderView>
@@ -1514,6 +1516,19 @@ private:
 		statusBar()->showMessage("Gráfico copiado: cole no Palco ou no Páginas (Ctrl+V) e ele continua com os dados.", 5000);
 	}
 
+	// Um replicante na área de trabalho (lume-mesa): o gráfico vivo, que se
+	// redesenha quando a planilha é gravada. Ele lê o arquivo: grava antes.
+	void porNaMesa(int indice)
+	{
+		if (!salvar() || arquivo_.isEmpty())
+			return;
+		int n = indice + 1;
+		for (int f = 0; f < grade_.folha(); f++)
+			n += int(pasta_.folha(f).graficos.size());
+		porNaMesaEAbrir("lume-numeros", {"grafico", arquivo_, QString::number(n)});
+		statusBar()->showMessage("O gráfico está na mesa: ele se redesenha quando você grava a planilha.", 5000);
+	}
+
 	void copiar(bool recortar)
 	{
 		if (graficoEscolhido_ >= 0 && graficoEscolhido_ < int(pasta_.folha(grade_.folha()).graficos.size())) {
@@ -1815,6 +1830,7 @@ private:
 			q->menu = [this, q](const QPoint &p) {
 				QMenu m(this);
 				m.addAction("Copiar o gráfico", this, [this, q] { graficoEscolhido_ = q->indice(); copiarGrafico(); });
+				m.addAction("Pôr na mesa", this, [this, q] { porNaMesa(q->indice()); });
 				m.addAction("Apagar o gráfico", this, [this, q] { graficoEscolhido_ = q->indice(); apagarGrafico(); });
 				m.exec(p);
 			};
@@ -2258,6 +2274,129 @@ static void aparencia(QApplication &app)
 
 // --- main ------------------------------------------------------------------
 
+// Um replicante (lume-mesa): o gráfico N (contado em todas as folhas, a
+// partir de 1) de uma planilha, que se redesenha quando ela é gravada. Com
+// SAIDA.png, desenha uma vez nela e diz o que mostrou (os testes).
+struct Vivo {
+	QString arq;
+	int quer = 1;
+	Pasta p;
+	int f = -1;
+	int g = -1;
+	QString aviso;
+	void carregar()
+	{
+		p = Pasta();
+		f = g = -1;
+		aviso.clear();
+		QString erro;
+		if (!QFileInfo::exists(arq)) {
+			aviso = "A planilha " + QFileInfo(arq).fileName() + " não está mais aqui.";
+			return;
+		}
+		if (!abrirArquivo(arq, p, &erro)) {
+			aviso = erro;
+			return;
+		}
+		int n = 0;
+		for (int i = 0; i < int(p.folhas.size()); i++)
+			for (int k = 0; k < int(p.folha(i).graficos.size()); k++)
+				if (++n == quer) {
+					f = i;
+					g = k;
+					return;
+				}
+		aviso = QFileInfo(arq).fileName() + " não tem mais esse gráfico.";
+	}
+	QString resumo() const
+	{
+		if (f < 0)
+			return "aviso: " + aviso;
+		static const char *tipos[] = {"colunas", "barras", "linhas", "pizza", "dispersão", "área"};
+		const Grafico &gr = p.folha(f).graficos[size_t(g)];
+		QStringList cats;
+		std::vector<Serie> series;
+		p.dadosDoGrafico(f, gr, cats, series);
+		double soma = 0;
+		for (const Serie &s : series)
+			for (double v : s.v)
+				soma += v;
+		return QString("gráfico %1 \"%2\" %3 séries x %4, soma %5").arg(tipos[gr.tipo], gr.titulo).arg(series.size()).arg(cats.size()).arg(soma, 0, 'f', 2);
+	}
+};
+
+static int replicante(QApplication &app, const QString &id, const QString &foto)
+{
+	Replicante r;
+	if (!acharNaMesa(id, r) || r.dados.value(0) != "grafico") {
+		std::fprintf(stderr, "lume-numeros: não há o replicante %s na mesa\n", qPrintable(id));
+		return foto.isEmpty() ? 0 : 1;
+	}
+	auto *v = new Vivo;
+	v->arq = r.dados.value(1);
+	v->quer = std::max(1, r.dados.value(2).toInt());
+	v->carregar();
+	auto *j = new JanelaReplicante(r);
+	j->textoAbrir = "Abrir nos Números";
+	if (v->f >= 0) {
+		const Grafico &g = v->p.folha(v->f).graficos[size_t(v->g)];
+		j->tamanhoPadrao = QSize(int(g.w), int(g.h));
+	}
+	j->desenhar = [v](QPainter &p, const QRectF &r) {
+		if (v->f >= 0) {
+			desenharGrafico(p, r, v->p, v->f, v->p.folha(v->f).graficos[size_t(v->g)]);
+			return;
+		}
+		const Tinta t;
+		p.fillRect(r, t.papel);
+		p.setPen(QPen(t.tinta, 1));
+		p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
+		QFont fn("IBM Plex Sans");
+		fn.setPixelSize(13);
+		p.setFont(fn);
+		p.setPen(t.apagado);
+		p.drawText(r.adjusted(16, 16, -16, -16), Qt::AlignCenter | Qt::TextWordWrap, v->aviso);
+	};
+	j->atualizar = [v] { v->carregar(); };
+	j->abrir = [v] { QProcess::startDetached(QCoreApplication::applicationFilePath(), {v->arq}); };
+	if (!foto.isEmpty()) {
+		j->resize(r.geo.isEmpty() ? j->tamanhoPadrao : r.geo.size());
+		j->grab().save(foto);
+		std::fputs((v->resumo() + "\n").toUtf8().constData(), stdout);
+		return v->f >= 0 ? 0 : 1;
+	}
+	// Vivo: o arquivo gravado de novo (os apps gravam num arquivo novo e
+	// trocam: o olho volta a ele) redesenha.
+	// (LUME_REPLICANTE_DIZER: diz o que mostra a cada vez, para os testes.)
+	auto dizer = [v] {
+		if (qEnvironmentVariableIsSet("LUME_REPLICANTE_DIZER")) {
+			std::fputs((v->resumo() + "\n").toUtf8().constData(), stdout);
+			std::fflush(stdout);
+		}
+	};
+	dizer();
+	auto *olho = new QFileSystemWatcher(&app);
+	olho->addPath(v->arq);
+	olho->addPath(QFileInfo(v->arq).absolutePath());
+	auto *espera = new QTimer(&app);
+	espera->setSingleShot(true);
+	espera->setInterval(400);
+	QObject::connect(espera, &QTimer::timeout, &app, [v, j, olho, dizer] {
+		if (QFileInfo::exists(v->arq) && !olho->files().contains(v->arq))
+			olho->addPath(v->arq);
+		v->carregar();
+		j->update();
+		dizer();
+	});
+	QObject::connect(olho, &QFileSystemWatcher::fileChanged, &app, [espera] { espera->start(); });
+	QObject::connect(olho, &QFileSystemWatcher::directoryChanged, &app, [v, olho, espera] {
+		if (QFileInfo::exists(v->arq) && !olho->files().contains(v->arq))
+			espera->start();
+	});
+	j->mostrar();
+	return app.exec();
+}
+
 static int uso()
 {
 	std::fprintf(stderr,
@@ -2266,6 +2405,7 @@ static int uso()
 	             "     lume-numeros --modelo NOME SAIDA         (branco, orcamento, notas, juros, fluxo, indicadores)\n"
 	             "     lume-numeros --resumo ARQUIVO\n"
 	             "     lume-numeros --autoteste SAIDA\n"
+	             "     lume-numeros --replicante ID [--foto SAIDA.png]   (da mesa: lume-mesa)\n"
 	             "     lume-numeros --foto SAIDA.png [ARQUIVO | --modelo NOME | --galeria]\n");
 	return 2;
 }
@@ -2275,6 +2415,8 @@ int main(int argc, char **argv)
 	bool semJanela = false;
 	for (int i = 1; i < argc; i++) {
 		const QByteArray a(argv[i]);
+		if (a == "--replicante" && i + 2 < argc && QByteArray(argv[i + 2]) == "--foto")
+			semJanela = true;
 		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || a == "--copiar-grafico" || (a == "--modelo" && i == 1))
 			semJanela = true;
 		if (a == "--foto" && qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
@@ -2346,6 +2488,11 @@ int main(int argc, char **argv)
 		}
 		std::fputs(resumo(p).toUtf8().constData(), stdout);
 		return 0;
+	}
+
+	if (a.size() >= 3 && a[1] == "--replicante") {
+		aparencia(app);
+		return replicante(app, a[2], a.size() >= 5 && a[3] == "--foto" ? a[4] : QString());
 	}
 
 	aparencia(app);

@@ -1,0 +1,78 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.Dd November 23, 2026
+.Dt LUME-MESA 1
+.Os LumeBSD
+.Sh NAME
+.Nm lume-mesa
+.Nd a mesa dos replicantes: pedaços vivos dos apps na área de trabalho
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl -listar
+.Nm
+.Fl -por
+.Ar app
+.Ar dados ...
+.Nm
+.Fl -tirar
+.Ar id
+.Sh DESCRIPTION
+Um replicante (como no BeOS) é um pedaço vivo de um app na área de
+trabalho: um gráfico dos
+.Xr lume-numeros 1
+que se redesenha quando a planilha é gravada, os indicadores das
+.Xr lume-financas 1 ,
+uma cotação do
+.Xr lume-mercados 1 .
+Ele é o próprio app, rodando o seu código num modo pequeno
+.Pq Ar app Fl -replicante Ar id :
+uma folha de papel sem borda, presa ao fundo, em todas as áreas de
+trabalho e fora da barra de tarefas.
+.Pp
+Nos apps,
+.Dq Pôr na mesa
+leva o pedaço para a área de trabalho.
+No replicante, arrastar muda o lugar e a alça do canto (que aparece com o
+ponteiro em cima) muda o tamanho; dois cliques abrem o app, e o botão
+direito tem
+.Dq Atualizar
+e
+.Dq Tirar da mesa .
+.Pp
+Sem argumentos,
+.Nm
+roda a mesa: um processo por replicante, que volta se cair (mais de cinco
+quedas num minuto e ele fica parado).
+Ela entra com a sessão do KDE; uma segunda mesa sai na hora, e a que roda
+vê a mesa mudar e acompanha.
+.Bl -tag -width Ds
+.It Fl -listar
+mostra os replicantes: o id, o app, os dados e o lugar.
+.It Fl -por Ar app Ar dados ...
+põe um replicante na mesa e escreve o id.
+O
+.Ar app
+é um app do LumeBSD
+.Pq Pa lume-* ;
+os
+.Ar dados
+são os do app (no
+.Xr lume-numeros 1 :
+.Li grafico Ar planilha Ar n ) .
+.It Fl -tirar Ar id
+tira o replicante da mesa (e o fecha).
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev LUME_MESA
+outro arquivo para a mesa (os testes).
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/lume/mesa
+a mesa: um grupo por replicante, com o app, os dados e o lugar.
+.El
+.Sh SEE ALSO
+.Xr lume-financas 1 ,
+.Xr lume-mercados 1 ,
+.Xr lume-numeros 1
