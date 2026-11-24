@@ -46,6 +46,7 @@ usava no Windows ou no Mac e abre um `.exe` com dois cliques.
 | **Atributos nos arquivos** (2.0) | etiquetas, nota, comentário e atributos seus gravados no arquivo (`lume atributo`); editar no botão direito do Dolphin, procurar e salvar a consulta num `.consulta` |
 | **Mercados do LumeBSD** (2.2) | um terminal de mercados numa linha de comando (`PETR4 G`, `VALE3 REL`, `MUNDO`): cotações (cripto e ações dos EUA em tempo real), gráficos, ficha, balanços (CVM e SEC), triagem das companhias da B3, opções com volatilidade implícita, economia (Banco Central e Focus), câmbio, correlações, o ativo oposto, as relações entre empresas com os valores que elas declaram (contratos com partes relacionadas na CVM, clientes no relatório anual da SEC), aviões e navios no mapa, notícias, carteira, alertas, ordens (simulador e corretora Alpaca), conversa, Tesouro Direto e calculadora de títulos |
 | **Páginas** (2.2) | o editor de texto do LumeBSD, com a cara do Pages: a folha na tela página por página, o painel de formatação, modelos de trabalho acadêmico (ABNT), plano de aula, relatório, carta e currículo; abre e salva **.docx** e **.odt** e exporta PDF |
+| **Replicants** (2.6) | como no BeOS, pedaços vivos dos apps **na área de trabalho**: um gráfico dos Números que se redesenha quando a planilha é gravada, os indicadores do dia das Finanças, as cotações do Mercados; e **dentro de outros apps**: o gráfico colado no Páginas e no Palco continua ligado à planilha |
 | **O escritório junto** (2.5) | um gráfico copiado nos Números cola no Páginas e no Palco **com os dados**, e vai como gráfico de verdade para o Word, o PowerPoint e o LibreOffice; listas, tabelas, datas e caixas de texto de arquivos do Office aparecem como no Office |
 | **Palco** (2.4) | as apresentações do LumeBSD, com a cara do Keynote: o texto escrito direto no slide, cinco temas, oito leiautes, formas, imagens, gráficos (que vão como gráficos de verdade para o PowerPoint e o LibreOffice), tabelas, animações de entrada e saída, vídeo, transições, a tela do apresentador com as notas, o próximo clique e o relógio, modelos de aula, seminário, conjuntura econômica e reunião; abre e salva **.pptx** e **.odp** e exporta PDF |
 | **Números** (2.3) | a planilha do LumeBSD, com a cara do Numbers: gráficos soltos sobre a folha, fórmulas como no Excel em português (`=SOMA`, `=PROCV`, `=VPL`, `=TIR`, cem funções), modelos de orçamento pessoal, notas da turma, juros compostos, fluxo de caixa e indicadores econômicos; abre e salva **.xlsx** e **.ods**, abre CSV e exporta PDF |
@@ -403,6 +404,12 @@ aplica de novo.
 |---|---|
 | ![Área de trabalho](docs/capturas/2-plasma.png) | ![Konsole](docs/capturas/3-konsole.png) |
 | ![Dolphin](docs/capturas/4-dolphin.png) | ![Tela de login](docs/capturas/1-login.png) |
+
+### Os Replicants (2.6)
+
+| | |
+|---|---|
+| ![Na mesa: o gráfico dos Números, as cotações do Mercados e os indicadores das Finanças, vivos na área de trabalho](docs/capturas/mesa-1-replicantes.png) | ![O gráfico vinculado no Páginas, redesenhado quando a planilha foi gravada](docs/capturas/mesa-2-vinculado.png) |
 
 ### O gráfico dos Números no Páginas e no Palco (2.5)
 

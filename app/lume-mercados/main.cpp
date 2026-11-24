@@ -38,6 +38,9 @@
 // Sem moc: só sinais do próprio Qt ligados a lambdas. Os arquivos .h ao
 // lado são partes deste programa, não uma biblioteca.
 
+#include "../comum/replicante.h"
+
+#include <QPainterPath>
 #include "telas6.h"
 
 struct Funcao {
@@ -464,15 +467,28 @@ public:
 	{
 		QStringList ativos;
 		int f = -1;
-		bool ajuda = false;
+		bool ajuda = false, mesa = false;
 		for (const QString &t : texto.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts)) {
 			const int k = acharFuncao(t);
-			if (k >= 0)
+			if (t.toUpper() == "MESA")
+				mesa = true;
+			else if (k >= 0)
 				f = k;
 			else if (t.toUpper() == "AJUDA" || t == "?" || t.toUpper() == "HELP")
 				ajuda = true;
 			else
 				ativos << t;
+		}
+		// MESA: as cotações na área de trabalho (um replicante, lume-mesa).
+		if (mesa) {
+			if (ativos.isEmpty())
+				ativos = {"IBOV", "DOLAR", "PETR4", "VALE3"};
+			QStringList dados{"cotacao"};
+			for (const QString &x : ativos)
+				dados << x.toUpper();
+			porNaMesaEAbrir("lume-mercados", dados);
+			comando_->setText(texto.toUpper() + "   — na mesa, na área de trabalho");
+			return;
 		}
 		if (ajuda && f < 0) {
 			indice_->setCurrentRow(telas_.size());
@@ -517,6 +533,9 @@ private:
 			}
 		}
 		p->v->addWidget(t);
+		p->parte("Na área de trabalho");
+		p->v->addWidget(rotulo("MESA e os ativos (MESA PETR4 VALE3 DOLAR) põem as cotações na área de trabalho, sempre à vista: "
+		    "um replicante, que se atualiza a cada minuto. Arraste para mudar de lugar; o botão direito tem “Tirar da mesa”.", "texto"));
 		p->parte("Os ativos");
 		p->v->addWidget(rotulo("Ações da B3 pelo código (PETR4, VALE3, BOVA11); dos Estados Unidos, pelo código de lá (AAPL, NVDA). "
 		    "Moedas aos pares (USDBRL, EURUSD). Apelidos: IBOV, SPX, NASDAQ, DOLAR, EURO, OURO, BRENT, SOJA, CAFE, BTC, VIX, US10. "
@@ -548,10 +567,172 @@ limparGuardados()
 			QFile::remove(f.filePath());
 }
 
+// --- O replicante (lume-mesa): as cotações na área de trabalho ------------
+//
+// Uma linha por ativo: o código, o nome, o preço, a variação do dia e os
+// últimos pregões. A cada minuto (o guardado da busca vale o mesmo). Com
+// SAIDA.png, desenha uma vez, quando chegam, e diz o que mostrou.
+
+struct CotacoesVivas {
+	QStringList simbolos;
+	QMap<QString, Cotacao> q;
+	QString aviso;
+	bool chegou = false;
+
+	void buscar(QObject *dono, const std::function<void()> &pronto)
+	{
+		buscarVarios(simbolos, "5d", "1d", dono, [this, pronto](const QMap<QString, Cotacao> &r, const QString &a) {
+			if (!r.isEmpty() || !chegou)
+				q = r;
+			aviso = a;
+			chegou = true;
+			pronto();
+		});
+	}
+
+	QString resumo() const
+	{
+		QStringList l;
+		for (const QString &x : simbolos) {
+			const Cotacao c = q.value(x);
+			l << (c.ok ? QStringLiteral("%1 %2 %3 %4 %5").arg(curto(x), num(c.preco, casasDe(c.preco)), c.moeda, variacao(c.dia()), c.titulo())
+				   : QStringLiteral("%1 não achei").arg(curto(x)));
+		}
+		if (!aviso.isEmpty())
+			l << "aviso: " + aviso;
+		return l.join('\n');
+	}
+
+	void desenhar(QPainter &p, const QRectF &r) const
+	{
+		const QPalette pal = qApp->palette();
+		const QColor papel = pal.color(QPalette::Base), tinta = pal.color(QPalette::WindowText);
+		const QColor apagado = pal.color(QPalette::PlaceholderText);
+		p.fillRect(r, papel);
+		p.setPen(QPen(tinta, 1));
+		p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
+		const QRectF a = r.adjusted(14, 10, -14, -10);
+		QFont serif("IBM Plex Serif"), sans("IBM Plex Sans"), mono("IBM Plex Mono");
+		serif.setPixelSize(16);
+		sans.setPixelSize(11);
+		mono.setPixelSize(10);
+		p.setFont(serif);
+		p.drawText(QRectF(a.left(), a.top(), a.width(), 22), Qt::AlignLeft | Qt::AlignVCenter, "Cotações");
+		p.setFont(mono);
+		p.setPen(apagado);
+		p.drawText(QRectF(a.left(), a.top(), a.width(), 22), Qt::AlignRight | Qt::AlignVCenter,
+		    chegou ? QStringLiteral("COM ATRASO · %1").arg(QTime::currentTime().toString("HH:mm")) : QStringLiteral("BUSCANDO…"));
+		double y = a.top() + 28;
+		p.setPen(QPen(tinta, 1));
+		p.drawLine(QPointF(a.left(), y - 2), QPointF(a.right(), y - 2));
+		const int n = std::max(1, int(simbolos.size()));
+		const double linha = std::max(30.0, (a.bottom() - y - (aviso.isEmpty() ? 0 : 16)) / n);
+		QFont preco("IBM Plex Mono");
+		preco.setPixelSize(int(std::clamp(linha * 0.42, 12.0, 20.0)));
+		const double colPreco = a.width() * 0.42, colGrafico = a.width() * 0.22;
+		for (int k = 0; k < simbolos.size(); k++) {
+			const QString &x = simbolos[k];
+			const Cotacao c = q.value(x);
+			const QRectF l(a.left(), y, a.width(), linha);
+			QFont cod = mono;
+			cod.setPixelSize(12);
+			cod.setBold(true);
+			p.setFont(cod);
+			p.setPen(tinta);
+			p.drawText(l.adjusted(0, 0, 0, -linha / 2), Qt::AlignLeft | Qt::AlignBottom, curto(x));
+			p.setFont(sans);
+			p.setPen(apagado);
+			const double larguraNome = a.width() - colPreco - colGrafico - 8;
+			p.drawText(l.adjusted(0, linha / 2 + 1, 0, 0), Qt::AlignLeft | Qt::AlignTop,
+			    p.fontMetrics().elidedText(c.ok ? c.titulo() : (chegou ? QStringLiteral("não achei") : QString()), Qt::ElideRight, int(larguraNome)));
+			if (c.ok) {
+				// Os últimos pregões, de leve.
+				QVector<double> v;
+				for (double z : c.c)
+					if (std::isfinite(z))
+						v << z;
+				if (std::isfinite(c.preco))
+					v << c.preco;
+				const QRectF g(a.left() + larguraNome + 4, l.top() + linha * 0.2, colGrafico - 8, linha * 0.6);
+				if (v.size() >= 2) {
+					const auto [mn, mx] = std::minmax_element(v.begin(), v.end());
+					QPainterPath cam;
+					for (int i = 0; i < v.size(); i++) {
+						const QPointF pt(g.left() + g.width() * i / (v.size() - 1),
+						    g.bottom() - (*mx > *mn ? (v[i] - *mn) / (*mx - *mn) : 0.5) * g.height());
+						i ? cam.lineTo(pt) : cam.moveTo(pt);
+					}
+					p.setPen(QPen(apagado, 1.2));
+					p.setBrush(Qt::NoBrush);
+					p.drawPath(cam);
+				}
+				p.setFont(preco);
+				p.setPen(tinta);
+				p.drawText(l.adjusted(0, 0, 0, -linha * 0.42), Qt::AlignRight | Qt::AlignBottom,
+				    num(c.preco, casasDe(c.preco)));
+				const double d = c.dia();
+				p.setFont(mono);
+				p.setPen(std::isfinite(d) && d < 0 ? apagado : tinta);
+				p.drawText(l.adjusted(0, linha * 0.6, 0, 0), Qt::AlignRight | Qt::AlignTop,
+				    variacao(d));
+			}
+			y += linha;
+			if (k + 1 < simbolos.size()) {
+				p.setPen(QPen(pal.color(QPalette::Midlight), 1));
+				p.drawLine(QPointF(a.left(), y), QPointF(a.right(), y));
+			}
+		}
+		if (!aviso.isEmpty()) {
+			p.setFont(mono);
+			p.setPen(apagado);
+			p.drawText(QRectF(a.left(), a.bottom() - 14, a.width(), 14), Qt::AlignLeft | Qt::AlignVCenter,
+			    p.fontMetrics().elidedText(aviso, Qt::ElideRight, int(a.width())));
+		}
+	}
+};
+
+static int
+replicante(QApplication &app, const QString &id, const QString &foto)
+{
+	Replicante r;
+	if (!acharNaMesa(id, r) || r.dados.value(0) != "cotacao") {
+		fprintf(stderr, "lume-mercados: não há o replicante %s na mesa\n", qPrintable(id));
+		return foto.isEmpty() ? 0 : 1;
+	}
+	auto *v = new CotacoesVivas;
+	for (const QString &x : r.dados.mid(1))
+		v->simbolos << simboloDe(x);
+	auto *j = new JanelaReplicante(r);
+	j->textoAbrir = QStringLiteral("Abrir no Mercados");
+	j->tamanhoPadrao = QSize(340, 46 + 44 * int(std::max<qsizetype>(1, v->simbolos.size())));
+	j->desenhar = [v](QPainter &p, const QRectF &r) { v->desenhar(p, r); };
+	const QStringList ativos = r.dados.mid(1);
+	j->abrir = [ativos] { QProcess::startDetached(QCoreApplication::applicationFilePath(), {ativos.value(0), "G"}); };
+	if (!foto.isEmpty()) {
+		v->buscar(&app, [&app, v, j, r, foto] {
+			j->resize(r.geo.isEmpty() ? j->tamanhoPadrao : r.geo.size());
+			j->grab().save(foto);
+			fputs((v->resumo() + "\n").toUtf8().constData(), stdout);
+			app.quit();
+		});
+		return app.exec();
+	}
+	j->atualizar = [v, j] { v->buscar(j, [j] { j->update(); }); };
+	j->atualizar();
+	auto *minuto = new QTimer(j);
+	QObject::connect(minuto, &QTimer::timeout, j, [j] { j->atualizar(); });
+	minuto->start(60 * 1000);
+	j->mostrar();
+	return app.exec();
+}
+
 int
 main(int argc, char *argv[])
 {
-	if (argc > 1 && QByteArray(argv[1]).startsWith("--")) {
+	const bool replicanteFoto = argc > 4 && QByteArray(argv[1]) == "--replicante" && QByteArray(argv[3]) == "--foto";
+	if (replicanteFoto && qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
+		qputenv("QT_QPA_PLATFORM", "offscreen");
+	if (argc > 1 && QByteArray(argv[1]).startsWith("--") && QByteArray(argv[1]) != "--replicante") {
 		QCoreApplication app(argc, argv);
 		app.setApplicationName("lume-mercados");
 		return linhaDeComando(app, app.arguments());
@@ -591,9 +772,11 @@ main(int argc, char *argv[])
 	app.setPalette(pal);
 	app.setStyleSheet((noite ? estiloNoite() : QString::fromUtf8(FOLHA)) + QString::fromUtf8(FOLHA_MERCADOS));
 
+	const QStringList a = app.arguments().mid(1);
+	if (a.size() >= 2 && a[0] == "--replicante")
+		return replicante(app, a[1], a.size() >= 4 && a[2] == "--foto" ? a[3] : QString());
 	auto *j = new Janela;
 	j->show();
-	const QStringList a = app.arguments().mid(1);
 	j->executar(a.isEmpty() ? QStringLiteral("MUNDO") : a.join(" "));
 	return app.exec();
 }

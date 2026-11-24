@@ -91,6 +91,7 @@ const APPS: &[(&str, &[&str])] = &[
     ("lume-paginas", &["lume-paginas.svg", "lume-paginas.desktop"]),
     ("lume-numeros", &["lume-numeros.svg", "lume-numeros.desktop"]),
     ("lume-palco", &["lume-palco.svg", "lume-palco.desktop"]),
+    ("lume-mesa", &["lume-mesa.desktop"]),
 ];
 
 pub const USO_APP: &str = "uso: lume-montar app STAGE QT6BASE.pkg

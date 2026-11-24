@@ -74,6 +74,18 @@
 </ul>
 <p>No terminal: <code>lume atributo contrato.pdf etiquetas+=trabalho nota=4</code> grava, <code>lume atributo contrato.pdf</code> mostra e <code>lume atributo procurar etiquetas=trabalho</code> procura (com <code>-v</code>, fica ao vivo, mostrando o que entra e o que sai). Mais em <code>man lume-atributo</code>.</p>
 
+<h2>Replicantes: pedaços vivos dos apps na mesa</h2>
+<p>Como no BeOS, um pedaço de um app pode ficar na área de trabalho, vivo: um gráfico dos Números que se redesenha quando a planilha é gravada, os indicadores do dia das Finanças, as cotações do Mercados. É o próprio app rodando, numa folha de papel sem borda, atrás das janelas, em todas as áreas de trabalho e fora da barra de tarefas.</p>
+<table>
+<tr><th>Para pôr na mesa</th><th>Faça</th></tr>
+<tr><td>um gráfico dos Números</td><td>botão direito no gráfico › <b>Pôr na mesa</b> (a planilha é gravada antes)</td></tr>
+<tr><td>os indicadores (Selic, IPCA, CDI e dólar)</td><td>Finanças › Inflação e índices › <b>Pôr na mesa</b></td></tr>
+<tr><td>cotações</td><td>no Mercados, <code>MESA PETR4 VALE3 DOLAR</code> (sem ativos: Ibovespa, dólar, PETR4 e VALE3)</td></tr>
+</table>
+<p>Arraste o replicante para mudar de lugar; a alça do canto (aparece com o ponteiro em cima) muda o tamanho. Dois cliques abrem o app, e o botão direito tem <b>Atualizar</b> e <b>Tirar da mesa</b>. Eles voltam no lugar em que estavam quando você entra de novo.</p>
+<p>Dentro de outro app, também: um gráfico copiado nos Números (de uma planilha gravada) e colado no Páginas ou no Palco continua ligado à planilha e se atualiza ao abrir o documento e quando ela é gravada. O vínculo vai junto no .docx, .odt, .pptx e .odp. Mudar os números do gráfico à mão solta o vínculo.</p>
+<p>No terminal: <code>lume-mesa --listar</code> mostra o que está na mesa e <code>lume-mesa --tirar r1</code> tira; <code>lume-paginas --atualizar relatorio.docx</code> (e o mesmo no <code>lume-palco</code>) traz os dados novos dos gráficos vinculados. Mais em <code>man lume-mesa</code>.</p>
+
 <h2>Animações das janelas</h2>
 <p>As janelas abrem e fecham sem deslizar nem crescer, como no papel. São duas opções:</p>
 <ul>

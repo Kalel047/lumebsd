@@ -19,6 +19,10 @@
 .Fl -resumo
 .Ar arquivo
 .Nm
+.Fl -atualizar
+.Ar arquivo
+.Op Ar saida
+.Nm
 .Fl -autoteste
 .Ar saida
 .Nm
@@ -103,7 +107,13 @@ Lê também os gráficos, as tabelas, as animações e os vídeos feitos no
 PowerPoint e no LibreOffice, e os enfeites do slide mestre e do leiaute.
 Um gráfico copiado no
 .Xr lume-numeros 1
-cola no slide como gráfico, com os dados.
+cola no slide como gráfico, com os dados; copiado de uma planilha gravada,
+fica vinculado a ela e se atualiza ao abrir a apresentação e quando a
+planilha é gravada (o vínculo vai no nome do gráfico, no
+.Pa .pptx
+e no
+.Pa .odp ) .
+Mudar os números à mão solta o vínculo.
 Exporta PDF, um slide por página.
 O
 .Pa .ppt
@@ -169,6 +179,11 @@ sem
 abre a janela com ele.
 .It Fl -resumo Ar arquivo
 mostra o conteúdo da apresentação (os testes comparam).
+.It Fl -atualizar Ar arquivo Op Ar saida
+traz os dados novos dos gráficos vinculados aos Números e grava (no mesmo
+arquivo ou em
+.Ar saida ) ;
+escreve quantos mudaram.
 .It Fl -autoteste Ar saida
 faz uma apresentação pelos caminhos da janela, grava e mostra o resumo.
 .It Fl -foto Ar saida.png

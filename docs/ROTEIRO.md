@@ -73,6 +73,17 @@ do PowerPoint mostraram: listas numeradas que continuam, a linha de
 cabeçalho que repete, os formatos de data do Excel, as margens internas das
 caixas de texto.
 
+## 2.6: os Replicants
+
+Como no BeOS: pedaços vivos dos apps na área de trabalho e dentro de outros
+apps. A mesa (`app/lume-mesa`) entra com a sessão e roda um processo por
+replicante (o próprio app no modo `--replicante ID`), que guarda o lugar e
+volta se cair; os primeiros são o gráfico dos Números (que se redesenha
+quando a planilha é gravada), os indicadores das Finanças e as cotações do
+Mercados. Dentro de outro app, o gráfico dos Números colado no Páginas e
+no Palco fica vinculado à planilha (o vínculo vai no nome do gráfico no
+`.docx`, `.odt`, `.pptx` e `.odp`) e se atualiza com ela.
+
 ## 2.x
 
 
@@ -83,7 +94,6 @@ caixas de texto.
   Palco com os dados.
 - **MediaKit de baixa latência**: um servidor de mídia nosso sobre o OSS, com
   threads de tempo real e um grafo de nós como o do BeOS (alvo: uns 5 ms).
-- **Replicants**: pedaços vivos de um app na área de trabalho ou em outro app.
 - **Compositor próprio** sobre o lume-motor (fase 2 das janelas): abas,
   Replicants e a tinta de forma nativa.
 - **lume-macho**: um módulo de kernel para o Mach-O (como o Linuxulator) e o

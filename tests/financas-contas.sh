@@ -65,5 +65,15 @@ confere "orçamento: sobra realizada" "Sobram R\$ 1.100,00 (22,0% da renda)." en
 confere "orçamento: dentro do 50/30/20" "Dentro da regra 50/30/20" env HOME="$T/casa" "$F" --orcamento 2026-11
 confere "orçamento: mês sem nada" "não há orçamento de out/2026" env HOME="$T/casa" "$F" --orcamento 2026-10
 
+# O replicante (lume-mesa): os indicadores do dia na área de trabalho, sem
+# rede (a mesa escrita à mão, como o lume-mesa --por escreve).
+printf '[{"data":"06/11/2026","valor":"15.00"}]' > "$T/432.json"
+printf '[{"data":"01/10/2026","valor":"4.68"}]' > "$T/13522.json"
+printf '[{"data":"20/11/2026","valor":"14.90"}]' > "$T/4389.json"
+printf '[{"data":"21/11/2026","valor":"5.3412"}]' > "$T/1.json"
+printf '[r1]\napp=lume-financas\ndados=indicadores\n' > "$T/mesa"
+confere "replicante: a Selic" "Selic (meta)  15,00%  06/11/2026" env LUME_MESA="$T/mesa" LUME_FINANCAS_SGS="$T" QT_QPA_PLATFORM=offscreen "$F" --replicante r1 --foto "$T/r1.png"
+confere "replicante: o dólar" "Dólar (PTAX)  R\$ 5,34" env LUME_MESA="$T/mesa" LUME_FINANCAS_SGS="$T" QT_QPA_PLATFORM=offscreen "$F" --replicante r1 --foto "$T/r1.png"
+
 [ $falhas -eq 0 ] && echo "tudo certo" || echo "$falhas falha(s)"
 exit $falhas

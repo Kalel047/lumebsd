@@ -46,6 +46,8 @@
 // Sem moc: só sinais do próprio Qt ligados a lambdas, para compilar com o
 // clang de fora do FreeBSD contra os cabeçalhos do pacote qt6-base.
 
+#include "../comum/replicante.h"
+
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
@@ -1076,6 +1078,133 @@ buscarSgs(int serie, bool ultimo, QObject *dono, const Resposta &f)
 		p->start(QStringLiteral("curl"), {"-fsSL", "--max-time", "25", url});
 }
 
+// --- O replicante (lume-mesa): os indicadores do dia na área de trabalho ---
+//
+// Busca como a página 4 (o guardado vale 6 horas) e de novo a cada hora.
+// Com SAIDA.png, desenha uma vez, quando chegam, e diz o que mostrou.
+
+struct IndicadoresVivos {
+	QString valor[sizeof INDICADORES / sizeof INDICADORES[0]];
+	QString data[sizeof INDICADORES / sizeof INDICADORES[0]];
+	QString aviso;
+	int faltam = 0;
+	static constexpr int total = int(sizeof INDICADORES / sizeof INDICADORES[0]);
+
+	void buscar(QObject *dono, const std::function<void()> &pronto)
+	{
+		faltam = total;
+		aviso.clear();
+		for (int k = 0; k < total; k++) {
+			const Indicador &i = INDICADORES[k];
+			buscarSgs(i.serie, true, dono, [this, k, i, pronto](const QVector<Ponto> &p, const QString &a) {
+				if (p.isEmpty()) {
+					valor[k] = QStringLiteral("—");
+					data[k].clear();
+				} else {
+					valor[k] = i.porcento ? num(p.last().valor) + "%" : moeda(p.last().valor);
+					data[k] = p.last().data.toString(QStringLiteral("dd/MM/yyyy"));
+				}
+				if (!a.isEmpty())
+					aviso = a;
+				if (--faltam == 0)
+					pronto();
+			});
+		}
+	}
+
+	QString resumo() const
+	{
+		QStringList l;
+		for (int k = 0; k < total; k++)
+			l << QStringLiteral("%1  %2  %3").arg(QString::fromUtf8(INDICADORES[k].nome), valor[k], data[k]).trimmed();
+		if (!aviso.isEmpty())
+			l << "aviso: " + aviso;
+		return l.join('\n');
+	}
+
+	void desenhar(QPainter &p, const QRectF &r) const
+	{
+		const QPalette pal = qApp->palette();
+		const QColor papel = pal.color(QPalette::Base), tinta = pal.color(QPalette::WindowText);
+		const QColor apagado = pal.color(QPalette::PlaceholderText);
+		p.fillRect(r, papel);
+		p.setPen(QPen(tinta, 1));
+		p.drawRect(r.adjusted(0.5, 0.5, -0.5, -0.5));
+		const QRectF a = r.adjusted(16, 12, -16, -12);
+		QFont serif("IBM Plex Serif"), sans("IBM Plex Sans"), mono("IBM Plex Mono");
+		serif.setPixelSize(16);
+		sans.setPixelSize(12);
+		mono.setPixelSize(10);
+		p.setFont(serif);
+		p.drawText(QRectF(a.left(), a.top(), a.width(), 22), Qt::AlignLeft | Qt::AlignVCenter, "Indicadores do dia");
+		p.setFont(mono);
+		p.setPen(apagado);
+		p.drawText(QRectF(a.left(), a.top(), a.width(), 22), Qt::AlignRight | Qt::AlignVCenter, "BANCO CENTRAL");
+		double y = a.top() + 30;
+		p.setPen(QPen(tinta, 1));
+		p.drawLine(QPointF(a.left(), y - 4), QPointF(a.right(), y - 4));
+		const double linha = std::max(30.0, (a.bottom() - y - (aviso.isEmpty() ? 0 : 18)) / total);
+		QFont valorF("IBM Plex Serif");
+		valorF.setPixelSize(int(std::clamp(linha * 0.55, 14.0, 26.0)));
+		for (int k = 0; k < total; k++) {
+			const QRectF l(a.left(), y, a.width(), linha);
+			p.setFont(sans);
+			p.setPen(tinta);
+			p.drawText(l.adjusted(0, 0, 0, -linha / 2), Qt::AlignLeft | Qt::AlignBottom, QString::fromUtf8(INDICADORES[k].nome));
+			p.setFont(mono);
+			p.setPen(apagado);
+			p.drawText(l.adjusted(0, linha / 2 + 1, 0, 0), Qt::AlignLeft | Qt::AlignTop,
+			    faltam > 0 && valor[k].isEmpty() ? QStringLiteral("buscando…") : data[k]);
+			p.setFont(valorF);
+			p.setPen(tinta);
+			p.drawText(l, Qt::AlignRight | Qt::AlignVCenter, valor[k]);
+			y += linha;
+			if (k + 1 < total) {
+				p.setPen(QPen(pal.color(QPalette::Midlight), 1));
+				p.drawLine(QPointF(a.left(), y), QPointF(a.right(), y));
+			}
+		}
+		if (!aviso.isEmpty()) {
+			p.setFont(mono);
+			p.setPen(apagado);
+			p.drawText(QRectF(a.left(), a.bottom() - 16, a.width(), 16), Qt::AlignLeft | Qt::AlignVCenter,
+			    p.fontMetrics().elidedText(aviso, Qt::ElideRight, int(a.width())));
+		}
+	}
+};
+
+static int
+replicante(QApplication &app, const QString &id, const QString &foto)
+{
+	Replicante r;
+	if (!acharNaMesa(id, r) || r.dados.value(0) != "indicadores") {
+		std::fprintf(stderr, "lume-financas: não há o replicante %s na mesa\n", qPrintable(id));
+		return foto.isEmpty() ? 0 : 1;
+	}
+	auto *v = new IndicadoresVivos;
+	auto *j = new JanelaReplicante(r);
+	j->textoAbrir = QStringLiteral("Abrir nas Finanças");
+	j->tamanhoPadrao = QSize(320, 250);
+	j->desenhar = [v](QPainter &p, const QRectF &r) { v->desenhar(p, r); };
+	j->abrir = [] { QProcess::startDetached(QCoreApplication::applicationFilePath(), {"--capitulo", "4"}); };
+	if (!foto.isEmpty()) {
+		v->buscar(&app, [&app, v, j, r, foto] {
+			j->resize(r.geo.isEmpty() ? j->tamanhoPadrao : r.geo.size());
+			j->grab().save(foto);
+			std::fputs((v->resumo() + "\n").toUtf8().constData(), stdout);
+			app.quit();
+		});
+		return app.exec();
+	}
+	j->atualizar = [v, j] { v->buscar(j, [j] { j->update(); }); };
+	j->atualizar();
+	auto *hora = new QTimer(j);
+	QObject::connect(hora, &QTimer::timeout, j, [j] { j->atualizar(); });
+	hora->start(3600 * 1000);
+	j->mostrar();
+	return app.exec();
+}
+
 struct Correcao {
 	QString erro;
 	double fator = 1;
@@ -1318,7 +1447,8 @@ uso()
 	      "                   [--indicadores]\n"
 	      "                   [--regressao ARQUIVO.csv Y X1 [X2 ...] [--log]]\n"
 	      "                   [--orcamento [AAAA-MM]]\n"
-	      "                   [--meta VALOR MESES TAXA%-AO-ANO [JA-TEM]]\n", stderr);
+	      "                   [--meta VALOR MESES TAXA%-AO-ANO [JA-TEM]]\n"
+	      "                   [--replicante ID [--foto SAIDA.png]]   (da mesa: lume-mesa)\n", stderr);
 	return 2;
 }
 
@@ -2758,8 +2888,11 @@ public:
 		v->addWidget(indicadores_);
 		auto *h = new QHBoxLayout;
 		auto *atualizar = botao("Atualizar");
+		auto *mesa = botao("Pôr na mesa");
+		mesa->setToolTip("Os indicadores na área de trabalho, sempre à vista (um replicante)");
 		fonteInd_ = rotulo(QString(), "detalhe");
 		h->addWidget(atualizar);
+		h->addWidget(mesa);
 		h->addWidget(fonteInd_, 1);
 		v->addLayout(h);
 
@@ -2811,6 +2944,10 @@ public:
 		v->addStretch(1);
 
 		connect(atualizar, &QPushButton::clicked, this, [this] { buscarIndicadores(); });
+		connect(mesa, &QPushButton::clicked, this, [this] {
+			porNaMesaEAbrir("lume-financas", {"indicadores"});
+			fonteInd_->setText("Os indicadores estão na mesa (na área de trabalho).");
+		});
 		connect(corrigir_, &QPushButton::clicked, this, [this] { buscarCorrecao(); });
 		connect(valor_, &QLineEdit::returnPressed, this, [this] { buscarCorrecao(); });
 	}
@@ -3718,7 +3855,11 @@ int
 main(int argc, char *argv[])
 {
 	// A linha de comando: sem janela, sem precisar de tela.
-	if (argc > 1 && QByteArray(argv[1]).startsWith("--") && QByteArray(argv[1]) != "--capitulo") {
+	const bool replicanteFoto = argc > 4 && QByteArray(argv[1]) == "--replicante" && QByteArray(argv[3]) == "--foto";
+	if (replicanteFoto && qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM"))
+		qputenv("QT_QPA_PLATFORM", "offscreen");
+	if (argc > 1 && QByteArray(argv[1]).startsWith("--") && QByteArray(argv[1]) != "--capitulo" &&
+	    QByteArray(argv[1]) != "--replicante") {
 		QCoreApplication app(argc, argv);
 		app.setApplicationName("lume-financas");
 		const int r = linhaDeComando(app, app.arguments());
@@ -3758,8 +3899,10 @@ main(int argc, char *argv[])
 	app.setPalette(pal);
 	app.setStyleSheet(noite ? estiloNoite() : QString::fromUtf8(FOLHA));
 
-	Janela j;
 	const QStringList a = app.arguments();
+	if (a.size() >= 3 && a[1] == "--replicante")
+		return replicante(app, a[2], a.size() >= 5 && a[3] == "--foto" ? a[4] : QString());
+	Janela j;
 	const int c = a.indexOf("--capitulo");
 	if (c >= 0 && c + 1 < a.size())
 		j.irPara(std::clamp(a[c + 1].toInt() - 1, 0, 5));

@@ -390,6 +390,8 @@ inline QString resumo(const Doc &d)
 				         .arg(o.graf.series.size())
 				         .arg(o.graf.categorias.size())
 				         .arg(QString::number(soma, 'f', 2));
+				if (lerVinculo(o.nome).ok())
+					l += " vinculado " + lerVinculo(o.nome).curto();
 			}
 			if (o.aceitaTexto() && o.temTexto()) {
 				l += QString(" %1pt").arg(QString::number(o.tamanho, 'g', 4));

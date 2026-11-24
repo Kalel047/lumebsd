@@ -22,6 +22,10 @@
 .Ar arquivo
 .Op Ar n
 .Nm
+.Fl -replicante
+.Ar id
+.Op Fl -foto Ar saida.png
+.Nm
 .Fl -autoteste
 .Ar saida
 .Nm
@@ -102,7 +106,10 @@ no botão direito) copia o gráfico com os dados: no
 .Xr lume-paginas 1
 e no
 .Xr lume-palco 1
-ele cola como gráfico, que se edita; nos outros programas, como imagem.
+ele cola como gráfico, que se edita, e (de uma planilha gravada) continua
+vinculado a ela; nos outros programas, como imagem.
+.Dq Pôr na mesa ,
+no botão direito do gráfico, o deixa vivo na área de trabalho.
 .Sh ATALHOS
 .Bl -tag -width "Ctrl+B, Ctrl+I, Ctrl+U" -compact
 .It Enter, Tab
@@ -139,6 +146,14 @@ mostra o conteúdo da planilha (os testes comparam).
 mostra o que o Copiar põe na área de transferência para o gráfico
 .Ar n
 (o primeiro, se faltar) da planilha.
+.It Fl -replicante Ar id Op Fl -foto Ar saida.png
+o replicante
+.Ar id
+da mesa (ver
+.Xr lume-mesa 1 ) :
+o gráfico, que se redesenha quando a planilha é gravada; com
+.Fl -foto ,
+desenha uma vez no arquivo e escreve o que mostrou.
 .It Fl -autoteste Ar saida
 edita uma planilha pelos caminhos da janela, grava e mostra o resumo.
 .It Fl -foto Ar saida.png

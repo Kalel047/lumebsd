@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Desk
+Name[pt_BR]=Mesa
+Comment=Replicants on the desktop (LumeBSD)
+Comment[pt_BR]=Os replicantes da área de trabalho: pedaços vivos dos apps (LumeBSD)
+Exec=/usr/bin/lume-mesa
+Icon=user-desktop
+Categories=Utility;
+NoDisplay=true
+X-KDE-autostart-after=panel
+X-KDE-autostart-phase=2

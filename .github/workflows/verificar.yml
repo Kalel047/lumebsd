@@ -148,6 +148,19 @@ jobs:
               -o lume-numeros $(pkg-config --libs Qt6Widgets) -lz
           sh tests/numeros.sh ./lume-numeros numeros-teste
 
+      # A mesa dos replicantes (lume-mesa) com o replicante dos Números: pôr,
+      # listar e tirar, o gráfico desenhado; e, num X de verdade (Xvfb), um
+      # processo por replicante, que volta quando cai e se redesenha quando a
+      # planilha é gravada.
+      - name: Mesa (replicantes)
+        if: matrix.base == 'fixado'
+        run: |
+          sudo apt-get install -y -q xvfb
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
+              $(pkg-config --cflags Qt6Widgets) app/lume-mesa/main.cpp \
+              -o lume-mesa $(pkg-config --libs Qt6Widgets)
+          sh tests/mesa.sh ./lume-mesa ./lume-numeros mesa-teste
+
       # O Palco também: os modelos vão e voltam em .pptx e .odp (com os
       # gráficos de verdade, as tabelas, as animações e o vídeo), o PDF sai
       # com uma página por slide, a edição pelos caminhos da janela dá o
@@ -162,6 +175,8 @@ jobs:
               $(pkg-config --cflags Qt6Widgets Qt6Multimedia) app/lume-palco/main.cpp \
               -o lume-palco $(pkg-config --libs Qt6Widgets Qt6Multimedia) -lz
           sh tests/palco.sh ./lume-palco palco-teste
+          # O gráfico vinculado aos Números, no Páginas e no Palco.
+          sh tests/vinculo.sh ./lume-numeros ./lume-paginas ./lume-palco vinculo-teste
 
       # As contas dos Mercados (sem rede): títulos, correlação, Black-Scholes,
       # a leitura dos documentos da CVM e da SEC.
@@ -172,6 +187,17 @@ jobs:
               $(pkg-config --cflags Qt6Widgets Qt6Network) app/lume-mercados/main.cpp \
               -o lume-mercados $(pkg-config --libs Qt6Widgets Qt6Network)
           QT_QPA_PLATFORM=offscreen sh tests/mercados-contas.sh ./lume-mercados app/lume-mercados
+
+      # As contas das Finanças (Price, SAC, VPL, TIR, IPCA, regressão,
+      # orçamento) contra valores conhecidos, e o replicante dos indicadores;
+      # sem rede (os dados do Banco Central vêm de uma pasta de teste).
+      - name: Finanças (contas)
+        if: matrix.base == 'fixado'
+        run: |
+          g++ -std=c++17 -O1 -Wall -Wextra -Wno-unused-parameter -Werror -fPIC \
+              $(pkg-config --cflags Qt6Widgets) app/lume-financas/main.cpp \
+              -o lume-financas $(pkg-config --libs Qt6Widgets)
+          QT_QPA_PLATFORM=offscreen sh tests/financas-contas.sh ./lume-financas
 
       # O lume-motor também no Linux, sem tela (Mesa llvmpipe): desenha a
       # página, o zoom e a troca de texto, e os quadros vão como artefato.

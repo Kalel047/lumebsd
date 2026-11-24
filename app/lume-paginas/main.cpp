@@ -466,6 +466,7 @@ static QString esc(const QString &s)
 
 // O gráfico (os dados, o desenho e os arquivos) é o mesmo do Palco.
 #include "../comum/grafico-arquivos.h"
+#include "../comum/vinculo.h"
 
 // --- a folha ---------------------------------------------------------------
 //
@@ -1065,6 +1066,10 @@ static QImage imagemDe(const QTextDocument *d, const QTextImageFormat &f, QSizeF
 // dos dados, e o .docx e o .odt levam o gráfico de verdade.
 
 static constexpr int P_GRAFICO = QTextFormat::UserProperty + 41;
+// De onde veio (a planilha dos Números: vinculo.h), se veio vinculado.
+static constexpr int P_VINCULO = QTextFormat::UserProperty + 42;
+
+static Vinculo vinculoDe(const QTextFormat &f) { return lerVinculo(f.stringProperty(P_VINCULO)); }
 
 static bool dadosDoGrafico(const QTextFormat &f, DadosGrafico &g)
 {
@@ -1084,7 +1089,7 @@ static QImage imagemDoGrafico(const DadosGrafico &g, QSizeF tam)
 	return img;
 }
 
-static QTextImageFormat formatoDoGrafico(QTextDocument *d, const DadosGrafico &g, QSizeF tam)
+static QTextImageFormat formatoDoGrafico(QTextDocument *d, const DadosGrafico &g, QSizeF tam, const Vinculo &v = Vinculo())
 {
 	static int n = 0;
 	const QString nome = QString("lume://grafico/%1-%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(++n);
@@ -1094,7 +1099,64 @@ static QTextImageFormat formatoDoGrafico(QTextDocument *d, const DadosGrafico &g
 	f.setWidth(tam.width());
 	f.setHeight(tam.height());
 	f.setProperty(P_GRAFICO, gravarDados(g));
+	if (v.ok())
+		f.setProperty(P_VINCULO, v.texto());
 	return f;
+}
+
+// Os gráficos vinculados do documento (em todo lugar: no texto e nas
+// tabelas), com o cursor que escolhe cada um.
+struct GraficoVinculado {
+	QTextCursor k;
+	Vinculo v;
+	DadosGrafico g;
+};
+
+static std::vector<GraficoVinculado> graficosVinculados(QTextDocument *d)
+{
+	std::vector<GraficoVinculado> r;
+	for (QTextBlock b = d->begin(); b.isValid(); b = b.next())
+		for (auto it = b.begin(); !it.atEnd(); ++it) {
+			const QTextFragment fr = it.fragment();
+			if (!fr.isValid() || !fr.charFormat().isImageFormat())
+				continue;
+			const QTextImageFormat f = fr.charFormat().toImageFormat();
+			GraficoVinculado x;
+			x.v = vinculoDe(f);
+			if (!x.v.ok() || !dadosDoGrafico(f, x.g))
+				continue;
+			for (int i = 0; i < fr.length(); i++) {
+				x.k = QTextCursor(d);
+				x.k.setPosition(fr.position() + i);
+				x.k.setPosition(fr.position() + i + 1, QTextCursor::KeepAnchor);
+				r.push_back(x);
+			}
+		}
+	return r;
+}
+
+// Troca os dados de um gráfico (no mesmo tamanho, com o mesmo vínculo).
+static void redesenharGrafico(QTextDocument *d, QTextCursor k, const DadosGrafico &g)
+{
+	QSizeF tam;
+	const QTextImageFormat f = k.charFormat().toImageFormat();
+	imagemDe(d, f, &tam);
+	k.setCharFormat(formatoDoGrafico(d, g, tam, vinculoDe(f)));
+}
+
+// Atualiza os gráficos vinculados com a planilha de agora, esperando (a
+// linha de comando). Devolve quantos mudaram.
+static int atualizarVinculos(QTextDocument *d)
+{
+	int n = 0;
+	for (GraficoVinculado &x : graficosVinculados(d)) {
+		DadosGrafico novo;
+		if (dadosDoVinculo(x.v, novo) && gravarDados(novo) != gravarDados(x.g)) {
+			redesenharGrafico(d, x.k, novo);
+			n++;
+		}
+	}
+	return n;
 }
 
 static QByteArray png(const QImage &img)
@@ -1434,7 +1496,7 @@ private:
 			extras_.push_back({obj + "/", QByteArray(), "application/vnd.oasis.opendocument.chart"});
 			extras_.push_back({"ObjectReplacements/" + obj, png(imagemDoGrafico(g, tam)), "image/png"});
 			x.writeStartElement("draw:frame");
-			x.writeAttribute("draw:name", QString("Gráfico %1").arg(objetos_));
+			x.writeAttribute("draw:name", vinculoDe(f).ok() ? vinculoDe(f).nome() : QString("Gráfico %1").arg(objetos_));
 			x.writeAttribute("text:anchor-type", "as-char");
 			x.writeAttribute("svg:width", cm(tam.width()));
 			x.writeAttribute("svg:height", cm(tam.height()));
@@ -2046,7 +2108,7 @@ private:
 			DadosGrafico g;
 			if (lerXml(z_.ler(h + "/content.xml"), x) && lerGraficoDoOdf(x, g)) {
 				const double w = medida(frame.a("svg:width")), hh = medida(frame.a("svg:height"));
-				c_.insertImage(formatoDoGrafico(d_, g, QSizeF(w > 0 ? w : 480, hh > 0 ? hh : 300)));
+				c_.insertImage(formatoDoGrafico(d_, g, QSizeF(w > 0 ? w : 480, hh > 0 ? hh : 300), lerVinculo(frame.a("draw:name"))));
 				inicio_ = false;
 				return;
 			}
@@ -2468,7 +2530,8 @@ private:
 			const QString n = QString::number(graficos_.size());
 			return "<w:r><w:drawing><wp:inline distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\"><wp:extent cx=\"" + QString::number(emu(tam.width())) +
 			       "\" cy=\"" + QString::number(emu(tam.height())) + "\"/><wp:effectExtent l=\"0\" t=\"0\" r=\"0\" b=\"0\"/>"
-			       "<wp:docPr id=\"" + QString::number(1000 + graficos_.size()) + "\" name=\"Gráfico " + n + "\"/><wp:cNvGraphicFramePr/>"
+			       "<wp:docPr id=\"" + QString::number(1000 + graficos_.size()) + "\" name=\"" +
+			       esc(vinculoDe(f).ok() ? vinculoDe(f).nome() : "Gráfico " + n) + "\"/><wp:cNvGraphicFramePr/>"
 			       "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\">"
 			       "<c:chart xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" r:id=\"rIdGrf" + n + "\"/>"
 			       "</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>";
@@ -3127,7 +3190,8 @@ private:
 				if (const No *ext = desenho.achar("wp:extent"))
 					if (ext->a("cx").toDouble() > 0 && ext->a("cy").toDouble() > 0)
 						tam = QSizeF(ext->a("cx").toDouble() / 9525.0, ext->a("cy").toDouble() / 9525.0);
-				c_.insertImage(formatoDoGrafico(d_, g, tam));
+				const No *pr = desenho.achar("wp:docPr");
+				c_.insertImage(formatoDoGrafico(d_, g, tam, lerVinculo(pr ? pr->a("name") : QString())));
 			}
 			return;
 		}
@@ -3489,7 +3553,10 @@ static QString resumo(QTextDocument *d)
 							for (double x : v)
 								soma += x;
 						o << " {grafico " << nt[int(g.tipo)] << " \"" << g.titulo << "\" " << g.series.size() << "x" << g.categorias.size() << " soma "
-						  << QString::number(soma, 'f', 2) << (g.legenda ? "" : " semlegenda") << " " << qRound(tam.width()) << "x" << qRound(tam.height()) << "}";
+						  << QString::number(soma, 'f', 2) << (g.legenda ? "" : " semlegenda") << " " << qRound(tam.width()) << "x" << qRound(tam.height());
+						if (vinculoDe(p.f).ok())
+							o << " vinculado " << vinculoDe(p.f).curto();
+						o << "}";
 						continue;
 					}
 					o << " {imagem " << qRound(tam.width()) << "x" << qRound(tam.height()) << "}";
@@ -3634,7 +3701,7 @@ protected:
 	}
 
 public:
-	std::function<void(const DadosGrafico &)> colarGrafico;
+	std::function<void(const DadosGrafico &, const Vinculo &)> colarGrafico;
 	std::function<void(QTextCursor)> editarGrafico;
 
 	// O gráfico sob um ponto (o cursor escolhendo o caractere dele), se houver.
@@ -3662,7 +3729,7 @@ protected:
 	{
 		DadosGrafico g;
 		if (m->hasFormat(MIME_GRAFICO) && lerDados(QString::fromUtf8(m->data(MIME_GRAFICO)), g) && colarGrafico) {
-			colarGrafico(g);
+			colarGrafico(g, m->hasFormat(MIME_VINCULO) ? lerVinculo(QString::fromUtf8(m->data(MIME_VINCULO))) : Vinculo());
 			return;
 		}
 		QTextEdit::insertFromMimeData(m);
@@ -3977,7 +4044,9 @@ private:
 		auto *mh = new QHBoxLayout(mesa);
 		mh->setContentsMargins(24, 28, 24, 40);
 		edit_ = new Pagina(mesa);
-		edit_->colarGrafico = [this](const DadosGrafico &g) { colarGrafico(g); };
+		edit_->colarGrafico = [this](const DadosGrafico &g, const Vinculo &v) { colarGrafico(g, v); };
+		vigia_ = new VigiaVinculos(this);
+		vigia_->mudou = [this] { seguirVinculos(true); };
 		edit_->editarGrafico = [this](QTextCursor k) { editarGrafico(k); };
 		mh->addStretch();
 		mh->addWidget(edit_, 0, Qt::AlignTop);
@@ -4856,9 +4925,15 @@ private:
 		const double w = std::min(larguraDoTexto(), 600.0);
 		return QSizeF(w, w * 0.6);
 	}
-	void colarGrafico(const DadosGrafico &g)
+	void colarGrafico(const DadosGrafico &g, const Vinculo &v = Vinculo())
 	{
-		edit_->textCursor().insertImage(formatoDoGrafico(doc(), g, tamanhoDoGrafico()));
+		edit_->textCursor().insertImage(formatoDoGrafico(doc(), g, tamanhoDoGrafico(), v));
+		if (v.ok()) {
+			seguirVinculos(false);
+			statusBar()->showMessage("Gráfico colado com os dados, vinculado a " + QFileInfo(v.arq).fileName() +
+			                         ": ele se atualiza quando a planilha é gravada.", 6000);
+			return;
+		}
 		statusBar()->showMessage("Gráfico colado com os dados: clique duas vezes nele para mudar os números.", 5000);
 	}
 	void inserirGrafico()
@@ -4950,14 +5025,55 @@ private:
 					val = x.replace(',', '.').toDouble();
 				g.valores[size_t(s)][size_t(c)] = val;
 			}
+		// Os números mudados à mão: o gráfico deixa de seguir a planilha.
+		const bool vinculado = vinculoDe(k.charFormat()).ok();
 		trocarGrafico(k, g);
+		if (vinculado) {
+			QTextImageFormat f = k.charFormat().toImageFormat();
+			f.clearProperty(P_VINCULO);
+			k.setCharFormat(f);
+			seguirVinculos(false);
+			statusBar()->showMessage("Os números mudaram aqui: o gráfico deixou de seguir a planilha.", 6000);
+		}
+	}
+
+	// Vigia as planilhas dos gráficos vinculados e, se agora (ao abrir, ou
+	// quando uma delas é gravada), traz os dados novos.
+	void seguirVinculos(bool agora)
+	{
+		QStringList arqs;
+		for (const GraficoVinculado &x : graficosVinculados(doc()))
+			arqs << x.v.arq;
+		vigia_->vigiar(arqs);
+		if (!agora)
+			return;
+		arqs.removeDuplicates();
+		for (const QString &arq : arqs)
+			for (const GraficoVinculado &x : graficosVinculados(doc()))
+				if (x.v.arq == arq) {
+					// Um processo por gráfico; a resposta acha o gráfico de novo
+					// (o texto pode ter mudado no meio).
+					const Vinculo v = x.v;
+					buscarVinculo(v, this, [this, v](bool ok, const DadosGrafico &novo) {
+						if (!ok)
+							return;
+						int n = 0;
+						for (const GraficoVinculado &y : graficosVinculados(doc()))
+							if (y.v == v && gravarDados(y.g) != gravarDados(novo)) {
+								redesenharGrafico(doc(), y.k, novo);
+								n++;
+							}
+						if (n)
+							statusBar()->showMessage(QString("O gráfico de %1 foi atualizado com a planilha.").arg(QFileInfo(v.arq).fileName()), 5000);
+					});
+				}
 	}
 	// O gráfico no lugar do cursor com outros dados (ou no mesmo tamanho, redesenhado).
 	void trocarGrafico(QTextCursor k, const DadosGrafico &g, QSizeF tam = QSizeF())
 	{
 		if (tam.isEmpty())
 			imagemDe(doc(), k.charFormat().toImageFormat(), &tam);
-		k.setCharFormat(formatoDoGrafico(doc(), g, tam));
+		k.setCharFormat(formatoDoGrafico(doc(), g, tam, vinculoDe(k.charFormat())));
 	}
 
 	void inserirImagem()
@@ -5070,6 +5186,7 @@ private:
 		atualizarInspetor();
 		contar();
 		edit_->setFocus();
+		seguirVinculos(true);
 	}
 
 	void titulo()
@@ -5221,6 +5338,7 @@ private:
 	QCheckBox *numeros_ = nullptr;
 	QTimer contagem_;
 	QString arquivo_;
+	VigiaVinculos *vigia_ = nullptr;
 	bool atualizando_ = false;
 };
 
@@ -5315,6 +5433,7 @@ static int uso()
 	             "     lume-paginas --converter ENTRADA SAIDA   (odt, docx, pdf, md, txt, html)\n"
 	             "     lume-paginas --modelo NOME SAIDA         (abnt, aula, relatorio, carta, curriculo, branco)\n"
 	             "     lume-paginas --resumo ARQUIVO\n"
+	             "     lume-paginas --atualizar ARQUIVO [SAIDA]   (os gráficos vinculados aos Números)\n"
 	             "     lume-paginas --foto SAIDA.png [ARQUIVO | --modelo NOME | --galeria]\n");
 	return 2;
 }
@@ -5325,7 +5444,7 @@ int main(int argc, char **argv)
 	bool semJanela = false;
 	for (int i = 1; i < argc; i++) {
 		const QByteArray a(argv[i]);
-		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || (a == "--modelo" && i == 1))
+		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || a == "--atualizar" || (a == "--modelo" && i == 1))
 			semJanela = true;
 		if (a == "--foto" && qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
 			semJanela = true;
@@ -5364,6 +5483,24 @@ int main(int argc, char **argv)
 			std::fprintf(stderr, "lume-paginas: %s\n", qPrintable(erro));
 			return 1;
 		}
+		return 0;
+	}
+	// Os gráficos vinculados com a planilha de agora (o que a janela faz ao
+	// abrir e quando a planilha é gravada), gravando no mesmo arquivo ou em
+	// SAIDA.
+	if (a.size() >= 3 && a[1] == "--atualizar") {
+		QTextDocument d;
+		QString erro;
+		if (!abrirArquivo(a[2], &d, &erro)) {
+			std::fprintf(stderr, "lume-paginas: %s\n", qPrintable(erro));
+			return 1;
+		}
+		const int n = atualizarVinculos(&d);
+		if (!gravarArquivo(a.size() >= 4 ? a[3] : a[2], &d, &erro)) {
+			std::fprintf(stderr, "lume-paginas: %s\n", qPrintable(erro));
+			return 1;
+		}
+		std::printf("%d gráfico(s) atualizado(s)\n", n);
 		return 0;
 	}
 	if (a.size() >= 3 && a[1] == "--resumo") {

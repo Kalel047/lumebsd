@@ -332,6 +332,11 @@ integrar()
 		padrao_mime "application/vnd.openxmlformats-officedocument.presentationml.presentation application/vnd.oasis.opendocument.presentation" \
 		    lume-palco.desktop
 	fi
+	# A mesa dos replicantes (pedaços vivos dos apps na área de trabalho,
+	# como no BeOS): entra com a sessão e traz de volta os que estavam lá.
+	if [ -x /usr/bin/lume-mesa ]; then
+		instalar $A/lume-mesa.desktop $XDG/autostart/lume-mesa.desktop 0644
+	fi
 	# A Ajuda do LumeBSD, no menu.
 	instalar /usr/share/lume/ajuda/lume-ajuda.desktop \
 	    $P/share/applications/lume-ajuda.desktop 0644
