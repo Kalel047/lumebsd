@@ -67,6 +67,10 @@
 #include <QLabel>
 #include <QLibraryInfo>
 #include <QLineEdit>
+#include <QMimeData>
+#include <QClipboard>
+#include <QTableWidget>
+#include <QHeaderView>
 #include <QLocale>
 #include <QMainWindow>
 #include <QMap>
@@ -392,6 +396,8 @@ static QString prefixo(const QStringView uri, const QStringView dado)
 		{"http://schemas.openxmlformats.org/drawingml/2006/main", "a"},
 		{"http://purl.oclc.org/ooxml/drawingml/main", "a"},
 		{"http://schemas.openxmlformats.org/drawingml/2006/picture", "pic"},
+		{"http://schemas.openxmlformats.org/drawingml/2006/chart", "c"},
+		{"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", "chart"},
 		{"http://schemas.openxmlformats.org/package/2006/relationships", "rel"},
 		{"urn:schemas-microsoft-com:vml", "v"},
 		{"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties", "cp"},
@@ -457,6 +463,9 @@ static QString esc(const QString &s)
 	}
 	return r;
 }
+
+// O gráfico (os dados, o desenho e os arquivos) é o mesmo do Palco.
+#include "../comum/grafico-arquivos.h"
 
 // --- a folha ---------------------------------------------------------------
 //
@@ -1049,6 +1058,45 @@ static QImage imagemDe(const QTextDocument *d, const QTextImageFormat &f, QSizeF
 	return img;
 }
 
+// --- o gráfico no texto ------------------------------------------------------
+//
+// Um gráfico é uma imagem no meio do texto que guarda os dados junto (a
+// propriedade P_GRAFICO, no texto lume-grafico:...): a imagem é desenhada
+// dos dados, e o .docx e o .odt levam o gráfico de verdade.
+
+static constexpr int P_GRAFICO = QTextFormat::UserProperty + 41;
+
+static bool dadosDoGrafico(const QTextFormat &f, DadosGrafico &g)
+{
+	return f.hasProperty(P_GRAFICO) && lerDados(f.stringProperty(P_GRAFICO), g);
+}
+
+// A imagem do gráfico no tamanho em que aparece (px), em dobro.
+static QImage imagemDoGrafico(const DadosGrafico &g, QSizeF tam)
+{
+	const double k = 2.0;
+	QImage img(std::max(1, int(tam.width() * k)), std::max(1, int(tam.height() * k)), QImage::Format_ARGB32_Premultiplied);
+	img.fill(Qt::white);
+	QPainter p(&img);
+	// O desenho mede em pontos, como no Palco.
+	p.scale(k / 0.75, k / 0.75);
+	desenharGrafico(p, QRectF(0, 0, tam.width() * 0.75, tam.height() * 0.75), g, EstiloGrafico());
+	return img;
+}
+
+static QTextImageFormat formatoDoGrafico(QTextDocument *d, const DadosGrafico &g, QSizeF tam)
+{
+	static int n = 0;
+	const QString nome = QString("lume://grafico/%1-%2").arg(QDateTime::currentMSecsSinceEpoch()).arg(++n);
+	d->addResource(QTextDocument::ImageResource, QUrl(nome), imagemDoGrafico(g, tam));
+	QTextImageFormat f;
+	f.setName(nome);
+	f.setWidth(tam.width());
+	f.setHeight(tam.height());
+	f.setProperty(P_GRAFICO, gravarDados(g));
+	return f;
+}
+
 static QByteArray png(const QImage &img)
 {
 	QByteArray b;
@@ -1066,6 +1114,25 @@ static QString familiaDe(const QTextCharFormat &f)
 			return l.first();
 	}
 	return QString();
+}
+
+// O número com que uma lista numerada começa (o Word e o LibreOffice
+// continuam a numeração de uma lista na outra assim). Guardado também numa
+// propriedade, porque o Qt antes da 6.6 não tem o setStart.
+static constexpr int P_INICIO = QTextFormat::UserProperty + 40;
+static int inicioLista(const QTextListFormat &lf)
+{
+	const int n = lf.intProperty(P_INICIO);
+	return n > 0 ? n : 1;
+}
+static void marcarInicio(QTextListFormat &lf, int n)
+{
+	if (n <= 1)
+		return;
+	lf.setProperty(P_INICIO, n);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+	lf.setStart(n);
+#endif
 }
 
 static bool listaNumerada(const QTextListFormat &lf)
@@ -1150,6 +1217,11 @@ public:
 		for (const auto &[nome, dados] : imagens_) {
 			z.add(nome, dados, false);
 			man += "<manifest:file-entry manifest:full-path=\"" + nome + "\" manifest:media-type=\"image/png\"/>";
+		}
+		for (const auto &[nome, dados, tipo] : extras_) {
+			if (!nome.endsWith('/'))
+				z.add(nome, dados, tipo != "image/png");
+			man += "<manifest:file-entry manifest:full-path=\"" + esc(nome) + "\" manifest:media-type=\"" + esc(tipo) + "\"/>";
 		}
 		man += "</manifest:manifest>";
 		z.add("META-INF/manifest.xml", man.toUtf8());
@@ -1350,6 +1422,36 @@ private:
 	{
 		QSizeF tam;
 		const QImage img = imagemDe(d_, f, &tam);
+		DadosGrafico g;
+		if (dadosDoGrafico(f, g)) {
+			// O objeto de gráfico do LibreOffice (com a tabela de dados) e a imagem dele.
+			const QString obj = QString("Object %1").arg(++objetos_);
+			extras_.push_back({obj + "/content.xml", graficoOdfDoGrafico(g, EstiloGrafico(), tam * 0.75).toUtf8(), "text/xml"});
+			extras_.push_back({obj + "/styles.xml",
+			                   QByteArray("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<office:document-styles "
+			                              "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" office:version=\"1.3\"/>"),
+			                   "text/xml"});
+			extras_.push_back({obj + "/", QByteArray(), "application/vnd.oasis.opendocument.chart"});
+			extras_.push_back({"ObjectReplacements/" + obj, png(imagemDoGrafico(g, tam)), "image/png"});
+			x.writeStartElement("draw:frame");
+			x.writeAttribute("draw:name", QString("Gráfico %1").arg(objetos_));
+			x.writeAttribute("text:anchor-type", "as-char");
+			x.writeAttribute("svg:width", cm(tam.width()));
+			x.writeAttribute("svg:height", cm(tam.height()));
+			x.writeAttribute("draw:z-index", "0");
+			x.writeEmptyElement("draw:object");
+			x.writeAttribute("xlink:href", "./" + obj);
+			x.writeAttribute("xlink:type", "simple");
+			x.writeAttribute("xlink:show", "embed");
+			x.writeAttribute("xlink:actuate", "onLoad");
+			x.writeEmptyElement("draw:image");
+			x.writeAttribute("xlink:href", "./ObjectReplacements/" + obj);
+			x.writeAttribute("xlink:type", "simple");
+			x.writeAttribute("xlink:show", "embed");
+			x.writeAttribute("xlink:actuate", "onLoad");
+			x.writeEndElement();
+			return;
+		}
 		if (img.isNull())
 			return;
 		const int n = int(imagens_.size()) + 1;
@@ -1376,6 +1478,7 @@ private:
 		bool itemAberto;
 	};
 	std::vector<Nivel> pilha_;
+	QSet<QTextList *> comecadas_;
 
 	void fecharListas(QXmlStreamWriter &x, size_t ate = 0)
 	{
@@ -1432,6 +1535,11 @@ private:
 			pilha_.push_back({pilha_.size() + 1 == nivel ? l : nullptr, false});
 		}
 		x.writeStartElement("text:list-item");
+		if (!comecadas_.contains(l)) {
+			comecadas_.insert(l);
+			if (inicioLista(l->format()) > 1)
+				x.writeAttribute("text:start-value", QString::number(inicioLista(l->format())));
+		}
 		pilha_.back().itemAberto = true;
 		paragrafo(x, b, true);
 	}
@@ -1484,7 +1592,11 @@ private:
 			x.writeEmptyElement("table:table-column");
 			x.writeAttribute("table:style-name", cs);
 		}
+		// As linhas do cabeçalho (repetem no alto de cada página).
+		const int cab = std::clamp(t->format().headerRowCount(), 0, t->rows());
 		for (int r = 0; r < t->rows(); r++) {
+			if (r == 0 && cab > 0)
+				x.writeStartElement("table:table-header-rows");
 			x.writeStartElement("table:table-row");
 			for (int c = 0; c < t->columns(); c++) {
 				const QTextTableCell cel = t->cellAt(r, c);
@@ -1507,6 +1619,8 @@ private:
 				x.writeEndElement();
 			}
 			x.writeEndElement();
+			if (r + 1 == cab)
+				x.writeEndElement(); // table-header-rows
 		}
 		x.writeEndElement();
 	}
@@ -1574,6 +1688,8 @@ private:
 	QMap<QString, QString> ps_, ts_;
 	QSet<QString> listasFeitas_;
 	std::vector<std::pair<QString, QByteArray>> imagens_;
+	std::vector<std::tuple<QString, QByteArray, QString>> extras_; // os objetos de gráfico
+	int objetos_ = 0;
 	int tabelas_ = 0;
 	bool celula_ = false;
 };
@@ -1857,6 +1973,9 @@ private:
 				QTextListFormat lf;
 				lf.setStyle(numerada ? QTextListFormat::ListDecimal : (nivelLista == 2 ? QTextListFormat::ListCircle : nivelLista >= 3 ? QTextListFormat::ListSquare : QTextListFormat::ListDisc));
 				lf.setIndent(nivelLista);
+				if (numerada)
+					marcarInicio(lf, inicioPendente_);
+				inicioPendente_ = 0;
 				l = c_.createList(lf);
 			}
 		}
@@ -1918,6 +2037,20 @@ private:
 
 	void imagem(const No &frame)
 	{
+		// Um gráfico do LibreOffice: volta a ser gráfico, com os dados.
+		if (const No *ob = frame.filho("draw:object")) {
+			QString h = ob->a("xlink:href");
+			if (h.startsWith("./"))
+				h = h.mid(2);
+			No x;
+			DadosGrafico g;
+			if (lerXml(z_.ler(h + "/content.xml"), x) && lerGraficoDoOdf(x, g)) {
+				const double w = medida(frame.a("svg:width")), hh = medida(frame.a("svg:height"));
+				c_.insertImage(formatoDoGrafico(d_, g, QSizeF(w > 0 ? w : 480, hh > 0 ? hh : 300)));
+				inicio_ = false;
+				return;
+			}
+		}
 		const No *im = frame.filho("draw:image");
 		if (!im)
 			return;
@@ -1956,13 +2089,20 @@ private:
 			if (n != it->second.end())
 				numerada = n->second;
 		}
-		// Uma lista nova de primeiro nível começa a numeração de novo.
-		if (nivel == 1)
+		// Uma lista nova de primeiro nível começa a numeração de novo (a não
+		// ser que continue a anterior).
+		const bool continua = l.a("text:continue-numbering") == "true" || !l.a("text:continue-list").isEmpty();
+		if (nivel == 1 && !continua)
 			listaAtual_.clear();
 		listaAtual_.erase(nivel + 1);
 		for (const No &item : l.filhos) {
 			if (item.nome != "text:list-item" && item.nome != "text:list-header")
 				continue;
+			if (item.atr.contains("text:start-value")) {
+				// Um número de começo: uma lista nova a partir dele.
+				listaAtual_.erase(nivel);
+				inicioPendente_ = item.a("text:start-value").toInt();
+			}
 			for (const No &f : item.filhos) {
 				if (f.nome == "text:p" || f.nome == "text:h")
 					paragrafo(f, nivel, numerada);
@@ -1980,18 +2120,22 @@ private:
 	{
 		// As linhas (dentro de grupos e cabeçalhos também) e as colunas.
 		std::vector<const No *> linhas;
-		std::function<void(const No &)> juntar = [&](const No &n) {
+		int cabecalho = 0;
+		std::function<void(const No &, bool)> juntar = [&](const No &n, bool cab) {
 			for (const No &f : n.filhos) {
 				if (f.nome == "table:table-row") {
 					const int rep = std::clamp(f.a("table:number-rows-repeated", "1").toInt(), 1, 50);
-					for (int i = 0; i < rep; i++)
+					for (int i = 0; i < rep; i++) {
 						linhas.push_back(&f);
+						if (cab)
+							cabecalho++;
+					}
 				} else if (f.nome == "table:table-header-rows" || f.nome == "table:table-rows" || f.nome == "table:table-row-group") {
-					juntar(f);
+					juntar(f, cab || f.nome == "table:table-header-rows");
 				}
 			}
 		};
-		juntar(t);
+		juntar(t, false);
 		QVector<QTextLength> larguras;
 		std::function<void(const No &)> cols = [&](const No &n) {
 			for (const No &f : n.filhos) {
@@ -2018,6 +2162,7 @@ private:
 			return;
 		ncol = std::min(ncol, 64);
 		QTextTableFormat tf = Montador::formatoTabela();
+		tf.setHeaderRowCount(cabecalho);
 		double soma = 0;
 		for (int i = 0; i < std::min<int>(ncol, larguras.size()); i++)
 			soma += larguras[i].rawValue();
@@ -2082,6 +2227,7 @@ private:
 	std::map<QString, std::map<int, bool>> listas_;
 	std::map<QString, QString> colunas_;
 	std::map<int, QTextList *> listaAtual_;
+	int inicioPendente_ = 0;
 	QTextCharFormat padrao_;
 	int imagens_ = 0;
 };
@@ -2123,6 +2269,10 @@ public:
 		                "<Override PartName=\"/docProps/custom.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.custom-properties+xml\"/>";
 		if (f.numeros)
 			tipos += "<Override PartName=\"/word/footer1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\"/>";
+		for (size_t i = 0; i < graficos_.size(); i++)
+			tipos += "<Override PartName=\"/word/charts/chart" + QString::number(i + 1) + ".xml\" ContentType=\"application/vnd.openxmlformats-officedocument.drawingml.chart+xml\"/>";
+		if (!graficos_.empty())
+			tipos += "<Default Extension=\"xlsx\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\"/>";
 		tipos += "</Types>";
 		z.add("[Content_Types].xml", tipos.toUtf8());
 		z.add("_rels/.rels",
@@ -2169,6 +2319,17 @@ public:
 			const QString n = QString("image%1.png").arg(i + 1);
 			z.add("word/media/" + n, imagens_[i], false);
 			rels += "<Relationship Id=\"rIdImg" + QString::number(i + 1) + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/" + n + "\"/>";
+		}
+		for (size_t i = 0; i < graficos_.size(); i++) {
+			const QString n = QString::number(i + 1);
+			const QSizeF pt = graficos_[i].second * 0.75;
+			z.add("word/charts/chart" + n + ".xml", graficoOoxml(graficos_[i].first, EstiloGrafico(), pt).toUtf8());
+			z.add("word/charts/_rels/chart" + n + ".xml.rels",
+			      ("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+			       "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/package\" Target=\"../embeddings/Microsoft_Excel_Worksheet" +
+			       n + ".xlsx\"/></Relationships>").toUtf8());
+			z.add("word/embeddings/Microsoft_Excel_Worksheet" + n + ".xlsx", planilhaDoGrafico(graficos_[i].first), false);
+			rels += "<Relationship Id=\"rIdGrf" + n + "\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"charts/chart" + n + ".xml\"/>";
 		}
 		rels += "</Relationships>";
 		z.add("word/_rels/document.xml.rels", rels.toUtf8());
@@ -2300,6 +2461,18 @@ private:
 	{
 		QSizeF tam;
 		const QImage img = imagemDe(d_, f, &tam);
+		DadosGrafico g;
+		if (dadosDoGrafico(f, g)) {
+			// O gráfico de verdade (o Word edita, com a planilha dos dados).
+			graficos_.push_back({g, tam});
+			const QString n = QString::number(graficos_.size());
+			return "<w:r><w:drawing><wp:inline distT=\"0\" distB=\"0\" distL=\"0\" distR=\"0\"><wp:extent cx=\"" + QString::number(emu(tam.width())) +
+			       "\" cy=\"" + QString::number(emu(tam.height())) + "\"/><wp:effectExtent l=\"0\" t=\"0\" r=\"0\" b=\"0\"/>"
+			       "<wp:docPr id=\"" + QString::number(1000 + graficos_.size()) + "\" name=\"Gráfico " + n + "\"/><wp:cNvGraphicFramePr/>"
+			       "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\">"
+			       "<c:chart xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" r:id=\"rIdGrf" + n + "\"/>"
+			       "</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>";
+		}
 		if (img.isNull())
 			return QString();
 		imagens_.push_back(png(img));
@@ -2324,6 +2497,7 @@ private:
 			if (id == 0) {
 				id = int(listas_.size());
 				numerada_[id] = listaNumerada(l->format());
+				inicio_[id] = inicioLista(l->format());
 			}
 			numero = "<w:numPr>" + val("w:ilvl", QString::number(std::clamp(l->format().indent() - 1, 0, 8))) +
 			         val("w:numId", QString::number(id)) + "</w:numPr>";
@@ -2378,7 +2552,7 @@ private:
 			o += "<w:gridCol w:w=\"" + QString::number(w) + "\"/>";
 		o += "</w:tblGrid>";
 		for (int r = 0; r < t->rows(); r++) {
-			o += "<w:tr>";
+			o += r < t->format().headerRowCount() ? "<w:tr><w:trPr><w:tblHeader/></w:trPr>" : "<w:tr>";
 			for (int c = 0; c < t->columns();) {
 				const QTextTableCell cel = t->cellAt(r, c);
 				const int cs = std::max(1, cel.columnSpan());
@@ -2463,14 +2637,16 @@ private:
 		}
 		for (auto it = numerada_.begin(); it != numerada_.end(); ++it)
 			s += "<w:num w:numId=\"" + QString::number(it.key()) + "\"><w:abstractNumId w:val=\"" + (it.value() ? "1" : "0") + "\"/>"
-			     "<w:lvlOverride w:ilvl=\"0\"><w:startOverride w:val=\"1\"/></w:lvlOverride></w:num>";
+			     "<w:lvlOverride w:ilvl=\"0\"><w:startOverride w:val=\"" + QString::number(inicio_.value(it.key(), 1)) + "\"/></w:lvlOverride></w:num>";
 		return s + "</w:numbering>";
 	}
 
 	const QTextDocument *d_;
 	std::vector<QByteArray> imagens_;
+	std::vector<std::pair<DadosGrafico, QSizeF>> graficos_;
 	QHash<QTextList *, int> listas_;
 	QMap<int, bool> numerada_;
+	QMap<int, int> inicio_;
 };
 
 // --- DOCX: ler -------------------------------------------------------------
@@ -2742,20 +2918,29 @@ private:
 		const No *raiz = s.achar("w:numbering");
 		if (!raiz)
 			return;
-		std::map<QString, std::map<int, int>> abstratos;
+		std::map<QString, std::map<int, int>> abstratos, comecos;
 		for (const No *a : raiz->todos("w:abstractNum")) {
-			std::map<int, int> lv;
+			std::map<int, int> lv, ini;
 			for (const No *l : a->todos("w:lvl")) {
 				const No *f = l->filho("w:numFmt");
 				const QString fmt = f ? f->a("w:val") : "decimal";
 				// 0: sem marca (a numeração dos títulos do LibreOffice), 1: marcador, 2: número.
 				lv[l->a("w:ilvl").toInt()] = fmt == "none" ? 0 : fmt == "bullet" ? 1 : 2;
+				if (const No *st = l->filho("w:start"))
+					ini[l->a("w:ilvl").toInt()] = st->a("w:val").toInt();
 			}
 			abstratos[a->a("w:abstractNumId")] = lv;
+			comecos[a->a("w:abstractNumId")] = ini;
 		}
 		for (const No *n : raiz->todos("w:num"))
-			if (const No *a = n->filho("w:abstractNumId"))
+			if (const No *a = n->filho("w:abstractNumId")) {
 				numeros_[n->a("w:numId")] = abstratos[a->a("w:val")];
+				std::map<int, int> ini = comecos[a->a("w:val")];
+				for (const No *o : n->todos("w:lvlOverride"))
+					if (const No *so = o->filho("w:startOverride"))
+						ini[o->a("w:ilvl").toInt()] = so->a("w:val").toInt();
+				inicios_[n->a("w:numId")] = ini;
+			}
 	}
 
 	bool contextual(const QString &id, int prof = 0)
@@ -2872,6 +3057,8 @@ private:
 				QTextListFormat lf;
 				lf.setStyle(numerada ? QTextListFormat::ListDecimal : (ilvl == 1 ? QTextListFormat::ListCircle : ilvl >= 2 ? QTextListFormat::ListSquare : QTextListFormat::ListDisc));
 				lf.setIndent(ilvl + 1);
+				if (numerada && inicios_.count(numId) && inicios_[numId].count(ilvl))
+					marcarInicio(lf, inicios_[numId][ilvl]);
 				l = c_.createList(lf);
 			}
 		}
@@ -2931,6 +3118,19 @@ private:
 
 	void imagem(const No &desenho)
 	{
+		// Um gráfico do Word (ou do LibreOffice): volta a ser gráfico, com os dados.
+		if (const No *ch = desenho.achar("c:chart")) {
+			No x;
+			DadosGrafico g;
+			if (lerXml(z_.ler(rels_.value(ch->a("r:id"))), x) && lerGraficoDoOffice(x, g)) {
+				QSizeF tam(480, 300);
+				if (const No *ext = desenho.achar("wp:extent"))
+					if (ext->a("cx").toDouble() > 0 && ext->a("cy").toDouble() > 0)
+						tam = QSizeF(ext->a("cx").toDouble() / 9525.0, ext->a("cy").toDouble() / 9525.0);
+				c_.insertImage(formatoDoGrafico(d_, g, tam));
+			}
+			return;
+		}
 		const No *b = desenho.achar("a:blip");
 		if (b)
 			imagemPorId(b->a("r:embed", b->a("r:link")), desenho.achar("wp:extent"));
@@ -2987,6 +3187,16 @@ private:
 			return;
 		ncol = std::min(ncol, 64);
 		QTextTableFormat tf = Montador::formatoTabela();
+		// As primeiras linhas marcadas como cabeçalho (repetem em cada página).
+		int cabecalho = 0;
+		for (const No *r : linhas) {
+			const No *pr = r->filho("w:trPr");
+			const No *th = pr ? pr->filho("w:tblHeader") : nullptr;
+			if (!th || th->a("w:val") == "0" || th->a("w:val") == "false")
+				break;
+			cabecalho++;
+		}
+		tf.setHeaderRowCount(cabecalho);
 		double soma = 0;
 		for (double w : grade)
 			soma += w;
@@ -3061,7 +3271,7 @@ private:
 	int naTabela_ = 0;
 	QString ultimoEstilo_;
 	std::map<QString, EstiloW> estilos_;
-	std::map<QString, std::map<int, int>> numeros_;
+	std::map<QString, std::map<int, int>> numeros_, inicios_;
 	std::map<QString, QTextList *> listas_;
 	QHash<QString, QString> rels_;
 	QTextCharFormat padraoLetra_;
@@ -3235,7 +3445,10 @@ static QString resumo(QTextDocument *d)
 		for (; it != fim && !it.atEnd(); ++it) {
 			if (QTextFrame *fr = it.currentFrame()) {
 				if (auto *t = qobject_cast<QTextTable *>(fr)) {
-					o << rec << "tabela " << t->rows() << "x" << t->columns() << "\n";
+					o << rec << "tabela " << t->rows() << "x" << t->columns();
+					if (t->format().headerRowCount() > 0)
+						o << " cabecalho" << t->format().headerRowCount();
+					o << "\n";
 					for (int i = 0; i < t->rows(); i++)
 						for (int j = 0; j < t->columns(); j++) {
 							const QTextTableCell c = t->cellAt(i, j);
@@ -3254,7 +3467,11 @@ static QString resumo(QTextDocument *d)
 			const QTextBlockFormat bf = b.blockFormat();
 			o << rec << "[" << estiloDe(b) << "]";
 			if (QTextList *l = b.textList())
+			{
 				o << " lista" << (listaNumerada(l->format()) ? "-num" : "-mar") << l->format().indent();
+				if (inicioLista(l->format()) > 1 && l->itemNumber(b) == 0)
+					o << " desde" << inicioLista(l->format());
+			}
 			if (bf.pageBreakPolicy() & QTextFormat::PageBreak_AlwaysBefore)
 				o << " quebra";
 			if (bf.alignment() & Qt::AlignHCenter) o << " centro";
@@ -3264,6 +3481,17 @@ static QString resumo(QTextDocument *d)
 				if (p.imagem) {
 					QSizeF tam;
 					imagemDe(d, p.f.toImageFormat(), &tam);
+					DadosGrafico g;
+					if (dadosDoGrafico(p.f, g)) {
+						static const char *nt[] = {"colunas", "barras", "linhas", "pizza"};
+						double soma = 0;
+						for (const auto &v : g.valores)
+							for (double x : v)
+								soma += x;
+						o << " {grafico " << nt[int(g.tipo)] << " \"" << g.titulo << "\" " << g.series.size() << "x" << g.categorias.size() << " soma "
+						  << QString::number(soma, 'f', 2) << (g.legenda ? "" : " semlegenda") << " " << qRound(tam.width()) << "x" << qRound(tam.height()) << "}";
+						continue;
+					}
 					o << " {imagem " << qRound(tam.width()) << "x" << qRound(tam.height()) << "}";
 					continue;
 				}
@@ -3404,6 +3632,68 @@ protected:
 		m->exec(e->globalPos());
 		delete m;
 	}
+
+public:
+	std::function<void(const DadosGrafico &)> colarGrafico;
+	std::function<void(QTextCursor)> editarGrafico;
+
+	// O gráfico sob um ponto (o cursor escolhendo o caractere dele), se houver.
+	bool graficoEm(const QPoint &pos, QTextCursor &k) const
+	{
+		const QTextCursor c = cursorForPosition(pos);
+		for (int d : {0, 1}) {
+			QTextCursor x(document());
+			const int p0 = std::max(0, c.position() - d);
+			x.setPosition(p0);
+			x.setPosition(std::min(p0 + 1, document()->characterCount() - 1), QTextCursor::KeepAnchor);
+			DadosGrafico g;
+			if (x.selectedText() == QString(QChar::ObjectReplacementCharacter) && dadosDoGrafico(x.charFormat(), g)) {
+				k = x;
+				return true;
+			}
+		}
+		return false;
+	}
+
+protected:
+	// Colar um gráfico (dos Números ou do Palco): entra como gráfico, com os dados.
+	bool canInsertFromMimeData(const QMimeData *m) const override { return m->hasFormat(MIME_GRAFICO) || QTextEdit::canInsertFromMimeData(m); }
+	void insertFromMimeData(const QMimeData *m) override
+	{
+		DadosGrafico g;
+		if (m->hasFormat(MIME_GRAFICO) && lerDados(QString::fromUtf8(m->data(MIME_GRAFICO)), g) && colarGrafico) {
+			colarGrafico(g);
+			return;
+		}
+		QTextEdit::insertFromMimeData(m);
+	}
+	// Copiar um gráfico sozinho leva os dados (para o Palco colar como gráfico).
+	QMimeData *createMimeDataFromSelection() const override
+	{
+		QMimeData *m = QTextEdit::createMimeDataFromSelection();
+		const QTextCursor c = textCursor();
+		if (c.selectedText() == QString(QChar::ObjectReplacementCharacter)) {
+			QTextCursor x(document());
+			x.setPosition(std::min(c.anchor(), c.position()));
+			x.setPosition(std::max(c.anchor(), c.position()), QTextCursor::KeepAnchor);
+			DadosGrafico g;
+			if (dadosDoGrafico(x.charFormat(), g)) {
+				m->setData(MIME_GRAFICO, gravarDados(g).toUtf8());
+				QSizeF tam;
+				m->setImageData(imagemDe(document(), x.charFormat().toImageFormat(), &tam));
+			}
+		}
+		return m;
+	}
+	void mouseDoubleClickEvent(QMouseEvent *e) override
+	{
+		QTextCursor k;
+		if (e->button() == Qt::LeftButton && editarGrafico && graficoEm(e->position().toPoint(), k)) {
+			editarGrafico(k);
+			return;
+		}
+		QTextEdit::mouseDoubleClickEvent(e);
+	}
 };
 
 // --- a janela --------------------------------------------------------------
@@ -3521,6 +3811,19 @@ public:
 		digita("d");
 		tecla(Qt::Key_Tab);                 // na última célula: linha nova
 		digita("e");
+		// Um gráfico colado dos Números (o que o Copiar deles põe na área de
+		// transferência, como o lume-numeros --copiar-grafico mostra).
+		{
+			QTextCursor fim(doc());
+			fim.movePosition(QTextCursor::End);
+			edit_->setTextCursor(fim);
+			auto *m = new QMimeData;
+			m->setData(MIME_GRAFICO, QByteArray("lume-grafico:linhas;PIB, inflação e juros|2015;2016;2017;2018;2019;2020;2021;2022;2023;2024|"
+			                                    "PIB (%);-3.5;-3.3;1.3;1.8;1.2;-3.3;4.8;3;3.2;3.4|IPCA (%);10.67;6.29;2.95;3.75;4.31;4.52;10.06;5.79;4.62;4.83|"
+			                                    "Selic (%);14.25;13.75;7;6.5;4.5;2;9.25;13.75;11.75;12.25"));
+			QApplication::clipboard()->setMimeData(m);
+			edit_->paste();
+		}
 		QString erro;
 		if (!gravarArquivo(saida, doc(), &erro))
 			return "ERRO " + erro;
@@ -3674,6 +3977,8 @@ private:
 		auto *mh = new QHBoxLayout(mesa);
 		mh->setContentsMargins(24, 28, 24, 40);
 		edit_ = new Pagina(mesa);
+		edit_->colarGrafico = [this](const DadosGrafico &g) { colarGrafico(g); };
+		edit_->editarGrafico = [this](QTextCursor k) { editarGrafico(k); };
 		mh->addStretch();
 		mh->addWidget(edit_, 0, Qt::AlignTop);
 		mh->addStretch();
@@ -3844,6 +4149,7 @@ private:
 		auto *ins = new QMenu(this);
 		ins->addAction(QIcon::fromTheme("insert-table"), "Tabela…", this, [this] { inserirTabela(); });
 		ins->addAction(QIcon::fromTheme("insert-image"), "Imagem…", this, [this] { inserirImagem(); });
+		ins->addAction(QIcon::fromTheme("office-chart-bar"), "Gráfico", this, [this] { inserirGrafico(); });
 		ins->addAction(QIcon::fromTheme("insert-page-break"), "Quebra de página", this, [this] { quebraDePagina(); });
 		ins->addAction(QIcon::fromTheme("view-calendar-day"), "Data de hoje", this, [this] { edit_->textCursor().insertText(hojePorExtenso()); });
 		ins->addAction(QIcon::fromTheme("format-list-unordered"), "Lista com marcadores", this, [this] { porLista(1); });
@@ -3851,6 +4157,7 @@ private:
 		botao("Inserir", "list-add", nullptr, ins);
 		botao("Tabela", "insert-table", [this] { inserirTabela(); });
 		botao("Imagem", "insert-image", [this] { inserirImagem(); });
+		botao("Gráfico", "office-chart-bar", [this] { inserirGrafico(); })->setToolTip("Um gráfico (ou cole um dos Números: ele vem com os dados)");
 		auto *espaco = new QWidget;
 		espaco->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 		barra_->addWidget(espaco);
@@ -4543,6 +4850,116 @@ private:
 		return px(f.l - f.esq - f.dir);
 	}
 
+	// --- o gráfico ---
+	QSizeF tamanhoDoGrafico()
+	{
+		const double w = std::min(larguraDoTexto(), 600.0);
+		return QSizeF(w, w * 0.6);
+	}
+	void colarGrafico(const DadosGrafico &g)
+	{
+		edit_->textCursor().insertImage(formatoDoGrafico(doc(), g, tamanhoDoGrafico()));
+		statusBar()->showMessage("Gráfico colado com os dados: clique duas vezes nele para mudar os números.", 5000);
+	}
+	void inserirGrafico()
+	{
+		DadosGrafico g;
+		g.categorias = QStringList{"1º tri", "2º tri", "3º tri", "4º tri"};
+		g.series = QStringList{"2025", "2026"};
+		g.valores = {{12, 15, 14, 18}, {14, 17, 19, 22}};
+		QTextCursor k = edit_->textCursor();
+		const QTextImageFormat f = formatoDoGrafico(doc(), g, tamanhoDoGrafico());
+		k.insertImage(f);
+		// Já abre os dados para escrever.
+		k.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor);
+		editarGrafico(k);
+	}
+	// Os dados do gráfico numa janelinha: o tipo, o título, a legenda e a tabela.
+	void editarGrafico(QTextCursor k)
+	{
+		DadosGrafico g;
+		if (!dadosDoGrafico(k.charFormat(), g))
+			return;
+		QDialog d(this);
+		d.setWindowTitle("Os dados do gráfico");
+		auto *v = new QVBoxLayout(&d);
+		auto *tipo = new QComboBox;
+		tipo->addItems({"Colunas", "Barras", "Linhas", "Pizza"});
+		tipo->setCurrentIndex(int(g.tipo));
+		auto *titulo = new QLineEdit(g.titulo);
+		titulo->setPlaceholderText("Título do gráfico");
+		auto *legenda = new QCheckBox("Mostrar a legenda");
+		legenda->setChecked(g.legenda);
+		auto *h = new QHBoxLayout;
+		h->addWidget(tipo);
+		h->addWidget(titulo, 1);
+		h->addWidget(legenda);
+		v->addLayout(h);
+		auto *dica = new QLabel("A primeira linha tem os nomes das séries; a primeira coluna, as categorias.");
+		dica->setWordWrap(true);
+		v->addWidget(dica);
+		auto *t = new QTableWidget(int(g.categorias.size()) + 1, int(g.series.size()) + 1);
+		t->horizontalHeader()->hide();
+		t->verticalHeader()->hide();
+		t->setMinimumSize(520, 260);
+		const QLocale br(QLocale::Portuguese, QLocale::Brazil);
+		for (int s = 0; s < g.series.size(); s++)
+			t->setItem(0, s + 1, new QTableWidgetItem(g.series[s]));
+		for (int c = 0; c < g.categorias.size(); c++) {
+			t->setItem(c + 1, 0, new QTableWidgetItem(g.categorias[c]));
+			for (int s = 0; s < g.series.size(); s++)
+				t->setItem(c + 1, s + 1, new QTableWidgetItem(br.toString(s < int(g.valores.size()) && c < int(g.valores[size_t(s)].size()) ? g.valores[size_t(s)][size_t(c)] : 0.0, 'g', 12)));
+		}
+		v->addWidget(t);
+		auto *bh = new QHBoxLayout;
+		for (const auto &[rotulo, f] : std::vector<std::pair<QString, std::function<void()>>>{
+		         {"+ linha", [t] { t->insertRow(t->rowCount()); }},
+		         {"− linha", [t] { if (t->rowCount() > 2) t->removeRow(t->rowCount() - 1); }},
+		         {"+ série", [t] { t->insertColumn(t->columnCount()); }},
+		         {"− série", [t] { if (t->columnCount() > 2) t->removeColumn(t->columnCount() - 1); }}}) {
+			auto *b = new QPushButton(rotulo);
+			const std::function<void()> ff = f;
+			connect(b, &QPushButton::clicked, &d, [ff] { ff(); });
+			bh->addWidget(b);
+		}
+		bh->addStretch();
+		v->addLayout(bh);
+		auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		connect(bb, &QDialogButtonBox::accepted, &d, &QDialog::accept);
+		connect(bb, &QDialogButtonBox::rejected, &d, &QDialog::reject);
+		v->addWidget(bb);
+		if (d.exec() != QDialog::Accepted)
+			return;
+		auto txt = [t](int r, int c) { return t->item(r, c) ? t->item(r, c)->text().trimmed() : QString(); };
+		g.tipo = TipoGrafico(tipo->currentIndex());
+		g.titulo = titulo->text();
+		g.legenda = legenda->isChecked();
+		g.series.clear();
+		g.categorias.clear();
+		for (int s = 1; s < t->columnCount(); s++)
+			g.series << (txt(0, s).isEmpty() ? QString("Série %1").arg(s) : txt(0, s));
+		for (int c = 1; c < t->rowCount(); c++)
+			g.categorias << txt(c, 0);
+		g.valores.assign(size_t(g.series.size()), std::vector<double>(size_t(g.categorias.size()), 0));
+		for (int s = 0; s < g.series.size(); s++)
+			for (int c = 0; c < g.categorias.size(); c++) {
+				QString x = txt(c + 1, s + 1);
+				bool ok = false;
+				double val = br.toDouble(x, &ok);
+				if (!ok)
+					val = x.replace(',', '.').toDouble();
+				g.valores[size_t(s)][size_t(c)] = val;
+			}
+		trocarGrafico(k, g);
+	}
+	// O gráfico no lugar do cursor com outros dados (ou no mesmo tamanho, redesenhado).
+	void trocarGrafico(QTextCursor k, const DadosGrafico &g, QSizeF tam = QSizeF())
+	{
+		if (tam.isEmpty())
+			imagemDe(doc(), k.charFormat().toImageFormat(), &tam);
+		k.setCharFormat(formatoDoGrafico(doc(), g, tam));
+	}
+
 	void inserirImagem()
 	{
 		const QString arq = QFileDialog::getOpenFileName(this, "Inserir imagem", QDir::homePath() + "/Imagens",
@@ -4586,6 +5003,12 @@ private:
 						QSizeF tam;
 						const QImage img = imagemDe(doc(), imf, &tam);
 						const double w = larguraDoTexto() * p / 100.0;
+						DadosGrafico g;
+						if (dadosDoGrafico(imf, g)) {
+							// O gráfico se redesenha no tamanho novo (a letra continua nítida).
+							trocarGrafico(kk, g, QSizeF(w, w * tam.height() / std::max(1.0, tam.width())));
+							return;
+						}
 						imf.setWidth(w);
 						imf.setHeight(img.isNull() ? tam.height() * w / std::max(1.0, tam.width()) : w * img.height() / std::max(1, img.width()));
 						kk.setCharFormat(imf);

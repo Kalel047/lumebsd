@@ -4240,13 +4240,23 @@ private:
 				if (!m.isEmpty())
 					midiasCopiadas_.insert(m, doc_.midias.value(m));
 		}
-		// Também vai como texto para outros programas.
+		// Também vai como texto para outros programas (e um gráfico sozinho,
+		// com os dados, para o Páginas).
 		QStringList t;
 		for (const Objeto &o : recorte_)
 			if (o.temTexto())
 				t << o.texto();
-		QApplication::clipboard()->setText(t.join("\n\n"));
-		textoCopiado_ = QApplication::clipboard()->text();
+		auto *m = new QMimeData;
+		m->setText(t.join("\n\n"));
+		if (recorte_.size() == 1 && recorte_.front().tipo == Tipo::Grafico) {
+			m->setData(MIME_GRAFICO, gravarDados(recorte_.front().graf).toUtf8());
+			m->setImageData(QImage::fromData(pngDoGrafico(doc_, recorte_.front())));
+		}
+		// A marca desta cópia (colar aqui volta os objetos inteiros).
+		marcaCopia_ = QByteArray::number(QDateTime::currentMSecsSinceEpoch()) + QByteArray::number(quintptr(this));
+		m->setData("application/x-lume-palco-objetos", marcaCopia_);
+		QApplication::clipboard()->setMimeData(m);
+		textoCopiado_ = m->text();
 		if (recortar)
 			apagarObjetos();
 	}
@@ -4254,7 +4264,20 @@ private:
 	void colar()
 	{
 		const QMimeData *m = QApplication::clipboard()->mimeData();
-		if (!recorte_.empty() && m && m->text() == textoCopiado_ && !m->hasImage()) {
+		// Um gráfico dos Números (ou do Páginas): entra como gráfico, com os dados.
+		const bool daqui = !recorte_.empty() && m && !marcaCopia_.isEmpty() && m->data("application/x-lume-palco-objetos") == marcaCopia_;
+		DadosGrafico dg;
+		if (m && !daqui && m->hasFormat(MIME_GRAFICO) && lerDados(QString::fromUtf8(m->data(MIME_GRAFICO)), dg)) {
+			Objeto o;
+			o.tipo = Tipo::Grafico;
+			o.graf = dg;
+			o.r = QRectF(0, 0, doc_.larg * 0.6, doc_.alt * 0.6);
+			o.r.moveCenter(centroLivre(o.r.size()));
+			acrescentar(o);
+			statusBar()->showMessage("Gráfico colado com os dados: clique duas vezes nele para mudar os números.", 5000);
+			return;
+		}
+		if (daqui) {
 			guardar();
 			sel_.clear();
 			for (Objeto o : recorte_) {
@@ -4749,6 +4772,7 @@ private:
 	std::vector<Objeto> recorte_;
 	QMap<QString, QByteArray> midiasCopiadas_;
 	QString textoCopiado_;
+	QByteArray marcaCopia_;
 	QString arquivo_;
 	bool mudou_ = false, atualizando_ = false, ajustando_ = false;
 	std::unique_ptr<Sessao> sessao_;
@@ -4930,6 +4954,17 @@ QString Janela::autoteste(const QString &saida)
 	apagarSlides();
 	desfazer();
 	refazer();
+	// Um gráfico colado dos Números (o que o Copiar deles põe na área de
+	// transferência, como o lume-numeros --copiar-grafico mostra).
+	novoSlideDepois(Layout::Branco);
+	{
+		auto *m = new QMimeData;
+		m->setData(MIME_GRAFICO, QByteArray("lume-grafico:linhas;PIB, inflação e juros|2015;2016;2017;2018;2019;2020;2021;2022;2023;2024|"
+		                                    "PIB (%);-3.5;-3.3;1.3;1.8;1.2;-3.3;4.8;3;3.2;3.4|IPCA (%);10.67;6.29;2.95;3.75;4.31;4.52;10.06;5.79;4.62;4.83|"
+		                                    "Selic (%);14.25;13.75;7;6.5;4.5;2;9.25;13.75;11.75;12.25"));
+		QApplication::clipboard()->setMimeData(m);
+		colar();
+	}
 	// Um slide que não aparece, e o tema da lousa.
 	novoSlideDepois(Layout::Secao);
 	slide().pular = true;

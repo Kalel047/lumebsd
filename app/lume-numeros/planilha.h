@@ -26,10 +26,11 @@ struct Formato {
 	int alin = 0;          // 0 automático (números à direita), 1 esq, 2 centro, 3 dir
 	bool borda = false;    // as quatro bordas
 	double tamanho = 0;    // 0: o padrão
+	QString codigoData;    // a data num formato do Excel ("d.m", "mmm/yy"...); vazio: dd/mm/aaaa
 
 	bool operator==(const Formato &o) const
 	{
-		return tipo == o.tipo && casas == o.casas && milhar == o.milhar && negrito == o.negrito &&
+		return tipo == o.tipo && casas == o.casas && milhar == o.milhar && negrito == o.negrito && codigoData == o.codigoData &&
 		       italico == o.italico && sublinhado == o.sublinhado && cor == o.cor && fundo == o.fundo &&
 		       alin == o.alin && borda == o.borda && tamanho == o.tamanho;
 	}
@@ -128,6 +129,110 @@ inline QString numeroBrasil(double n, int casas, bool milhar)
 	return s;
 }
 
+// --- datas nos formatos do Excel ---------------------------------------------
+//
+// O código ("d.m", "dd/mm/yyyy", "mmm/yy", "dddd, d \"de\" mmmm", "h:mm")
+// em pedaços: d dia, m mês, y ano, h hora, M minuto (o "m" junto da hora ou
+// dos segundos), s segundo, a AM/PM e t um texto que vai como está.
+
+struct PedacoData {
+	char t;
+	int n;
+	QString txt;
+};
+
+inline std::vector<PedacoData> pedacosData(const QString &codigo)
+{
+	std::vector<PedacoData> r;
+	const QString c = codigo.section(';', 0, 0);
+	for (int i = 0; i < c.size();) {
+		const QChar ch = c[i], l = ch.toLower();
+		if (ch == '"') {
+			int j = int(c.indexOf('"', i + 1));
+			if (j < 0) j = int(c.size());
+			r.push_back({'t', 0, c.mid(i + 1, j - i - 1)});
+			i = j + 1;
+		} else if (ch == '\\' && i + 1 < c.size()) {
+			r.push_back({'t', 0, QString(c[i + 1])});
+			i += 2;
+		} else if (ch == '[') {
+			const int j = int(c.indexOf(']', i));
+			i = j < 0 ? int(c.size()) : j + 1;
+		} else if (c.mid(i, 5).toUpper() == "AM/PM") {
+			r.push_back({'a', 0, {}});
+			i += 5;
+		} else if (l == 'd' || l == 'm' || l == 'y' || l == 'h' || l == 's' || l == 'e' || l == 'a') {
+			int j = i;
+			while (j < c.size() && c[j].toLower() == l)
+				j++;
+			// "aaaa" e "a" do Excel em português são o ano.
+			r.push_back({l == 'e' || l == 'a' ? 'y' : char(l.unicode()), j - i, {}});
+			i = j;
+		} else if (ch == '_' || ch == '*') {
+			i += 2;
+		} else {
+			r.push_back({'t', 0, QString(ch)});
+			i++;
+		}
+	}
+	for (size_t k = 0; k < r.size(); k++)
+		if (r[k].t == 'm') {
+			int a = int(k) - 1, b = int(k) + 1;
+			while (a >= 0 && r[size_t(a)].t == 't') a--;
+			while (b < int(r.size()) && r[size_t(b)].t == 't') b++;
+			if ((a >= 0 && r[size_t(a)].t == 'h') || (b < int(r.size()) && r[size_t(b)].t == 's'))
+				r[k].t = 'M';
+		}
+	return r;
+}
+
+inline QString dataNoFormato(double n, const QString &codigo)
+{
+	const QLocale br(QLocale::Portuguese, QLocale::Brazil);
+	const QDate d = dataDe(n);
+	const qint64 seg = qint64(std::llround((n - std::floor(n)) * 86400)) % 86400;
+	const int h = int(seg / 3600), mi = int(seg / 60 % 60), s = int(seg % 60);
+	const auto ps = pedacosData(codigo);
+	bool ampm = false;
+	for (const PedacoData &p : ps)
+		ampm = ampm || p.t == 'a';
+	auto semPonto = [](QString x) { return x.endsWith('.') ? x.chopped(1) : x; };
+	QString r;
+	for (const PedacoData &p : ps) {
+		switch (p.t) {
+		case 'd':
+			r += p.n == 1 ? QString::number(d.day()) : p.n == 2 ? QString("%1").arg(d.day(), 2, 10, QChar('0'))
+			     : p.n == 3 ? semPonto(br.dayName(d.dayOfWeek(), QLocale::ShortFormat)) : br.dayName(d.dayOfWeek());
+			break;
+		case 'm':
+			r += p.n == 1 ? QString::number(d.month()) : p.n == 2 ? QString("%1").arg(d.month(), 2, 10, QChar('0'))
+			     : p.n == 3 ? semPonto(br.monthName(d.month(), QLocale::ShortFormat))
+			     : p.n == 5 ? br.monthName(d.month()).left(1) : br.monthName(d.month());
+			break;
+		case 'y':
+			r += p.n <= 2 ? QString("%1").arg(d.year() % 100, 2, 10, QChar('0')) : QString::number(d.year());
+			break;
+		case 'h': {
+			const int hh = ampm ? (h % 12 == 0 ? 12 : h % 12) : h;
+			r += p.n >= 2 ? QString("%1").arg(hh, 2, 10, QChar('0')) : QString::number(hh);
+			break;
+		}
+		case 'M':
+			r += p.n >= 2 ? QString("%1").arg(mi, 2, 10, QChar('0')) : QString::number(mi);
+			break;
+		case 's':
+			r += p.n >= 2 ? QString("%1").arg(s, 2, 10, QChar('0')) : QString::number(s);
+			break;
+		case 'a':
+			r += h < 12 ? "AM" : "PM";
+			break;
+		default:
+			r += p.txt;
+		}
+	}
+	return r;
+}
+
 inline QString mostrar(const Valor &v, const Formato &f)
 {
 	switch (v.t) {
@@ -153,7 +258,7 @@ inline QString mostrar(const Valor &v, const Formato &f)
 	case Formato::Porcento:
 		return numeroBrasil(n * 100, f.casas, false) + "%";
 	case Formato::Data:
-		return dataDe(n).toString("dd/MM/yyyy");
+		return f.codigoData.isEmpty() ? dataDe(n).toString("dd/MM/yyyy") : dataNoFormato(n, f.codigoData);
 	default: {
 		// Geral: até 10 algarismos, sem separador de milhar.
 		if (std::fabs(n) >= 1e11 || (std::fabs(n) < 1e-5 && n != 0))

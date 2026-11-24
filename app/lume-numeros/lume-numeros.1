@@ -18,6 +18,10 @@
 .Fl -resumo
 .Ar arquivo
 .Nm
+.Fl -copiar-grafico
+.Ar arquivo
+.Op Ar n
+.Nm
 .Fl -autoteste
 .Ar saida
 .Nm
@@ -91,6 +95,14 @@ O
 do Excel antigo não abre: salve como
 .Pa .xlsx
 no LibreOffice.
+.Pp
+Com um gráfico escolhido, Ctrl+C (ou
+.Dq Copiar o gráfico ,
+no botão direito) copia o gráfico com os dados: no
+.Xr lume-paginas 1
+e no
+.Xr lume-palco 1
+ele cola como gráfico, que se edita; nos outros programas, como imagem.
 .Sh ATALHOS
 .Bl -tag -width "Ctrl+B, Ctrl+I, Ctrl+U" -compact
 .It Enter, Tab
@@ -123,6 +135,10 @@ grava um dos modelos
 .Pq branco, orcamento, notas, juros, fluxo, indicadores .
 .It Fl -resumo Ar arquivo
 mostra o conteúdo da planilha (os testes comparam).
+.It Fl -copiar-grafico Ar arquivo Op Ar n
+mostra o que o Copiar põe na área de transferência para o gráfico
+.Ar n
+(o primeiro, se faltar) da planilha.
 .It Fl -autoteste Ar saida
 edita uma planilha pelos caminhos da janela, grava e mostra o resumo.
 .It Fl -foto Ar saida.png
@@ -135,5 +151,6 @@ as planilhas recentes
 .El
 .Sh SEE ALSO
 .Xr lume-paginas 1 ,
+.Xr lume-palco 1 ,
 .Xr lume-financas 1 ,
 .Xr lume-mercados 1

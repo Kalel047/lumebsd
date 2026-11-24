@@ -29,6 +29,26 @@
 #include "arquivos.h"
 #include "modelos.h"
 
+#include "../comum/grafico.h"
+
+// Os dados de um gráfico da folha, como os outros apps do escritório colam
+// (a área e a dispersão vão como linhas).
+static DadosGrafico dadosParaColar(const Pasta &p, int f, const Grafico &g)
+{
+	DadosGrafico d;
+	d.tipo = g.tipo == Grafico::Barras ? TipoGrafico::Barras : g.tipo == Grafico::Pizza ? TipoGrafico::Pizza
+	         : g.tipo == Grafico::Colunas ? TipoGrafico::Colunas : TipoGrafico::Linhas;
+	d.titulo = g.titulo;
+	std::vector<Serie> series;
+	p.dadosDoGrafico(f, g, d.categorias, series);
+	for (const Serie &s : series) {
+		d.series << s.nome;
+		d.valores.push_back(s.v);
+	}
+	d.legenda = series.size() > 1 || d.tipo == TipoGrafico::Pizza;
+	return d;
+}
+
 #include <QAbstractTableModel>
 #include <QAction>
 #include <QApplication>
@@ -1471,8 +1491,37 @@ private:
 		atualizarBarra();
 	}
 
+	DadosGrafico dadosParaColar(const Grafico &g) const { return ::dadosParaColar(pasta_, grade_.folha(), g); }
+
+	// Copiar com um gráfico escolhido: o gráfico (os dados, para o Palco e o
+	// Páginas colarem como gráfico, e a imagem, para os outros programas).
+	void copiarGrafico()
+	{
+		const Grafico &g = pasta_.folha(grade_.folha()).graficos[size_t(graficoEscolhido_)];
+		QImage img(int(g.w * 2), int(g.h * 2), QImage::Format_ARGB32_Premultiplied);
+		img.fill(Qt::white);
+		{
+			QPainter p(&img);
+			p.scale(2, 2);
+			Tinta t;
+			desenharGrafico(p, QRectF(0, 0, g.w, g.h), pasta_, grade_.folha(), g, t);
+		}
+		auto *m = new QMimeData;
+		m->setData(MIME_GRAFICO, gravarDados(dadosParaColar(g)).toUtf8());
+		m->setImageData(img);
+		QApplication::clipboard()->setMimeData(m);
+		textoCopiado_.clear();
+		statusBar()->showMessage("Gráfico copiado: cole no Palco ou no Páginas (Ctrl+V) e ele continua com os dados.", 5000);
+	}
+
 	void copiar(bool recortar)
 	{
+		if (graficoEscolhido_ >= 0 && graficoEscolhido_ < int(pasta_.folha(grade_.folha()).graficos.size())) {
+			copiarGrafico();
+			if (recortar)
+				apagarGrafico();
+			return;
+		}
 		int r1, c1, r2, c2;
 		if (!selecao(r1, c1, r2, c2))
 			return;
@@ -1765,6 +1814,7 @@ private:
 			};
 			q->menu = [this, q](const QPoint &p) {
 				QMenu m(this);
+				m.addAction("Copiar o gráfico", this, [this, q] { graficoEscolhido_ = q->indice(); copiarGrafico(); });
 				m.addAction("Apagar o gráfico", this, [this, q] { graficoEscolhido_ = q->indice(); apagarGrafico(); });
 				m.exec(p);
 			};
@@ -2225,7 +2275,7 @@ int main(int argc, char **argv)
 	bool semJanela = false;
 	for (int i = 1; i < argc; i++) {
 		const QByteArray a(argv[i]);
-		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || (a == "--modelo" && i == 1))
+		if (a == "--converter" || a == "--resumo" || a == "--autoteste" || a == "--copiar-grafico" || (a == "--modelo" && i == 1))
 			semJanela = true;
 		if (a == "--foto" && qEnvironmentVariableIsEmpty("DISPLAY") && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY"))
 			semJanela = true;
@@ -2265,6 +2315,27 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		return 0;
+	}
+	// O que o Copiar de um gráfico põe na área de transferência (o Palco e o
+	// Páginas colam como gráfico): os gráficos de todas as folhas, contados
+	// a partir de 1.
+	if (a.size() >= 3 && a[1] == "--copiar-grafico") {
+		Pasta p;
+		QString erro;
+		if (!abrirArquivo(a[2], p, &erro)) {
+			std::fprintf(stderr, "lume-numeros: %s\n", qPrintable(erro));
+			return 1;
+		}
+		const int quer = a.size() >= 4 ? a[3].toInt() : 1;
+		int n = 0;
+		for (int f = 0; f < int(p.folhas.size()); f++)
+			for (const Grafico &g : p.folha(f).graficos)
+				if (++n == quer) {
+					std::fputs((gravarDados(dadosParaColar(p, f, g)) + "\n").toUtf8().constData(), stdout);
+					return 0;
+				}
+		std::fprintf(stderr, "lume-numeros: não há o gráfico %d\n", quer);
+		return 1;
 	}
 	if (a.size() >= 3 && a[1] == "--resumo") {
 		Pasta p;

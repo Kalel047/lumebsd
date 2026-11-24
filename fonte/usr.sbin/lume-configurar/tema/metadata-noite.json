@@ -5,7 +5,7 @@
         "Id": "org.lumebsd.papel-noite",
         "License": "BSD-2-Clause",
         "Name": "Papel noite (LumeBSD)",
-        "Version": "2.4"
+        "Version": "2.5"
     },
     "KPackageStructure": "Plasma/LookAndFeel",
     "X-Plasma-APIVersion": "2"

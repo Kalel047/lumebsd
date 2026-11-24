@@ -37,7 +37,7 @@ cabecalho()
 {
 	echo
 	echo "  ============================================================"
-	echo "     LumeBSD 2.4 \"Farol\"  -  assistente de configuração"
+	echo "     LumeBSD 2.5 \"Farol\"  -  assistente de configuração"
 	echo "  ============================================================"
 	echo
 }
