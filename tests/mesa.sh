@@ -73,6 +73,25 @@ E
 	grep -c "soma 161.39" "$T/vivo.log" | grep -qx 1 || erro "o replicante desenhou a planilha"
 	grep -c "soma 167.14" "$T/vivo.log" | grep -qx 3 || { cat "$T/vivo.log"; erro "o replicante se redesenhou com a planilha nova"; }
 	grep -q "QProcess" "$T/vivo.log" && erro "a mesa deixou um processo para trás"
+
+	# Quatro replicantes novos abrindo juntos (sem a mesa espaçar): cada um
+	# escolhe um lugar livre, com a mesa travada, e nenhum cobre outro.
+	cat > "$T/corrida.sh" <<EOF
+unset QT_QPA_PLATFORM
+export LUME_MESA="$T/mesa-corrida"
+for i in 1 2 3 4; do lume-mesa --por lume-numeros grafico "$T/ind.xlsx" 1 >/dev/null; done
+for i in 1 2 3 4; do lume-numeros --replicante r\$i & done
+sleep 6; lume-mesa --listar; pkill -f -- '--replicante r'
+EOF
+	timeout 60 xvfb-run -a -s "-screen 0 1280x800x24" sh "$T/corrida.sh" > "$T/corrida.txt" 2>/dev/null
+	python3 - "$T/corrida.txt" <<'PY' || erro "replicantes novos um em cima do outro"
+import re, sys
+r = [tuple(map(int, m.groups())) for m in re.finditer(r'@(\d+),(\d+) (\d+)x(\d+)', open(sys.argv[1]).read())]
+cobre = [(a, b) for i, a in enumerate(r) for b in r[i + 1:]
+         if a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]]
+print(len(r), "lugares;", "cobrem:", cobre) if len(r) != 4 or cobre else None
+sys.exit(1 if len(r) != 4 or cobre else 0)
+PY
 else
 	echo "(sem o xvfb-run: a mesa viva não foi testada)"
 fi

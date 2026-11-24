@@ -11,7 +11,7 @@ R=http://10.0.2.2:8000/teste; for a in mesa numeros financas mercados paginas pa
 env ASSUME_ALWAYS_YES=yes pkg add -q http://10.0.2.2:8000/All/xprop-1.2.8.pkg http://10.0.2.2:8000/All/xdotool-4.20260303.1,1.pkg >/dev/null 2>&1; which xprop xdotool
 mkdir -p /tmp/dados/sgs; for f in 1 13522 432 4389; do fetch -qo /tmp/dados/sgs/$f.json $R/sgs/$f.json; done; fetch -qo /tmp/dados/68b951a5c144d1394389dbc3084a32d7 $R/68b951a5c144d1394389dbc3084a32d7; chmod -R a+rX /tmp/dados
 for f in ind.xlsx ind-novo.xlsx relatorio-vinculado.docx; do fetch -qo /tmp/$f $R/$f; done; cp /tmp/ind.xlsx /tmp/relatorio-vinculado.docx /home/kalel/Documentos/; chown kalel /home/kalel/Documentos/ind.xlsx /home/kalel/Documentos/relatorio-vinculado.docx
-su -m kalel -c 'env HOME=/home/kalel sh -c "lume-mesa --por lume-numeros grafico /home/kalel/Documentos/ind.xlsx 1; lume-mesa --por lume-financas indicadores; lume-mesa --por lume-mercados cotacao AAA BBB; lume-mesa --listar"'
+rm -f /home/kalel/.config/lume/mesa; su -m kalel -c 'env HOME=/home/kalel sh -c "lume-mesa --por lume-numeros grafico /home/kalel/Documentos/ind.xlsx 1; lume-mesa --por lume-financas indicadores; lume-mesa --por lume-mercados cotacao AAA BBB; lume-mesa --listar"'
 eval "$S"; su -m kalel -c 'cd /home/kalel; env HOME=/home/kalel LUME_FINANCAS_SGS=/tmp/dados/sgs LUME_MERCADOS_DADOS=/tmp/dados daemon -f -o /tmp/mesa.log lume-mesa'; sleep 20; echo "replicantes: $(pgrep -f -- '--replicante' | wc -l | tr -d ' ')"
 eval "$S"; for c in lume-numeros lume-financas lume-mercados; do w=$(xdotool search --classname $c | head -1); echo "$c $(xprop -id $w _NET_WM_STATE _NET_WM_DESKTOP | tr '\n' ' ')"; done
 FOTO mesa-1

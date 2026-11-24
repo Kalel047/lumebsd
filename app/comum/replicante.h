@@ -242,8 +242,9 @@ public:
 
 	explicit JanelaReplicante(const Replicante &r) : rep_(r)
 	{
-		setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnBottomHint);
-		// Aparece sem tomar o foco (senão o KWin o marca como "pedindo atenção").
+		// Sem o foco do teclado (o replicante só usa o mouse): o KWin não tenta
+		// ativá-lo, e ele não aparece "pedindo atenção".
+		setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnBottomHint | Qt::WindowDoesNotAcceptFocus);
 		setAttribute(Qt::WA_ShowWithoutActivating);
 		setWindowTitle("Replicante");
 		setMouseTracking(true);
@@ -266,18 +267,20 @@ public:
 		QRect g = rep_.geo;
 		const QScreen *tela = QGuiApplication::primaryScreen();
 		const QRect livre = tela ? tela->availableGeometry() : QRect(0, 0, 1366, 768);
-		const bool novo = g.isEmpty();
-		if (novo)
-			g = lugarLivre(livre);
+		// O lugar de um novo é escolhido e guardado de uma vez, com a mesa
+		// travada: dois replicantes abrindo juntos não pegam o mesmo.
+		if (g.isEmpty())
+			mexerNaMesa([&](QSettings &s) {
+				g = lugarLivre(livre);
+				if (s.childGroups().contains(rep_.id))
+					s.setValue(rep_.id + "/lugar", g);
+			});
 		if (!livre.isEmpty() && !livre.intersects(g))
 			g.moveTopLeft(livre.topLeft() + QPoint(32, 32));
 		setGeometry(g);
 		show();
 		dicasDaMesa(this);
 		naMesa_ = true;
-		// O lugar escolhido já fica na mesa (o próximo replicante novo não o pega).
-		if (novo)
-			guardarLugar(rep_.id, g);
 	}
 
 	// O primeiro lugar sem outro replicante: em colunas da direita para a
