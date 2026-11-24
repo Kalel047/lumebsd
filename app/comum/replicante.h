@@ -37,6 +37,7 @@
 
 #include <dlfcn.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <vector>
@@ -242,6 +243,8 @@ public:
 	explicit JanelaReplicante(const Replicante &r) : rep_(r)
 	{
 		setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnBottomHint);
+		// Aparece sem tomar o foco (senão o KWin o marca como "pedindo atenção").
+		setAttribute(Qt::WA_ShowWithoutActivating);
 		setWindowTitle("Replicante");
 		setMouseTracking(true);
 		setAttribute(Qt::WA_Hover);
@@ -263,18 +266,41 @@ public:
 		QRect g = rep_.geo;
 		const QScreen *tela = QGuiApplication::primaryScreen();
 		const QRect livre = tela ? tela->availableGeometry() : QRect(0, 0, 1366, 768);
-		if (g.isEmpty()) {
-			g = QRect(QPoint(0, 0), tamanhoPadrao);
-			// Um pouco abaixo e à esquerda do último posto, para não cobrir.
-			const int n = rep_.id.mid(1).toInt();
-			g.moveTopRight(livre.topRight() + QPoint(-32 - 24 * ((n - 1) % 6), 32 + 24 * ((n - 1) % 6)));
-		}
+		const bool novo = g.isEmpty();
+		if (novo)
+			g = lugarLivre(livre);
 		if (!livre.isEmpty() && !livre.intersects(g))
 			g.moveTopLeft(livre.topLeft() + QPoint(32, 32));
 		setGeometry(g);
 		show();
 		dicasDaMesa(this);
 		naMesa_ = true;
+		// O lugar escolhido já fica na mesa (o próximo replicante novo não o pega).
+		if (novo)
+			guardarLugar(rep_.id, g);
+	}
+
+	// O primeiro lugar sem outro replicante: em colunas da direita para a
+	// esquerda, de cima para baixo (o lado esquerdo da área de trabalho
+	// costuma ter os ícones).
+	QRect lugarLivre(const QRect &livre) const
+	{
+		const int m = 24;
+		QList<QRect> outros;
+		for (const Replicante &x : lerMesa())
+			if (x.id != rep_.id && !x.geo.isEmpty())
+				outros << x.geo.adjusted(-m / 2, -m / 2, m / 2, m / 2);
+		QRect g(QPoint(0, 0), tamanhoPadrao);
+		for (int x = livre.right() - m - g.width(); x >= livre.left() + m; x -= 16)
+			for (int y = livre.top() + m; y + g.height() <= livre.bottom() - m; y += 16) {
+				g.moveTopLeft(QPoint(x, y));
+				if (std::none_of(outros.begin(), outros.end(), [&](const QRect &o) { return o.intersects(g); }))
+					return g;
+			}
+		// A área cheia: um pouco abaixo e à esquerda, como uma pilha.
+		const int n = rep_.id.mid(1).toInt();
+		g.moveTopRight(livre.topRight() + QPoint(-m - 24 * ((n - 1) % 6), m + 24 * ((n - 1) % 6)));
+		return g;
 	}
 
 	// Sem tirar da mesa (o "Tirar" e o fim da sessão são diferentes).

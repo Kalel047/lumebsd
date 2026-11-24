@@ -79,11 +79,12 @@ private:
 			olho_.addPath(arquivoMesa());
 		const std::vector<Replicante> mesa = lerMesa();
 		QSet<QString> ids;
+		int fila = 0;
 		for (const Replicante &r : mesa) {
 			ids.insert(r.id);
 			if (!rodando_.contains(r.id) || !rodando_[r.id].p)
 				if (!desistiu_.contains(r.id))
-					rodar(r);
+					rodar(r, 700 * fila++);
 		}
 		for (auto it = rodando_.begin(); it != rodando_.end();) {
 			if (!ids.contains(it.key())) {
@@ -103,7 +104,9 @@ private:
 		}
 	}
 
-	void rodar(const Replicante &r)
+	// Um de cada vez (atraso em ms): um replicante novo escolhe o lugar
+	// vendo os que já estão na mesa.
+	void rodar(const Replicante &r, int atraso = 0)
 	{
 		auto *p = new QProcess(qApp);
 		p->setProcessChannelMode(QProcess::ForwardedChannels);
@@ -137,7 +140,8 @@ private:
 					rodar(r);
 			});
 		});
-		p->start(r.app, {"--replicante", r.id});
+		const QString app = r.app;
+		QTimer::singleShot(atraso, p, [p, app, id] { p->start(app, {"--replicante", id}); });
 	}
 
 	QFileSystemWatcher olho_;
